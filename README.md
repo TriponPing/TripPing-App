@@ -1,1 +1,1 @@
-# TripPing-android
+# TripPing-App
