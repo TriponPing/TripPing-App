@@ -1,5 +1,5 @@
-TripPing-App
-📁 프로젝트 구조
+# TripPing-App
+## 📁 프로젝트 구조
 ![프로젝트 구조](./docs/tripping_app_folder_structure.png)
 ```
 com.tripping.app/
