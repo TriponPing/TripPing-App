@@ -156,7 +156,7 @@ const val BASE_URL = "http://10.0.2.2:8080/"
 | 실제 스마트폰 | 내 PC의 IPv4 주소 (`ipconfig`로 매번 확인) |
 
 
-👥 브랜치 전략
+## 👥 브랜치 전략
 `main`: 배포/안정 브랜치
 `feat/기능이름`: 기능별 개발 브랜치
 작업 전 `git pull origin main`으로 최신 내용 받아오기
