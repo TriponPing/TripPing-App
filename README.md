@@ -1,6 +1,6 @@
 TripPing-App
 📁 프로젝트 구조
-![프로젝트 구조](./docs/tripping_app_folder-structure.png)
+![프로젝트 구조](./docs/tripping_app_folder_structure.png)
 ```
 com.tripping.app/
 ├── auth/               # 로그인, 회원가입, 인증(토큰) 관련 코드
