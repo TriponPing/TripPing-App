@@ -20,7 +20,9 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun LoginScreen(
     onLoginClick: (email: String, password: String) -> Unit,
-    onSignUpLinkClick: () -> Unit
+    onSignUpLinkClick: () -> Unit,
+    isLoading: Boolean = false,
+    errorMessage: String? = null
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
@@ -119,16 +121,27 @@ fun LoginScreen(
             )
         )
 
+        // ===== 에러 메시지 =====
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage,
+                fontSize = 12.sp,
+                color = Color(0xFFE74C3C),
+                modifier = Modifier.offset(x = 49.dp, y = 550.dp)
+            )
+        }
+
         // ===== 로그인 버튼 =====
         Button(
             onClick = { onLoginClick(email, password) },
+            enabled = !isLoading,
             modifier = Modifier
                 .offset(x = 49.dp, y = 578.dp)
                 .size(324.dp, 66.dp),
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5AA2D9))
         ) {
-            Text(text = "로그인", fontSize = 16.sp, color = Color(0xFFFFFFFF))
+            Text(text = if (isLoading) "로그인 중..." else "로그인", fontSize = 16.sp, color = Color(0xFFFFFFFF))
         }
 
         // ===== 회원가입 링크 =====
