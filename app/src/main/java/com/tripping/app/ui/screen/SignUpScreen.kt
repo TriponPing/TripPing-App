@@ -19,7 +19,9 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun SignUpScreen(
     onSignUpClick: (nickname: String, email: String, password: String) -> Unit,
-    onLoginLinkClick: () -> Unit
+    onLoginLinkClick: () -> Unit,
+    isLoading: Boolean = false,
+    errorMessage: String? = null
 ) {
     var nickname by remember { mutableStateOf("") }
     var email by remember { mutableStateOf("") }
@@ -139,16 +141,27 @@ fun SignUpScreen(
             )
         )
 
+        // ===== 에러 메시지 =====
+        if (errorMessage != null) {
+            Text(
+                text = errorMessage,
+                fontSize = 12.sp,
+                color = Color(0xFFE74C3C),
+                modifier = Modifier.offset(x = 44.dp, y = 675.dp)
+            )
+        }
+
         // ===== 회원가입 버튼 =====
         Button(
             onClick = { onSignUpClick(nickname, email, password) },
+            enabled = !isLoading,
             modifier = Modifier
                 .offset(x = 44.dp, y = 703.dp)
                 .size(324.dp, 66.dp),
             shape = RoundedCornerShape(8.dp),
             colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5AA2D9))
         ) {
-            Text(text = "회원가입", fontSize = 16.sp, color = Color(0xFFFFFFFF))
+            Text(text = if (isLoading) "가입 중..." else "회원가입", fontSize = 16.sp, color = Color(0xFFFFFFFF))
         }
 
         // ===== "이미 계정이 있나요? 로그인" =====
