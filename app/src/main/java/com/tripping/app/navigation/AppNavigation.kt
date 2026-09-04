@@ -4,6 +4,7 @@ import android.net.Uri
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -73,7 +74,10 @@ fun AppNavigation() {
     val currentTab = bottomBarRoutes[currentRoute]
 
     // 하단 네비게이션 바는 여기 한 곳에서만 그림 (화면마다 따로 그리면 콜백 연결 누락되기 쉬워서 통일함)
+    // containerColor 명시 안 하면 Material3 기본 배경(연한 보라)이 쓰여서, 화면 내용이 짧으면
+    // 하단 네비바 위에 그 색이 띠처럼 비쳐 보임 -> 흰색으로 고정
     Scaffold(
+        containerColor = Color.White,
         bottomBar = {
             if (currentTab != null) {
                 AppBottomNavBar(

@@ -55,7 +55,8 @@ fun PingScreen(
     }
 
     Scaffold(
-        topBar = { PingTopBar() }
+        topBar = { PingTopBar() },
+        containerColor = Color.White // 기본값(연한 보라)이면 리스트 짧을 때 하단 네비바 위로 삐져나와 보여서 흰색으로 고정
     ) { innerPadding ->
         LazyColumn(
             modifier = Modifier
