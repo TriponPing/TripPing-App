@@ -17,6 +17,9 @@ class AuthViewModel : ViewModel() {
     private val _signUpState = MutableStateFlow<AuthState>(AuthState.Idle)
     val signUpState: StateFlow<AuthState> = _signUpState
 
+    private val _logoutState = MutableStateFlow<AuthState>(AuthState.Idle)
+    val logoutState: StateFlow<AuthState> = _logoutState
+
     fun login(email: String, password: String) {
         viewModelScope.launch {
             _loginState.value = AuthState.Loading
@@ -46,6 +49,19 @@ class AuthViewModel : ViewModel() {
             } catch (e: Exception) {
                 _signUpState.value = AuthState.Error(e.message ?: "네트워크 오류가 발생했습니다.")
             }
+        }
+    }
+
+    // 로그아웃 - 서버 호출이 실패해도(네트워크 오류 등) 클라 쪽은 로그인 화면으로 보내는 게 맞아서 항상 Success 처리
+    fun logout() {
+        viewModelScope.launch {
+            _logoutState.value = AuthState.Loading
+            try {
+                RetrofitClient.authApi.logout()
+            } catch (e: Exception) {
+                // 무시 - 세션이 이미 끊겼거나 네트워크 오류여도 로컬에서는 로그아웃 처리
+            }
+            _logoutState.value = AuthState.Success
         }
     }
 }

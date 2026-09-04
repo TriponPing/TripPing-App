@@ -27,6 +27,7 @@ import com.tripping.app.ui.screen.MyPageScreen
 import com.tripping.app.ui.screen.PingScreen
 import com.tripping.app.ui.screen.SignUpScreen
 import com.tripping.app.ui.screen.PlaceSearchScreen
+import com.tripping.app.ui.screen.SettingsScreen
 import com.tripping.app.ui.screen.TripHistoryScreen
 import com.tripping.app.ui.screen.TripStartScreen
 import com.tripping.app.viewmodel.AuthState
@@ -44,6 +45,7 @@ private val bottomBarRoutes = mapOf(
     "my_map_detail" to AppBottomNavTab.MY,
     COURSE_DETAIL_ROUTE to AppBottomNavTab.MY,
     TRIP_START_ROUTE to AppBottomNavTab.MY,
+    "settings" to AppBottomNavTab.MY,
     "ping" to AppBottomNavTab.PING,
     "placeSearch" to AppBottomNavTab.SEARCH
 )
@@ -165,6 +167,9 @@ fun AppNavigation() {
 
             composable("mypage") {
                 MyPageScreen(
+                    onOpenSettings = {
+                        navController.navigate("settings")
+                    },
                     onOpenTripHistory = {
                         navController.navigate("trip_history")
                     },
@@ -173,6 +178,28 @@ fun AppNavigation() {
                     },
                     onOpenTripDetail = { tripId, title ->
                         navigateToCourseDetail(navController, tripId, title)
+                    }
+                )
+            }
+
+            composable("settings") {
+                val authViewModel: AuthViewModel = viewModel()
+                val logoutState by authViewModel.logoutState.collectAsState()
+
+                LaunchedEffect(logoutState) {
+                    if (logoutState is AuthState.Success) {
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
+                }
+
+                SettingsScreen(
+                    onBackClick = {
+                        navController.popBackStack()
+                    },
+                    onLogoutConfirmed = {
+                        authViewModel.logout()
                     }
                 )
             }
