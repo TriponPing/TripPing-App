@@ -1,10 +1,10 @@
 package com.tripping.app.ui.screen
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -12,10 +12,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tripping.app.R
 
 // ===== 여행 카드 - 마이페이지, 다녀온 여행 자세히보기 등 여러 화면에서 재사용 =====
 
@@ -75,26 +77,25 @@ fun TripCardPreview() {
     )
 }
 
-// 여행 경로를 점+선으로 간단히 표현 (실제 좌표 연동 전까지 임시)
+// 여행 경로를 핑 아이콘(점) + 선으로 표현. 피그마 디자인 맞춰서 점은 blueping.png 아이콘 사용.
 // count = 실제 방문 장소 개수. 4개 넘으면 4개까지만 보여주고 잘라냄.
 @Composable
 fun RoutePreviewDots(modifier: Modifier = Modifier, count: Int = 4) {
     val dotCount = count.coerceIn(1, 4)
     Row(
-        modifier = modifier.height(8.dp),
+        modifier = modifier.height(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val dotColors = (0 until dotCount).map { index ->
+        val lineColors = (0 until dotCount).map { index ->
             if (index < (dotCount + 1) / 2) Color(0xFF2ECC71) else Color(0xFF3B9AE1)
         }
-        dotColors.forEachIndexed { index, color ->
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(color)
+        lineColors.forEachIndexed { index, color ->
+            Image(
+                painter = painterResource(id = R.drawable.blueping),
+                contentDescription = null,
+                modifier = Modifier.size(14.dp)
             )
-            if (index != dotColors.lastIndex) {
+            if (index != lineColors.lastIndex) {
                 Box(
                     modifier = Modifier
                         .height(2.dp)
