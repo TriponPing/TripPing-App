@@ -59,16 +59,7 @@ fun PingScreen(
 ) {
     var selectedTab by remember { mutableStateOf(PingTab.RECORD) }
 
-    Scaffold(
-        topBar = {
-            Text(
-                text = if (selectedTab == PingTab.RECORD) "Ping 기록" else "Ping 로그 커뮤니티",
-                fontSize = 13.sp,
-                color = GrayText,
-                modifier = Modifier.padding(start = 20.dp, top = 12.dp)
-            )
-        }
-    ) { innerPadding ->
+    Scaffold { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -166,9 +157,8 @@ private fun TabToggle(selectedTab: PingTab, onTabSelected: (PingTab) -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .height(44.dp)
-            .background(GrayBg, RoundedCornerShape(22.dp))
-            .padding(4.dp)
+            .height(40.dp),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         TabItem(
             text = "기록",
@@ -190,12 +180,17 @@ private fun TabItem(text: String, selected: Boolean, modifier: Modifier = Modifi
     Box(
         modifier = modifier
             .fillMaxHeight()
-            .clip(RoundedCornerShape(18.dp))
-            .background(if (selected) BluePrimary else Color.Transparent)
+            .clip(RoundedCornerShape(8.dp))
+            .background(if (selected) BluePrimary else Color(0xFFD9D9D9))
             .clickable { onClick() },
         contentAlignment = Alignment.Center
     ) {
-        Text(text = text, color = if (selected) Color.White else GrayText, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+        Text(
+            text = text,
+            color = if (selected) Color.White else Color.Black,
+            fontWeight = FontWeight.SemiBold,
+            fontSize = 14.sp
+        )
     }
 }
 
