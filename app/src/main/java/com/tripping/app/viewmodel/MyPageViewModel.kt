@@ -173,6 +173,7 @@ class MyPageViewModel : ViewModel() {
                 val response = RetrofitClient.myPageApi.unsaveRoute(routeId)
                 if (response.isSuccessful) {
                     loadSavedRoutes()
+                    loadMyMap() // 저장 취소한 루트가 지도 미리보기(핀/개수)에도 반영되도록 같이 새로고침
                 } else {
                     _errorMessage.value = "저장 취소에 실패했습니다. (${response.code()})"
                 }
