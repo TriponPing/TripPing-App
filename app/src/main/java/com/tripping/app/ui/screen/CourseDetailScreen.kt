@@ -30,6 +30,7 @@ import com.tripping.app.viewmodel.MyPageViewModel
 // "코스 정보 바로가기"는 Ping 기록 화면으로 이동함.
 
 private val ColorAccentPurple = Color(0xFF7B61FF)
+private val ColorBackground = Color(0xFFF8F8FC)
 
 @Composable
 fun CourseDetailScreen(
@@ -94,7 +95,11 @@ fun CourseDetailScreen(
 
     val title = detail?.spots?.firstOrNull()?.spotName ?: fallbackTitle ?: "코스 상세"
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ColorBackground)
+    ) {
         // 상단바 - 화살표(뒤로가기)만 단독으로, 코스명은 가운데 정렬
         Box(
             modifier = Modifier

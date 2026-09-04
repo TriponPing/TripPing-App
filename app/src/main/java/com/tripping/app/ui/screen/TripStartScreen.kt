@@ -28,6 +28,7 @@ import com.tripping.app.viewmodel.MyPageViewModel
 // "여행 계획 수정하기"는 아직 전용 화면이 없어서, 일단 Ping 기록 화면으로 이동시켜줌.
 
 private val ColorAccentBlue = Color(0xFF0074CE)
+private val ColorBackground = Color(0xFFF8F8FC)
 
 @Composable
 fun TripStartScreen(
@@ -52,7 +53,11 @@ fun TripStartScreen(
             ?: emptyList()
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(ColorBackground)
+    ) {
         // 상단바
         Row(
             modifier = Modifier
