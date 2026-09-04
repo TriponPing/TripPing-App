@@ -26,8 +26,9 @@ import com.tripping.app.viewmodel.MyPageViewModel
 
 // ===== 코스(저장된거/그린거) 상세보기 화면 =====
 // "다녀온 여행" 카드를 누르면 여기로 옴. GET /users/me/trips/{tripId} 데이터로 지도를 그려줌.
-// "여행 바로 시작하기" / "코스 정보 바로가기"는 아직 백엔드 API 확정 전이라 TODO로 비워둠
-// (김동혜 담당 "여행 바로 시작하기" API - 팀장님 확인 중, 확정되면 여기 onStartTripClick에 연결).
+// "여행 바로 시작하기"는 전용 백엔드 API가 없어서, 같은 tripId로 다음 페이지(TripStartScreen)로
+// 이동만 시켜줌 (거기서 같은 상세 데이터를 재사용해서 지도+미리보기를 보여줌).
+// "코스 정보 바로가기"는 이동할 화면이 아직 없어서 TODO로 남겨둠.
 
 private val ColorAccentPurple = Color(0xFF7B61FF)
 
@@ -36,6 +37,7 @@ fun CourseDetailScreen(
     tripId: Long,
     fallbackTitle: String? = null,
     onBackClick: () -> Unit = {},
+    onStartTrip: (Long, String) -> Unit = { _, _ -> },
     viewModel: MyPageViewModel = viewModel()
 ) {
     LaunchedEffect(tripId) {
@@ -95,21 +97,32 @@ fun CourseDetailScreen(
     val title = detail?.spots?.firstOrNull()?.spotName ?: fallbackTitle ?: "코스 상세"
 
     Column(modifier = Modifier.fillMaxSize()) {
-        // 상단바
-        Column(
+        // 상단바 - 화살표(뒤로가기)만 단독으로, 코스명은 가운데 정렬
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
-                .clickable { onBackClick() }
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(text = "‹", fontSize = 20.sp, color = ColorTextPrimary)
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(text = "코스 ( 저장된거 , 그린거 ) 보기", fontSize = 12.sp, color = ColorTextSecondary)
-            }
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(text = title, fontSize = 18.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
+            Text(
+                text = "‹",
+                fontSize = 20.sp,
+                color = ColorTextPrimary,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .clickable { onBackClick() }
+                    .padding(end = 8.dp, top = 2.dp, bottom = 2.dp)
+            )
+            Text(
+                text = title,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = ColorTextPrimary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth(0.7f)
+            )
         }
 
         // 지도
@@ -138,11 +151,7 @@ fun CourseDetailScreen(
                     .fillMaxWidth()
                     .clip(RoundedCornerShape(28.dp))
                     .background(ColorAccentPurple)
-                    .clickable {
-                        // TODO: 김동혜 팀원이 만든 "여행 바로 시작하기" API 확정되면 여기 연결
-                        // (백엔드 POST /routes/{routeId}/trips는 routeId가 PlannedRoute 기준이라
-                        //  다녀온 여행(ActualRoute) tripId를 그대로 못 씀 - 팀장님/김동혜님 확인 필요)
-                    }
+                    .clickable { onStartTrip(tripId, title) }
                     .padding(vertical = 16.dp),
                 contentAlignment = Alignment.Center
             ) {
