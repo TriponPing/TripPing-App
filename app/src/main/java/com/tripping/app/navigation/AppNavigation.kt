@@ -26,6 +26,7 @@ import com.tripping.app.ui.screen.MyMapDetailScreen
 import com.tripping.app.ui.screen.MyPageScreen
 import com.tripping.app.ui.screen.PingScreen
 import com.tripping.app.ui.screen.SignUpScreen
+import com.tripping.app.ui.screen.PlaceSearchScreen
 import com.tripping.app.ui.screen.TripHistoryScreen
 import com.tripping.app.ui.screen.TripStartScreen
 import com.tripping.app.viewmodel.AuthState
@@ -43,7 +44,8 @@ private val bottomBarRoutes = mapOf(
     "my_map_detail" to AppBottomNavTab.MY,
     COURSE_DETAIL_ROUTE to AppBottomNavTab.MY,
     TRIP_START_ROUTE to AppBottomNavTab.MY,
-    "ping" to AppBottomNavTab.PING
+    "ping" to AppBottomNavTab.PING,
+    "placeSearch" to AppBottomNavTab.SEARCH
 )
 
 // "다녀온 여행" 카드 클릭 -> 코스 상세보기 화면으로 이동 (마이페이지/다녀온 여행 자세히보기 둘 다 공용)
@@ -83,7 +85,7 @@ fun AppNavigation() {
                 AppBottomNavBar(
                     selectedTab = currentTab,
                     onHomeClick = { navigateToTab(navController, "home") },
-                    onSearchClick = { /* TODO: 탐색 화면 아직 없음 */ },
+                    onSearchClick = { navigateToTab(navController, "placeSearch") },
                     onRouteClick = { /* TODO: 루트 화면 아직 없음 */ },
                     onPingClick = { navigateToTab(navController, "ping") },
                     onMyClick = { navigateToTab(navController, "mypage") }
@@ -103,8 +105,6 @@ fun AppNavigation() {
                 LaunchedEffect(loginState) {
                     if (loginState is AuthState.Success) {
                         navController.navigate("home") {
-                            // 로그인 화면을 백스택에서 제거
-                            // → 홈 화면에서 뒤로가기 눌러도 로그인 화면으로 안 돌아가고 앱 종료됨
                             popUpTo("login") { inclusive = true }
                         }
                     }
@@ -128,7 +128,6 @@ fun AppNavigation() {
 
                 LaunchedEffect(signUpState) {
                     if (signUpState is AuthState.Success) {
-                        // 회원가입 성공 -> 로그인 화면으로 돌아가서 로그인하게 함
                         navController.popBackStack()
                     }
                 }
@@ -149,6 +148,17 @@ fun AppNavigation() {
                 HomeScreen(
                     onGoToMyPageClick = {
                         navigateToTab(navController, "mypage")
+                    },
+                    onNavigateToPlaceSearch = {
+                        navigateToTab(navController, "placeSearch")
+                    }
+                )
+            }
+
+            composable("placeSearch") {
+                PlaceSearchScreen(
+                    onPlaceClick = { spotId ->
+                        // TODO: 장소 상세조회 화면 만들면 여기서 이동 처리
                     }
                 )
             }
@@ -241,7 +251,8 @@ fun AppNavigation() {
                 PingScreen(
                     onAddPingClick = { /* TODO: 핑 추가 로직 */ },
                     onPingLogClick = { pingId -> /* TODO: 핑로그 상세로 이동 */ },
-                    onRouteCardClick = { routeId -> /* TODO: 루트 상세로 이동 */ }
+                    onRouteCardClick = { routeId -> /* TODO: 루트 상세로 이동 */ },
+                    onCourseClick = { courseId -> /* TODO: 코스 상세로 이동 */ }
                 )
             }
         }

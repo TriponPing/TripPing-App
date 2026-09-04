@@ -1,10 +1,15 @@
 package com.tripping.app.data.api
 
 import com.tripping.app.data.request.PingReviewRequest
+import com.tripping.app.data.response.CurrentTripResponse // 필요에 따라 패키지 경로 확인
 import com.tripping.app.data.response.PingResponse
 import retrofit2.http.*
 
 interface PingApi {
+
+    // 현재 진행 중인 여행 조회 (id 없이 스스로 조회)
+    @GET("routes/current")
+    suspend fun getCurrentInProgressRoute(): CurrentTripResponse
 
     // 진행 중 여행 조회 (routeId 기준 진행 중인 Ping 목록)
     @GET("routes/{routeId}/pings")
