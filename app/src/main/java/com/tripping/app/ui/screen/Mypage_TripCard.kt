@@ -80,7 +80,8 @@ fun TripCardPreview() {
 }
 
 // 여행 경로를 핑 아이콘(점) + 선으로 표현. 피그마 디자인 맞춰서 점은 blueping.png 아이콘 사용.
-// count = 실제 방문 장소 개수. 4개 넘으면 4개까지만 보여주고, 마지막 핑/선은 자연스럽게 흐려지면서 끊김.
+// count = 실제 방문 장소 개수. 4개까지는 전부 선명하게 보여주고, 4개 넘으면 마지막 핑 뒤에
+// 흐려지는 꼬리선만 붙여서 "더 있다"는 걸 자연스럽게 알려줌.
 private val RouteLineColor = Color(0xFF3B9AE1)
 
 @Composable
@@ -97,26 +98,25 @@ fun RoutePreviewDots(modifier: Modifier = Modifier, count: Int = 4) {
             Image(
                 painter = painterResource(id = R.drawable.blueping),
                 contentDescription = null,
-                modifier = Modifier
-                    .size(14.dp)
-                    .alpha(if (isTruncated && isLastDot) 0.35f else 1f)
+                modifier = Modifier.size(14.dp) // 4개까지는 전부 선명하게
             )
             if (!isLastDot) {
-                val isLastSegment = index == dotCount - 2
                 Box(
                     modifier = Modifier
                         .height(2.dp)
                         .width(22.dp)
-                        .background(
-                            if (isTruncated && isLastSegment) {
-                                // 뒤에 더 있다는 걸 보여주는 페이드아웃 - 선이 흐려지면서 자연스럽게 끊김
-                                Brush.horizontalGradient(listOf(RouteLineColor, RouteLineColor.copy(alpha = 0f)))
-                            } else {
-                                Brush.horizontalGradient(listOf(RouteLineColor, RouteLineColor))
-                            }
-                        )
+                        .background(RouteLineColor)
                 )
             }
+        }
+        if (isTruncated) {
+            // 마지막 핑 뒤에 흐려지는 꼬리선 - "더 있다"는 걸 자연스럽게 보여줌
+            Box(
+                modifier = Modifier
+                    .height(2.dp)
+                    .width(22.dp)
+                    .background(Brush.horizontalGradient(listOf(RouteLineColor, RouteLineColor.copy(alpha = 0f))))
+            )
         }
     }
 }
