@@ -58,11 +58,10 @@ fun TripStartScreen(
             .fillMaxSize()
             .background(ColorBackground)
     ) {
-        // 상단바
+        // 상단바 - 배경 따로 안 줌, 화면 전체(ColorBackground)랑 같은 톤으로 이어지게
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
                 .clickable { onBackClick() }
                 .padding(horizontal = 20.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically

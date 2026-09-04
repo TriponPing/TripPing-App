@@ -101,10 +101,10 @@ fun CourseDetailScreen(
             .background(ColorBackground)
     ) {
         // 상단바 - 화살표(뒤로가기)만 단독으로, 코스명은 가운데 정렬
+        // 배경 따로 안 줌 - 화면 전체(ColorBackground)랑 같은 톤으로 이어지게
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color.White)
                 .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
             Text(
