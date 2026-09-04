@@ -72,7 +72,7 @@ fun CourseDetailScreen(
         if (spotLatLngs.size >= 2) {
             val path = PathOverlay().apply {
                 coords = spotLatLngs
-                color = android.graphics.Color.parseColor("#995AC8FA") // 하늘색, 투명도 60%
+                color = android.graphics.Color.parseColor("#405AC8FA") // 하늘색, 투명도 25%
                 width = 10
                 this.map = map
             }
