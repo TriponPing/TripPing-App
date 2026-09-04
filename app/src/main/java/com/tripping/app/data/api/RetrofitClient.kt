@@ -53,4 +53,6 @@ object RetrofitClient {
             cookieJar.clear()
         }
     }
+
+    val pingApi: PingApi by lazy { retrofit.create(PingApi::class.java) }
 }
