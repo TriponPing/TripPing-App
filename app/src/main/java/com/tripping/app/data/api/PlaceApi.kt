@@ -11,4 +11,10 @@ interface PlaceApi {
         @Query("lng") lng: Double,
         @Query("radius") radius: Double
     ): List<PlaceSearchResponse>
+
+    @GET("places")
+    suspend fun getPlaces(
+        @Query("category") category: String,
+        @Query("regionId") regionId: String?
+    ): List<PlaceSearchResponse>
 }

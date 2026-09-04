@@ -1,6 +1,7 @@
 package com.tripping.app.ui.screen
 
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -11,7 +12,9 @@ import androidx.compose.ui.unit.sp
 
 // TODO: 실제 홈 화면 디자인 나오면 이 파일 내용 교체
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onNavigateToPlaceSearch: () -> Unit = {}
+) {
     Column(
         modifier = Modifier.fillMaxSize(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -24,5 +27,12 @@ fun HomeScreen() {
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(text = "로그인 성공! 네비게이션 잘 연결됨 👍")
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        // TODO: 테스트용 임시 버튼, 실제 홈 화면 완성되면 삭제
+        Button(onClick = onNavigateToPlaceSearch) {
+            Text("관광지 검색 화면 테스트")
+        }
     }
 }

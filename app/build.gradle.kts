@@ -71,4 +71,9 @@ dependencies {
     // ===== Navigation - 화면 간 이동(로그인 -> 회원가입 -> 홈 등)을 관리 =====
     // 이게 있으면 MainActivity를 계속 안 건드리고, 새 화면을 자유롭게 추가/연결할 수 있음
     implementation("androidx.navigation:navigation-compose:2.8.5")
+
+    implementation("androidx.compose.material:material-icons-extended:1.7.6")
+
+    implementation("com.naver.maps:map-sdk:3.21.0")
+    implementation("io.github.fornewid:naver-map-compose:1.9.0")
 }

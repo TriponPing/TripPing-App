@@ -47,4 +47,13 @@ object RetrofitClient {
             cookieJar.clear()
         }
     }
+
+    val routeApi: RouteApi by lazy {
+        Retrofit.Builder()
+            .baseUrl(BASE_URL)
+            .client(client)
+            .addConverterFactory(GsonConverterFactory.create())
+            .build()
+            .create(RouteApi::class.java)
+    }
 }

@@ -7,6 +7,7 @@ import androidx.navigation.compose.rememberNavController
 import com.tripping.app.ui.screen.HomeScreen
 import com.tripping.app.ui.screen.LoginScreen
 import com.tripping.app.ui.screen.SignUpScreen
+import com.tripping.app.ui.screen.PlaceSearchScreen
 
 @Composable
 fun AppNavigation() {
@@ -46,7 +47,19 @@ fun AppNavigation() {
         }
 
         composable("home") {
-            HomeScreen()
+            HomeScreen(
+                onNavigateToPlaceSearch = {
+                    navController.navigate("placeSearch")
+                }
+            )
+        }
+
+        composable("placeSearch") {
+            PlaceSearchScreen(
+                onPlaceClick = { spotId ->
+                    // TODO: 장소 상세조회 화면 만들면 여기서 이동 처리
+                }
+            )
         }
     }
 }
