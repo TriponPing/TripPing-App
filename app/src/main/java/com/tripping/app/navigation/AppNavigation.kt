@@ -19,7 +19,9 @@ import com.tripping.app.ui.screen.HomeScreen
 import com.tripping.app.ui.screen.LoginScreen
 import com.tripping.app.ui.screen.MyMapDetailScreen
 import com.tripping.app.ui.screen.MyPageScreen
+import com.tripping.app.ui.screen.NearbyCoursesScreen
 import com.tripping.app.ui.screen.PingScreen
+import com.tripping.app.ui.screen.PopularKeywordsScreen
 import com.tripping.app.ui.screen.SignUpScreen
 import com.tripping.app.ui.screen.TripHistoryScreen
 import com.tripping.app.viewmodel.AuthState
@@ -32,7 +34,9 @@ private val bottomBarRoutes = mapOf(
     "mypage" to AppBottomNavTab.MY,
     "trip_history" to AppBottomNavTab.MY,
     "my_map_detail" to AppBottomNavTab.MY,
-    "ping" to AppBottomNavTab.PING
+    "ping" to AppBottomNavTab.PING,
+    "popular_keywords" to AppBottomNavTab.HOME,
+    "nearby_courses" to AppBottomNavTab.HOME
 )
 
 // 바텀 탭 전환 공통 로직: 이미 떠 있는 화면 재사용 + 백스택 중복 쌓임 방지
@@ -123,9 +127,28 @@ fun AppNavigation() {
 
             composable("home") {
                 HomeScreen(
-                    onGoToMyPageClick = {
-                        navigateToTab(navController, "mypage")
-                    }
+                    onStartRouteClick = { /* TODO: 루트 생성 - 1) 정보 입력 화면 아직 없음 */ },
+                    onViewRouteClick = { /* TODO: 진행 중인 여행의 루트 상세 화면 아직 없음 */ },
+                    onPingClick = { navigateToTab(navController, "ping") },
+                    onSeeAllPopularRoutes = { /* TODO: 이번주 인기 루트 더보기 화면 아직 없음 */ },
+                    onSeeAllPopularPlaces = { /* TODO: 지금 떠오르는 인기 장소 더보기 화면 아직 없음 */ },
+                    onSeeAllKeywords = { navController.navigate("popular_keywords") },
+                    onSeeAllNearbyCourses = { navController.navigate("nearby_courses") },
+                    onCourseClick = { /* TODO: 코스 상세 화면 아직 없음 */ }
+                )
+            }
+
+            composable("popular_keywords") {
+                PopularKeywordsScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onCourseClick = { /* TODO: 코스 상세 화면 아직 없음 */ }
+                )
+            }
+
+            composable("nearby_courses") {
+                NearbyCoursesScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onCourseClick = { /* TODO: 코스 상세 화면 아직 없음 */ }
                 )
             }
 
