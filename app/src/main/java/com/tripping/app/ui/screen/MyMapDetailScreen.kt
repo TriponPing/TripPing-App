@@ -25,8 +25,6 @@ import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.overlay.PathOverlay
 import com.tripping.app.data.response.MapPinResponse
-import com.tripping.app.ui.component.AppBottomNavBar
-import com.tripping.app.ui.component.AppBottomNavTab
 import com.tripping.app.ui.component.NaverMapContainer
 import com.tripping.app.viewmodel.MyPageViewModel
 import kotlinx.coroutines.delay
@@ -43,7 +41,6 @@ private val ColorAccentBlue = Color(0xFF0074CE)
 @Composable
 fun MyMapDetailScreen(
     onBackClick: () -> Unit = {},
-    onHomeClick: () -> Unit = {},
     viewModel: MyPageViewModel = viewModel()
 ) {
     LaunchedEffect(Unit) {
@@ -316,8 +313,6 @@ fun MyMapDetailScreen(
                 )
             }
         }
-
-        AppBottomNavBar(selectedTab = AppBottomNavTab.MY, onHomeClick = onHomeClick)
     }
 }
 

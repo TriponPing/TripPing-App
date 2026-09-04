@@ -24,8 +24,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tripping.app.R
 import com.tripping.app.data.response.SavedRouteResponse
 import com.tripping.app.data.response.TripSummaryResponse
-import com.tripping.app.ui.component.AppBottomNavBar
-import com.tripping.app.ui.component.AppBottomNavTab
 import com.tripping.app.viewmodel.MyPageViewModel
 
 // ===== 마이페이지 화면 - Figma 디자인 기준 =====
@@ -53,7 +51,6 @@ private fun SavedRouteResponse.toCardModel(): MyPageTripCard = MyPageTripCard(
 
 @Composable
 fun MyPageScreen(
-    onNavigateHome: () -> Unit = {},
     onOpenSettings: () -> Unit = {},
     onOpenTripHistory: () -> Unit = {},
     onOpenMyMap: () -> Unit = {},
@@ -95,8 +92,6 @@ fun MyPageScreen(
                 )
             }
         }
-
-        AppBottomNavBar(selectedTab = AppBottomNavTab.MY, onHomeClick = onNavigateHome)
     }
 }
 

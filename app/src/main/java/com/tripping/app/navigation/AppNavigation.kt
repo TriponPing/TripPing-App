@@ -1,5 +1,6 @@
 package com.tripping.app.navigation
 
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -23,7 +24,6 @@ import com.tripping.app.ui.screen.SignUpScreen
 import com.tripping.app.ui.screen.TripHistoryScreen
 import com.tripping.app.viewmodel.AuthState
 import com.tripping.app.viewmodel.AuthViewModel
-import androidx.compose.foundation.layout.padding
 
 // 바텀바를 보여줄 라우트와, 그 라우트가 어떤 탭에 해당하는지 매핑
 // 이 맵에 없는 라우트(로그인/회원가입 등)는 바텀바가 자동으로 안 보임
@@ -49,10 +49,10 @@ private fun navigateToTab(navController: NavController, route: String) {
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val currentTab = bottomBarRoutes[currentRoute]
 
+    // 하단 네비게이션 바는 여기 한 곳에서만 그림 (화면마다 따로 그리면 콜백 연결 누락되기 쉬워서 통일함)
     Scaffold(
         bottomBar = {
             if (currentTab != null) {

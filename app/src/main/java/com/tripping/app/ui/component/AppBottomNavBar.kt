@@ -17,10 +17,9 @@ import androidx.compose.ui.unit.sp
 import com.tripping.app.R
 
 // ===== 앱 공통 하단 네비게이션 바 =====
-// 홈/탐색/루트/Ping/마이 화면 어디서든 재사용.
-// TODO: 화면마다 현재 탭이 뭔지 알려주는 파라미터(selectedTab) 추가해서
-//       각 화면이 자기 탭을 selected = true로 넘기도록 바꾸면 더 정확해짐.
-//       지금은 마이페이지에서만 쓰이고 있어서 "마이"만 선택 상태로 고정해둠.
+// 각 화면에서 직접 호출하지 않음! AppNavigation.kt의 Scaffold(bottomBar = ...)에서 한 번만 그림.
+// 화면마다 따로 호출하면 콜백 연결을 매번 해줘야 하고 누락되기도 쉬워서, 여기 한 곳에서만 관리하도록 변경함.
+// selectedTab은 AppNavigation.kt가 현재 라우트를 보고 계산해서 넘겨줌.
 
 private val ColorAccentBlue = Color(0xFF0074CE)
 
