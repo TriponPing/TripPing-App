@@ -160,7 +160,8 @@ fun AppNavigation() {
                 PingScreen(
                     onAddPingClick = { /* TODO: 핑 추가 로직 */ },
                     onPingLogClick = { pingId -> /* TODO: 핑로그 상세로 이동 */ },
-                    onRouteCardClick = { routeId -> /* TODO: 루트 상세로 이동 */ }
+                    onRouteCardClick = { routeId -> /* TODO: 루트 상세로 이동 */ },
+                    onCourseClick = { courseId -> /* TODO: 코스 상세로 이동 */ }
                 )
             }
         }
