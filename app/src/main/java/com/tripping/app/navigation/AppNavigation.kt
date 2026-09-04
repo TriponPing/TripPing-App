@@ -8,6 +8,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -18,38 +19,50 @@ import com.tripping.app.ui.screen.HomeScreen
 import com.tripping.app.ui.screen.LoginScreen
 import com.tripping.app.ui.screen.MyMapDetailScreen
 import com.tripping.app.ui.screen.MyPageScreen
+import com.tripping.app.ui.screen.PingScreen
 import com.tripping.app.ui.screen.SignUpScreen
 import com.tripping.app.ui.screen.TripHistoryScreen
 import com.tripping.app.viewmodel.AuthState
 import com.tripping.app.viewmodel.AuthViewModel
 
-// 하단 네비게이션 바를 보여줄 라우트. 로그인/회원가입 화면에는 안 보여줌.
-private val ROUTES_WITH_BOTTOM_BAR = setOf("home", "mypage", "trip_history", "my_map_detail")
+// 바텀바를 보여줄 라우트와, 그 라우트가 어떤 탭에 해당하는지 매핑
+// 이 맵에 없는 라우트(로그인/회원가입 등)는 바텀바가 자동으로 안 보임
+private val bottomBarRoutes = mapOf(
+    "home" to AppBottomNavTab.HOME,
+    "mypage" to AppBottomNavTab.MY,
+    "trip_history" to AppBottomNavTab.MY,
+    "my_map_detail" to AppBottomNavTab.MY,
+    "ping" to AppBottomNavTab.PING
+)
 
-// "마이" 탭 쪽에 속하는 화면들 (마이페이지에서 파생된 화면이라 하단 바도 "마이"가 선택된 상태로 보여줘야 함)
-private val MY_TAB_ROUTES = setOf("mypage", "trip_history", "my_map_detail")
+// 바텀 탭 전환 공통 로직: 이미 떠 있는 화면 재사용 + 백스택 중복 쌓임 방지
+private fun navigateToTab(navController: NavController, route: String) {
+    navController.navigate(route) {
+        popUpTo(navController.graph.startDestinationId) {
+            saveState = true
+        }
+        launchSingleTop = true
+        restoreState = true
+    }
+}
 
 @Composable
 fun AppNavigation() {
     val navController = rememberNavController()
-    val currentBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = currentBackStackEntry?.destination?.route
+    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
+    val currentTab = bottomBarRoutes[currentRoute]
 
     // 하단 네비게이션 바는 여기 한 곳에서만 그림 (화면마다 따로 그리면 콜백 연결 누락되기 쉬워서 통일함)
     Scaffold(
         bottomBar = {
-            if (currentRoute in ROUTES_WITH_BOTTOM_BAR) {
+            if (currentTab != null) {
                 AppBottomNavBar(
-                    selectedTab = if (currentRoute in MY_TAB_ROUTES) AppBottomNavTab.MY else AppBottomNavTab.HOME,
-                    onHomeClick = {
-                        navController.navigate("home") {
-                            popUpTo("home") { inclusive = true }
-                        }
-                    },
-                    onMyClick = {
-                        navController.navigate("mypage")
-                    }
-                    // TODO: 탐색/루트/Ping 화면 생기면 onSearchClick/onRouteClick/onPingClick도 여기서 연결
+                    selectedTab = currentTab,
+                    onHomeClick = { navigateToTab(navController, "home") },
+                    onSearchClick = { /* TODO: 탐색 화면 아직 없음 */ },
+                    onRouteClick = { /* TODO: 루트 화면 아직 없음 */ },
+                    onPingClick = { navigateToTab(navController, "ping") },
+                    onMyClick = { navigateToTab(navController, "mypage") }
                 )
             }
         }
@@ -111,7 +124,7 @@ fun AppNavigation() {
             composable("home") {
                 HomeScreen(
                     onGoToMyPageClick = {
-                        navController.navigate("mypage")
+                        navigateToTab(navController, "mypage")
                     }
                 )
             }
@@ -140,6 +153,14 @@ fun AppNavigation() {
                     onBackClick = {
                         navController.popBackStack()
                     }
+                )
+            }
+
+            composable("ping") {
+                PingScreen(
+                    onAddPingClick = { /* TODO: 핑 추가 로직 */ },
+                    onPingLogClick = { pingId -> /* TODO: 핑로그 상세로 이동 */ },
+                    onRouteCardClick = { routeId -> /* TODO: 루트 상세로 이동 */ }
                 )
             }
         }
