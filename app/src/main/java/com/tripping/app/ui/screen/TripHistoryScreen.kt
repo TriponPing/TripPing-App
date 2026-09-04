@@ -18,8 +18,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.tripping.app.ui.component.AppBottomNavBar
-import com.tripping.app.ui.component.AppBottomNavTab
 import com.tripping.app.viewmodel.MyPageViewModel
 
 // ===== 다녀온 여행 자세히보기 화면 (마이페이지 "다녀온 여행 > 자세히 보기") =====
@@ -32,7 +30,6 @@ private val ColorLevelChipBg = Color(0xFFD9D9D9)
 @Composable
 fun TripHistoryScreen(
     onBackClick: () -> Unit = {},
-    onHomeClick: () -> Unit = {},
     viewModel: MyPageViewModel = viewModel()
 ) {
     LaunchedEffect(Unit) {
@@ -137,8 +134,6 @@ fun TripHistoryScreen(
                 }
             }
         }
-
-        AppBottomNavBar(selectedTab = AppBottomNavTab.MY, onHomeClick = onHomeClick)
     }
 }
 
