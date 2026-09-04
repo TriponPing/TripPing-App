@@ -1,6 +1,8 @@
 package com.tripping.app.data.api
 
 import com.tripping.app.data.request.ProfileUpdateRequest
+import com.tripping.app.data.request.UpdateFeaturedBadgesRequest
+import com.tripping.app.data.response.BadgeResponse
 import com.tripping.app.data.response.MapDetailResponse
 import com.tripping.app.data.response.MapPinResponse
 import com.tripping.app.data.response.MapSearchResponse
@@ -14,6 +16,7 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -57,4 +60,10 @@ interface MyPageApi {
 
     @GET("users/me/map/search")
     suspend fun searchMyMap(@Query("keyword") keyword: String): Response<List<MapSearchResponse>>
+
+    @GET("users/me/badges")
+    suspend fun getBadges(): Response<List<BadgeResponse>>
+
+    @PUT("users/me/badges/featured")
+    suspend fun updateFeaturedBadges(@Body request: UpdateFeaturedBadgesRequest): Response<List<BadgeResponse>>
 }

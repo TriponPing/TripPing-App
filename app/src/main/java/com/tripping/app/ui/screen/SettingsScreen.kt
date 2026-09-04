@@ -17,6 +17,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
@@ -33,29 +34,21 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tripping.app.data.response.BadgeResponse
 import com.tripping.app.viewmodel.MyPageViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 // ===== 마이페이지 설정 화면 (마이페이지 오른쪽 위 톱니바퀴) =====
-// 프로필(닉네임/레벨)은 실제 API(GET /users/me) 연동됨.
-// 뱃지는 백엔드에 아직 관련 API가 없어서, 마이페이지 프로필 영역과 동일하게 임시 고정값을 씀.
-// TODO: 뱃지 API 생기면 badges 목록/꺼낼 뱃지 선택 상태를 서버에서 받아오도록 교체.
+// 프로필(닉네임/레벨)은 실제 API(GET·PATCH /users/me) 연동됨.
+// 뱃지("뱃지"/"꺼낼 뱃지")도 실제 API(GET /users/me/badges, PUT /users/me/badges/featured) 연동됨.
+// 단, 뱃지 종류 자체(카탈로그)는 백엔드에 아직 획득 조건이 없어서 고정 2종류만 있음.
 
 private val ColorBackground = Color(0xFFF8F8FC)
 private val ColorAccentBlue = Color(0xFF0074CE) // 앱 전반에서 쓰는 포인트 블루
 private val ColorBadgeCircleBg = Color(0xFFEFF3F8)
 private val ColorFeaturedTrayBg = Color(0xFFE3E3E3)
-
-private data class ProfileBadge(val id: String, val label: String, val emoji: String)
-
-// 지금 실제로 갖고 있는 뱃지는 이 2개뿐(마이페이지 프로필 영역이랑 동일) - 늘어나면 그냥 이 목록에 추가하면
-// 아래 FlowRow가 알아서 줄바꿈하면서 정렬해줌.
-private val earnedBadges = listOf(
-    ProfileBadge("author", "추가 작성자", "📷"),
-    ProfileBadge("attendance", "연속 출석", "📅")
-)
 
 @Composable
 fun SettingsScreen(
@@ -63,10 +56,16 @@ fun SettingsScreen(
     onLogoutConfirmed: () -> Unit = {},
     viewModel: MyPageViewModel = viewModel()
 ) {
-    LaunchedEffect(Unit) { viewModel.loadProfile() }
+    LaunchedEffect(Unit) {
+        viewModel.loadProfile()
+        viewModel.loadBadges()
+    }
     val profile by viewModel.profile.collectAsState()
+    val badges by viewModel.badges.collectAsState()
 
     var showLogoutDialog by remember { mutableStateOf(false) }
+    var showNicknameDialog by remember { mutableStateOf(false) }
+    var nicknameInput by remember { mutableStateOf("") }
 
     // 프로필 사진 - 갤러리에서 고른 사진 로컬 미리보기 (TODO: 백엔드에 프로필 사진 업로드 API 생기면 여기서 실제 업로드 연결)
     val context = LocalContext.current
@@ -86,10 +85,6 @@ fun SettingsScreen(
             }
         }
     }
-
-    // 뱃지 중에 마이페이지 프로필 영역에 실제로 노출할("꺼낼") 뱃지 id 집합
-    // TODO: 뱃지 API 생기면 서버에 저장/조회하도록 교체. 지금은 화면 안에서만 유지(초기값 = 전부 노출).
-    var featuredBadgeIds by remember { mutableStateOf(earnedBadges.map { it.id }.toSet()) }
 
     Column(
         modifier = Modifier
@@ -196,7 +191,10 @@ fun SettingsScreen(
                         text = "수정",
                         fontSize = 12.sp,
                         color = ColorTextSecondary,
-                        modifier = Modifier.clickable { /* TODO: 닉네임 수정 */ }
+                        modifier = Modifier.clickable {
+                            nicknameInput = profile?.nickname ?: ""
+                            showNicknameDialog = true
+                        }
                     )
                 }
             }
@@ -212,17 +210,10 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                earnedBadges.forEach { badge ->
+                badges.forEach { badge ->
                     BadgeItem(
                         badge = badge,
-                        selected = badge.id in featuredBadgeIds,
-                        onClick = {
-                            featuredBadgeIds = if (badge.id in featuredBadgeIds) {
-                                featuredBadgeIds - badge.id
-                            } else {
-                                featuredBadgeIds + badge.id
-                            }
-                        }
+                        onClick = { viewModel.toggleFeaturedBadge(badge.code) }
                     )
                 }
             }
@@ -239,7 +230,7 @@ fun SettingsScreen(
                     .background(ColorFeaturedTrayBg)
                     .padding(16.dp)
             ) {
-                val featuredBadges = earnedBadges.filter { it.id in featuredBadgeIds }
+                val featuredBadges = badges.filter { it.featured }
                 if (featuredBadges.isEmpty()) {
                     Text(
                         text = "위 뱃지 목록에서 눌러서 대표 뱃지로 꺼내보세요",
@@ -255,8 +246,7 @@ fun SettingsScreen(
                         featuredBadges.forEach { badge ->
                             BadgeItem(
                                 badge = badge,
-                                selected = true,
-                                onClick = { featuredBadgeIds = featuredBadgeIds - badge.id }
+                                onClick = { viewModel.toggleFeaturedBadge(badge.code) }
                             )
                         }
                     }
@@ -300,10 +290,40 @@ fun SettingsScreen(
             }
         )
     }
+
+    if (showNicknameDialog) {
+        AlertDialog(
+            onDismissRequest = { showNicknameDialog = false },
+            text = {
+                OutlinedTextField(
+                    value = nicknameInput,
+                    onValueChange = { nicknameInput = it },
+                    singleLine = true,
+                    label = { Text("닉네임") }
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    val trimmed = nicknameInput.trim()
+                    if (trimmed.isNotEmpty()) {
+                        viewModel.updateNickname(trimmed)
+                    }
+                    showNicknameDialog = false
+                }) {
+                    Text(text = "확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showNicknameDialog = false }) {
+                    Text(text = "취소")
+                }
+            }
+        )
+    }
 }
 
 @Composable
-private fun BadgeItem(badge: ProfileBadge, selected: Boolean, onClick: () -> Unit) {
+private fun BadgeItem(badge: BadgeResponse, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
@@ -320,7 +340,7 @@ private fun BadgeItem(badge: ProfileBadge, selected: Boolean, onClick: () -> Uni
             ) {
                 Text(text = badge.emoji, fontSize = 20.sp)
             }
-            if (selected) {
+            if (badge.featured) {
                 Icon(
                     imageVector = Icons.Filled.CheckCircle,
                     contentDescription = "꺼낸 뱃지",
