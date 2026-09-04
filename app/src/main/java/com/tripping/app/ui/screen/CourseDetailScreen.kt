@@ -28,7 +28,7 @@ import com.tripping.app.viewmodel.MyPageViewModel
 // "다녀온 여행" 카드를 누르면 여기로 옴. GET /users/me/trips/{tripId} 데이터로 지도를 그려줌.
 // "여행 바로 시작하기"는 전용 백엔드 API가 없어서, 같은 tripId로 다음 페이지(TripStartScreen)로
 // 이동만 시켜줌 (거기서 같은 상세 데이터를 재사용해서 지도+미리보기를 보여줌).
-// "코스 정보 바로가기"는 이동할 화면이 아직 없어서 TODO로 남겨둠.
+// "코스 정보 바로가기"는 Ping 기록 화면으로 이동함.
 
 private val ColorAccentPurple = Color(0xFF7B61FF)
 
@@ -38,6 +38,7 @@ fun CourseDetailScreen(
     fallbackTitle: String? = null,
     onBackClick: () -> Unit = {},
     onStartTrip: (Long, String) -> Unit = { _, _ -> },
+    onGoToPing: () -> Unit = {},
     viewModel: MyPageViewModel = viewModel()
 ) {
     LaunchedEffect(tripId) {
@@ -168,9 +169,7 @@ fun CourseDetailScreen(
                 textAlign = TextAlign.Center,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable {
-                        // TODO: 코스 상세 정보 화면 나오면 연결
-                    }
+                    .clickable { onGoToPing() }
                     .padding(vertical = 4.dp)
             )
         }

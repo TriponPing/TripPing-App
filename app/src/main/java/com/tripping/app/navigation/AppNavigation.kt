@@ -194,6 +194,9 @@ fun AppNavigation() {
                     },
                     onStartTrip = { id, t ->
                         navigateToTripStart(navController, id, t)
+                    },
+                    onGoToPing = {
+                        navigateToTab(navController, "ping")
                     }
                 )
             }
@@ -215,6 +218,9 @@ fun AppNavigation() {
                     fallbackTitle = title?.ifBlank { null },
                     onBackClick = {
                         navController.popBackStack()
+                    },
+                    onGoToPing = {
+                        navigateToTab(navController, "ping")
                     }
                 )
             }
