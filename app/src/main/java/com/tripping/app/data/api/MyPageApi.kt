@@ -7,6 +7,7 @@ import com.tripping.app.data.response.MapSearchResponse
 import com.tripping.app.data.response.PageResponse
 import com.tripping.app.data.response.ProfileResponse
 import com.tripping.app.data.response.SavedRouteResponse
+import com.tripping.app.data.response.TripDetailResponse
 import com.tripping.app.data.response.TripSummaryResponse
 import retrofit2.Response
 import retrofit2.http.Body
@@ -32,6 +33,10 @@ interface MyPageApi {
         @Query("page") page: Int = 0,
         @Query("size") size: Int = 10
     ): Response<PageResponse<TripSummaryResponse>>
+
+    // 다녀온 여행 상세보기 ("코스 상세" 화면 - 지도, 여행 바로 시작하기 등에 사용)
+    @GET("users/me/trips/{tripId}")
+    suspend fun getTripDetail(@Path("tripId") tripId: Long): Response<TripDetailResponse>
 
     @GET("users/me/routes/saved")
     suspend fun getSavedRoutes(

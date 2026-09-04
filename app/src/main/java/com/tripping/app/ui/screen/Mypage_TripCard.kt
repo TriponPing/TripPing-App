@@ -1,20 +1,25 @@
 package com.tripping.app.ui.screen
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tripping.app.R
 
 // ===== 여행 카드 - 마이페이지, 다녀온 여행 자세히보기 등 여러 화면에서 재사용 =====
 
@@ -34,13 +39,14 @@ data class MyPageTripCard(
 )
 
 @Composable
-fun TripCard(trip: MyPageTripCard) {
+fun TripCard(trip: MyPageTripCard, onClick: () -> Unit = {}) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
             .border(1.dp, ColorCardBorder, RoundedCornerShape(16.dp))
+            .clickable { onClick() }
             .padding(16.dp)
     ) {
         Text(text = trip.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
@@ -48,7 +54,7 @@ fun TripCard(trip: MyPageTripCard) {
         Text(text = trip.dateRange, fontSize = 12.sp, color = ColorTextSecondary)
         Spacer(modifier = Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            RoutePreviewDots(modifier = Modifier.weight(1f))
+            RoutePreviewDots(modifier = Modifier.weight(1f), count = trip.pingCount ?: 4)
             if (trip.pingCount != null || trip.duration != null) {
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(horizontalAlignment = Alignment.End) {
@@ -73,29 +79,44 @@ fun TripCardPreview() {
     )
 }
 
-// 여행 경로를 점+선으로 간단히 표현 (실제 좌표 연동 전까지 임시)
+// 여행 경로를 핑 아이콘(점) + 선으로 표현. 피그마 디자인 맞춰서 점은 blueping.png 아이콘 사용.
+// count = 실제 방문 장소 개수. 4개까지는 전부 선명하게 보여주고, 4개 넘으면 마지막 핑 뒤에
+// 흐려지는 꼬리선만 붙여서 "더 있다"는 걸 자연스럽게 알려줌.
+private val RouteLineColor = Color(0xFF3B9AE1)
+
 @Composable
-fun RoutePreviewDots(modifier: Modifier = Modifier) {
+fun RoutePreviewDots(modifier: Modifier = Modifier, count: Int = 4) {
+    val dotCount = count.coerceIn(1, 4)
+    val isTruncated = count > 4 // 실제로는 더 있는데 4개까지만 보여주는 상태인지
+
     Row(
-        modifier = modifier.height(8.dp),
+        modifier = modifier.height(14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val dotColors = listOf(Color(0xFF2ECC71), Color(0xFF2ECC71), Color(0xFF3B9AE1), Color(0xFF3B9AE1))
-        dotColors.forEachIndexed { index, color ->
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .clip(CircleShape)
-                    .background(color)
+        for (index in 0 until dotCount) {
+            val isLastDot = index == dotCount - 1
+            Image(
+                painter = painterResource(id = R.drawable.blueping),
+                contentDescription = null,
+                modifier = Modifier.size(14.dp) // 4개까지는 전부 선명하게
             )
-            if (index != dotColors.lastIndex) {
+            if (!isLastDot) {
                 Box(
                     modifier = Modifier
                         .height(2.dp)
-                        .width(16.dp)
-                        .background(color)
+                        .width(22.dp)
+                        .background(RouteLineColor)
                 )
             }
+        }
+        if (isTruncated) {
+            // 마지막 핑 뒤에 흐려지는 꼬리선 - "더 있다"는 걸 자연스럽게 보여줌
+            Box(
+                modifier = Modifier
+                    .height(2.dp)
+                    .width(22.dp)
+                    .background(Brush.horizontalGradient(listOf(RouteLineColor, RouteLineColor.copy(alpha = 0f))))
+            )
         }
     }
 }

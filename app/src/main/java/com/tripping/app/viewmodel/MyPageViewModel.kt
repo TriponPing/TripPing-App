@@ -8,6 +8,7 @@ import com.tripping.app.data.response.MapPinResponse
 import com.tripping.app.data.response.MapSearchResponse
 import com.tripping.app.data.response.ProfileResponse
 import com.tripping.app.data.response.SavedRouteResponse
+import com.tripping.app.data.response.TripDetailResponse
 import com.tripping.app.data.response.TripSummaryResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -43,6 +44,10 @@ class MyPageViewModel : ViewModel() {
 
     private val _mapSearchResults = MutableStateFlow<List<MapSearchResponse>>(emptyList())
     val mapSearchResults: StateFlow<List<MapSearchResponse>> = _mapSearchResults
+
+    // "코스 상세보기" 화면용 - tripId별 상세(방문 스팟/좌표) 캐시
+    private val _tripDetailById = MutableStateFlow<Map<Long, TripDetailResponse>>(emptyMap())
+    val tripDetailById: StateFlow<Map<Long, TripDetailResponse>> = _tripDetailById
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
@@ -166,6 +171,25 @@ class MyPageViewModel : ViewModel() {
         _mapSearchResults.value = emptyList()
     }
 
+    /** "코스 상세보기" 화면 (여행 바로 시작하기 등) - 이미 불러온 tripId는 재요청 안 함 */
+    fun loadTripDetail(tripId: Long) {
+        if (_tripDetailById.value.containsKey(tripId)) return
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.myPageApi.getTripDetail(tripId)
+                if (response.isSuccessful) {
+                    response.body()?.let { detail ->
+                        _tripDetailById.value = _tripDetailById.value + (tripId to detail)
+                    }
+                } else {
+                    _errorMessage.value = "코스 정보를 불러오지 못했습니다. (${response.code()})"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "네트워크 오류가 발생했습니다."
+            }
+        }
+    }
+
     /** 저장한 루트 취소 (성공하면 목록 새로고침) */
     fun unsaveRoute(routeId: Long) {
         viewModelScope.launch {
@@ -173,6 +197,7 @@ class MyPageViewModel : ViewModel() {
                 val response = RetrofitClient.myPageApi.unsaveRoute(routeId)
                 if (response.isSuccessful) {
                     loadSavedRoutes()
+                    loadMyMap() // 저장 취소한 루트가 지도 미리보기(핀/개수)에도 반영되도록 같이 새로고침
                 } else {
                     _errorMessage.value = "저장 취소에 실패했습니다. (${response.code()})"
                 }

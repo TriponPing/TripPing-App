@@ -4,9 +4,6 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.Scaffold
-import androidx.compose.ui.Modifier
 import com.tripping.app.navigation.AppNavigation
 import com.tripping.app.ui.theme.TrippingTheme
 import com.tripping.app.data.api.RetrofitClient
@@ -32,9 +29,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             TrippingTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    AppNavigation()
-                }
+                // AppNavigation()이 자체 Scaffold(하단 네비바 포함)를 이미 갖고 있어서
+                // 여기서 또 감싸면 이중 Scaffold가 돼서 안쪽 여백/배경색 계산이 꼬임
+                // (하단 네비바 위에 배경색 안 맞는 띠 보이던 원인 중 하나)
+                AppNavigation()
             }
         }
     }

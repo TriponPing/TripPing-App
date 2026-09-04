@@ -30,6 +30,7 @@ private val ColorLevelChipBg = Color(0xFFD9D9D9)
 @Composable
 fun TripHistoryScreen(
     onBackClick: () -> Unit = {},
+    onOpenTripDetail: (Long, String) -> Unit = { _, _ -> },
     viewModel: MyPageViewModel = viewModel()
 ) {
     LaunchedEffect(Unit) {
@@ -43,6 +44,7 @@ fun TripHistoryScreen(
         MyPageTripCard(
             title = it.representativeSpotName ?: "여행 기록",
             dateRange = it.travelDate,
+            pingCount = it.placeCount,
             routeId = it.tripId
         )
     }
@@ -52,65 +54,63 @@ fun TripHistoryScreen(
             .fillMaxSize()
             .background(ColorBackground)
     ) {
-        // 상단: 마이페이지 라벨 + 프로필(간단 버전, 뱃지 없음)
+        // 상단: 마이페이지 라벨 + 프로필 + 뒤로가기 (전부 같은 흰 배경으로 이어붙여서 톤 통일)
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
-                .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
-            Text(text = "마이페이지", fontSize = 12.sp, color = ColorTextSecondary)
-            Spacer(modifier = Modifier.height(12.dp))
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                // 아바타 (TODO: 실제 프로필 이미지로 교체)
-                Box(
-                    modifier = Modifier
-                        .size(56.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFFE8EEF5)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(text = "👤", fontSize = 24.sp)
-                }
-                Spacer(modifier = Modifier.width(12.dp))
-                Column {
-                    Text(
-                        text = profile?.nickname ?: "불러오는 중...",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = ColorTextPrimary
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
+            Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
+                Text(text = "마이페이지", fontSize = 12.sp, color = ColorTextSecondary)
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    // 아바타 (TODO: 실제 프로필 이미지로 교체)
                     Box(
                         modifier = Modifier
-                            .clip(RoundedCornerShape(11.dp))
-                            .background(ColorLevelChipBg)
-                            .padding(horizontal = 10.dp, vertical = 3.dp)
+                            .size(56.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFE8EEF5)),
+                        contentAlignment = Alignment.Center
                     ) {
+                        Text(text = "👤", fontSize = 24.sp)
+                    }
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Column {
                         Text(
-                            text = profile?.level?.let { "Lv.$it" } ?: "-",
-                            fontSize = 12.sp,
+                            text = profile?.nickname ?: "불러오는 중...",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
                             color = ColorTextPrimary
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(11.dp))
+                                .background(ColorLevelChipBg)
+                                .padding(horizontal = 10.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = profile?.level?.let { "Lv.$it" } ?: "-",
+                                fontSize = 12.sp,
+                                color = ColorTextPrimary
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // 뒤로가기 + 제목
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color.White)
-                .clickable { onBackClick() }
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(text = "‹", fontSize = 20.sp, color = ColorTextPrimary)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(text = "다녀온 여행", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
+            // 뒤로가기 + 제목 (위 프로필 영역이랑 같은 Column 안이라 틈 없이 이어짐)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onBackClick() }
+                    .padding(horizontal = 20.dp, vertical = 16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(text = "‹", fontSize = 20.sp, color = ColorTextPrimary)
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(text = "다녀온 여행", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
+            }
         }
 
         // 여행 목록 (TODO: 페이징 - GET /users/me/trips?page=&size=)
@@ -130,7 +130,10 @@ fun TripHistoryScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(trips) { trip ->
-                    TripCard(trip)
+                    TripCard(
+                        trip = trip,
+                        onClick = { trip.routeId?.let { onOpenTripDetail(it, trip.title) } }
+                    )
                 }
             }
         }

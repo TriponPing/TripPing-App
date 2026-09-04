@@ -6,6 +6,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -21,9 +22,16 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.naver.maps.geometry.LatLng
+import com.naver.maps.map.NaverMap
+import com.naver.maps.map.overlay.Marker
 import com.tripping.app.R
+import com.tripping.app.data.response.MapPinResponse
 import com.tripping.app.data.response.SavedRouteResponse
 import com.tripping.app.data.response.TripSummaryResponse
+import com.tripping.app.ui.component.NaverMapContainer
+import com.tripping.app.ui.component.applyPingIcon
+import com.tripping.app.ui.component.cameraUpdateToShowAll
 import com.tripping.app.viewmodel.MyPageViewModel
 
 // ===== 마이페이지 화면 - Figma 디자인 기준 =====
@@ -39,6 +47,7 @@ private val ColorLevelChipBg = Color(0xFFD9D9D9)
 private fun TripSummaryResponse.toCardModel(): MyPageTripCard = MyPageTripCard(
     title = representativeSpotName ?: "여행 기록",
     dateRange = travelDate,
+    pingCount = placeCount,
     routeId = tripId
 )
 
@@ -54,6 +63,7 @@ fun MyPageScreen(
     onOpenSettings: () -> Unit = {},
     onOpenTripHistory: () -> Unit = {},
     onOpenMyMap: () -> Unit = {},
+    onOpenTripDetail: (Long, String) -> Unit = { _, _ -> },
     viewModel: MyPageViewModel = viewModel()
 ) {
     var selectedTab by remember { mutableStateOf(0) } // 0 = 여행기록, 1 = 저장한 여행
@@ -67,6 +77,7 @@ fun MyPageScreen(
     val savedRoutes by viewModel.savedRoutes.collectAsState()
     val savedRoutesTotal by viewModel.savedRoutesTotal.collectAsState()
     val visitedPlaceCount by viewModel.visitedPlaceCount.collectAsState()
+    val mapPins by viewModel.mapPins.collectAsState()
 
     Column(
         modifier = Modifier
@@ -82,8 +93,10 @@ fun MyPageScreen(
                 0 -> TripRecordTab(
                     trips = recentTrips.map { it.toCardModel() },
                     visitedPlaceCount = visitedPlaceCount,
+                    mapPins = mapPins,
                     onOpenTripHistory = onOpenTripHistory,
-                    onOpenMyMap = onOpenMyMap
+                    onOpenMyMap = onOpenMyMap,
+                    onOpenTripDetail = onOpenTripDetail
                 )
                 else -> SavedTripTab(
                     savedTrips = savedRoutes.map { it.toCardModel() },
@@ -228,8 +241,10 @@ private fun MyPageTabRow(selectedTab: Int, onTabSelected: (Int) -> Unit) {
 private fun TripRecordTab(
     trips: List<MyPageTripCard>,
     visitedPlaceCount: Int,
+    mapPins: List<MapPinResponse>,
     onOpenTripHistory: () -> Unit,
-    onOpenMyMap: () -> Unit
+    onOpenMyMap: () -> Unit,
+    onOpenTripDetail: (Long, String) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -244,18 +259,27 @@ private fun TripRecordTab(
                     EmptyStateText("아직 다녀온 여행이 없어요")
                 } else {
                     trips.forEach { trip ->
-                        TripCard(trip)
+                        TripCard(
+                            trip = trip,
+                            onClick = { trip.routeId?.let { onOpenTripDetail(it, trip.title) } }
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
             }
         }
 
+        // 나머지 화면을 꽉 채우도록 fillParentMaxHeight 사용 (LazyColumn 뷰포트 기준 비율)
         item {
-            Column {
+            Column(modifier = Modifier.fillParentMaxHeight(0.55f)) {
                 SectionHeader(title = "나의 여행 지도", actionLabel = "자세히 보기", onActionClick = onOpenMyMap)
                 Spacer(modifier = Modifier.height(12.dp))
-                MyMapPreviewCard(visitedPlaceCount = visitedPlaceCount)
+                MyMapPreviewCard(
+                    pins = mapPins,
+                    visitedPlaceCount = visitedPlaceCount,
+                    onClick = onOpenMyMap,
+                    modifier = Modifier.weight(1f)
+                )
             }
         }
     }
@@ -361,21 +385,69 @@ private fun SavedTripCard(trip: MyPageTripCard, onCancelSave: () -> Unit) {
     }
 }
 
+// 마이페이지용 지도 미리보기 - 실제 네이버 지도에 핀만 찍어서 보여줌 (자세히보기 화면과 같은 데이터, GET /users/me/map).
+// 확대/축소/이동 제스처는 막아두고(미리보기 용도), 지도를 탭하면 자세히보기 화면으로 이동함.
 @Composable
-private fun MyMapPreviewCard(visitedPlaceCount: Int) {
+private fun MyMapPreviewCard(
+    pins: List<MapPinResponse>,
+    visitedPlaceCount: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var naverMap by remember { mutableStateOf<NaverMap?>(null) }
+
     Box(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
-            .height(180.dp)
+            .heightIn(min = 180.dp)
             .clip(RoundedCornerShape(16.dp))
-            .background(Color(0xFFE8EEF5)) // TODO: 실제 지도(카카오맵/구글맵 등) 컴포넌트로 교체
+            .background(Color(0xFFE8EEF5))
     ) {
-        Text(
-            text = "🗺️ 지도 미리보기",
-            fontSize = 14.sp,
-            color = ColorTextSecondary,
-            modifier = Modifier.align(Alignment.Center)
+        NaverMapContainer(
+            modifier = Modifier.fillMaxSize(),
+            onMapReady = { map ->
+                map.uiSettings.apply {
+                    isScrollGesturesEnabled = false
+                    isZoomGesturesEnabled = false
+                    isRotateGesturesEnabled = false
+                    isTiltGesturesEnabled = false
+                    isZoomControlEnabled = false
+                    isCompassEnabled = false
+                    isScaleBarEnabled = false
+                    isLogoClickEnabled = false
+                }
+                naverMap = map
+            }
         )
+
+        // 미리보기 지도는 확대/이동이 막혀있어서, 탭하면 자세히보기로 이동한다는 걸 알려주는 투명 오버레이
+        Box(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable { onClick() }
+        )
+
+        val map = naverMap
+        val pinMarkers = remember { mutableListOf<Marker>() }
+        LaunchedEffect(map, pins) {
+            if (map == null) return@LaunchedEffect
+            pinMarkers.forEach { it.map = null }
+            pinMarkers.clear()
+
+            pins.forEach { pin ->
+                val lat = pin.latitude ?: return@forEach
+                val lng = pin.longitude ?: return@forEach
+                val marker = Marker().apply {
+                    position = LatLng(lat, lng)
+                    applyPingIcon()
+                    this.map = map
+                }
+                pinMarkers.add(marker)
+            }
+
+            val points = pins.mapNotNull { p -> p.latitude?.let { la -> p.longitude?.let { lo -> LatLng(la, lo) } } }
+            cameraUpdateToShowAll(points, paddingPx = 80, fallbackZoom = 14.0)?.let { map.moveCamera(it) }
+        }
 
         Box(
             modifier = Modifier
