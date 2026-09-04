@@ -44,6 +44,7 @@ fun TripHistoryScreen(
         MyPageTripCard(
             title = it.representativeSpotName ?: "여행 기록",
             dateRange = it.travelDate,
+            pingCount = it.placeCount,
             routeId = it.tripId
         )
     }

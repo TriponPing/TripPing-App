@@ -50,7 +50,7 @@ fun TripCard(trip: MyPageTripCard, onClick: () -> Unit = {}) {
         Text(text = trip.dateRange, fontSize = 12.sp, color = ColorTextSecondary)
         Spacer(modifier = Modifier.height(12.dp))
         Row(verticalAlignment = Alignment.CenterVertically) {
-            RoutePreviewDots(modifier = Modifier.weight(1f))
+            RoutePreviewDots(modifier = Modifier.weight(1f), count = trip.pingCount ?: 4)
             if (trip.pingCount != null || trip.duration != null) {
                 Spacer(modifier = Modifier.width(12.dp))
                 Column(horizontalAlignment = Alignment.End) {
@@ -76,13 +76,17 @@ fun TripCardPreview() {
 }
 
 // 여행 경로를 점+선으로 간단히 표현 (실제 좌표 연동 전까지 임시)
+// count = 실제 방문 장소 개수. 4개 넘으면 4개까지만 보여주고 잘라냄.
 @Composable
-fun RoutePreviewDots(modifier: Modifier = Modifier) {
+fun RoutePreviewDots(modifier: Modifier = Modifier, count: Int = 4) {
+    val dotCount = count.coerceIn(1, 4)
     Row(
         modifier = modifier.height(8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        val dotColors = listOf(Color(0xFF2ECC71), Color(0xFF2ECC71), Color(0xFF3B9AE1), Color(0xFF3B9AE1))
+        val dotColors = (0 until dotCount).map { index ->
+            if (index < (dotCount + 1) / 2) Color(0xFF2ECC71) else Color(0xFF3B9AE1)
+        }
         dotColors.forEachIndexed { index, color ->
             Box(
                 modifier = Modifier

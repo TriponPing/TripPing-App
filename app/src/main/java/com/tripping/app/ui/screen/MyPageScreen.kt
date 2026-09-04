@@ -48,6 +48,7 @@ private val ColorLevelChipBg = Color(0xFFD9D9D9)
 private fun TripSummaryResponse.toCardModel(): MyPageTripCard = MyPageTripCard(
     title = representativeSpotName ?: "여행 기록",
     dateRange = travelDate,
+    pingCount = placeCount,
     routeId = tripId
 )
 
