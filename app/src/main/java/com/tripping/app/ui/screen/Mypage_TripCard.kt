@@ -2,6 +2,7 @@ package com.tripping.app.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -34,13 +35,14 @@ data class MyPageTripCard(
 )
 
 @Composable
-fun TripCard(trip: MyPageTripCard) {
+fun TripCard(trip: MyPageTripCard, onClick: () -> Unit = {}) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
             .border(1.dp, ColorCardBorder, RoundedCornerShape(16.dp))
+            .clickable { onClick() }
             .padding(16.dp)
     ) {
         Text(text = trip.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)

@@ -30,6 +30,7 @@ private val ColorLevelChipBg = Color(0xFFD9D9D9)
 @Composable
 fun TripHistoryScreen(
     onBackClick: () -> Unit = {},
+    onOpenTripDetail: (Long, String) -> Unit = { _, _ -> },
     viewModel: MyPageViewModel = viewModel()
 ) {
     LaunchedEffect(Unit) {
@@ -130,7 +131,10 @@ fun TripHistoryScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(trips) { trip ->
-                    TripCard(trip)
+                    TripCard(
+                        trip = trip,
+                        onClick = { trip.routeId?.let { onOpenTripDetail(it, trip.title) } }
+                    )
                 }
             }
         }

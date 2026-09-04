@@ -1,5 +1,6 @@
 package com.tripping.app.navigation
 
+import android.net.Uri
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -9,12 +10,15 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.tripping.app.ui.component.AppBottomNavBar
 import com.tripping.app.ui.component.AppBottomNavTab
+import com.tripping.app.ui.screen.CourseDetailScreen
 import com.tripping.app.ui.screen.HomeScreen
 import com.tripping.app.ui.screen.LoginScreen
 import com.tripping.app.ui.screen.MyMapDetailScreen
@@ -25,6 +29,8 @@ import com.tripping.app.ui.screen.TripHistoryScreen
 import com.tripping.app.viewmodel.AuthState
 import com.tripping.app.viewmodel.AuthViewModel
 
+private const val COURSE_DETAIL_ROUTE = "course_detail/{tripId}?title={title}"
+
 // 바텀바를 보여줄 라우트와, 그 라우트가 어떤 탭에 해당하는지 매핑
 // 이 맵에 없는 라우트(로그인/회원가입 등)는 바텀바가 자동으로 안 보임
 private val bottomBarRoutes = mapOf(
@@ -32,8 +38,14 @@ private val bottomBarRoutes = mapOf(
     "mypage" to AppBottomNavTab.MY,
     "trip_history" to AppBottomNavTab.MY,
     "my_map_detail" to AppBottomNavTab.MY,
+    COURSE_DETAIL_ROUTE to AppBottomNavTab.MY,
     "ping" to AppBottomNavTab.PING
 )
+
+// "다녀온 여행" 카드 클릭 -> 코스 상세보기 화면으로 이동 (마이페이지/다녀온 여행 자세히보기 둘 다 공용)
+private fun navigateToCourseDetail(navController: NavController, tripId: Long, title: String) {
+    navController.navigate("course_detail/$tripId?title=${Uri.encode(title)}")
+}
 
 // 바텀 탭 전환 공통 로직: 이미 떠 있는 화면 재사용 + 백스택 중복 쌓임 방지
 private fun navigateToTab(navController: NavController, route: String) {
@@ -136,12 +148,39 @@ fun AppNavigation() {
                     },
                     onOpenMyMap = {
                         navController.navigate("my_map_detail")
+                    },
+                    onOpenTripDetail = { tripId, title ->
+                        navigateToCourseDetail(navController, tripId, title)
                     }
                 )
             }
 
             composable("trip_history") {
                 TripHistoryScreen(
+                    onBackClick = {
+                        navController.popBackStack()
+                    },
+                    onOpenTripDetail = { tripId, title ->
+                        navigateToCourseDetail(navController, tripId, title)
+                    }
+                )
+            }
+
+            composable(
+                COURSE_DETAIL_ROUTE,
+                arguments = listOf(
+                    navArgument("tripId") { type = NavType.LongType },
+                    navArgument("title") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            ) { backStackEntry ->
+                val tripId = backStackEntry.arguments?.getLong("tripId") ?: 0L
+                val title = backStackEntry.arguments?.getString("title")
+                CourseDetailScreen(
+                    tripId = tripId,
+                    fallbackTitle = title?.ifBlank { null },
                     onBackClick = {
                         navController.popBackStack()
                     }

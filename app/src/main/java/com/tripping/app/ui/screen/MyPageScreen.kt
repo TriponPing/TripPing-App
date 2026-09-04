@@ -63,6 +63,7 @@ fun MyPageScreen(
     onOpenSettings: () -> Unit = {},
     onOpenTripHistory: () -> Unit = {},
     onOpenMyMap: () -> Unit = {},
+    onOpenTripDetail: (Long, String) -> Unit = { _, _ -> },
     viewModel: MyPageViewModel = viewModel()
 ) {
     var selectedTab by remember { mutableStateOf(0) } // 0 = 여행기록, 1 = 저장한 여행
@@ -94,7 +95,8 @@ fun MyPageScreen(
                     visitedPlaceCount = visitedPlaceCount,
                     mapPins = mapPins,
                     onOpenTripHistory = onOpenTripHistory,
-                    onOpenMyMap = onOpenMyMap
+                    onOpenMyMap = onOpenMyMap,
+                    onOpenTripDetail = onOpenTripDetail
                 )
                 else -> SavedTripTab(
                     savedTrips = savedRoutes.map { it.toCardModel() },
@@ -241,7 +243,8 @@ private fun TripRecordTab(
     visitedPlaceCount: Int,
     mapPins: List<MapPinResponse>,
     onOpenTripHistory: () -> Unit,
-    onOpenMyMap: () -> Unit
+    onOpenMyMap: () -> Unit,
+    onOpenTripDetail: (Long, String) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -256,7 +259,10 @@ private fun TripRecordTab(
                     EmptyStateText("아직 다녀온 여행이 없어요")
                 } else {
                     trips.forEach { trip ->
-                        TripCard(trip)
+                        TripCard(
+                            trip = trip,
+                            onClick = { trip.routeId?.let { onOpenTripDetail(it, trip.title) } }
+                        )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
