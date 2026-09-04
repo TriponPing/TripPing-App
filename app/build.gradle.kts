@@ -58,6 +58,7 @@ dependencies {
     // ===== Retrofit - 서버(백엔드)와 통신할 때 사용 =====
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
     implementation("com.squareup.retrofit2:converter-gson:2.11.0") // 서버 응답(JSON) <-> Kotlin 객체 자동 변환
+    implementation("com.squareup.retrofit2:converter-scalars:2.11.0") // 회원가입 등 순수 텍스트(String) 응답 처리용
 
     // ===== OkHttp - Retrofit 내부에서 실제 네트워크 통신을 담당 =====
     // CookieJar(세션 쿠키 관리)를 위해서도 필요함 (백엔드가 세션 기반 로그인이라 필수)
@@ -72,8 +73,10 @@ dependencies {
     // 이게 있으면 MainActivity를 계속 안 건드리고, 새 화면을 자유롭게 추가/연결할 수 있음
     implementation("androidx.navigation:navigation-compose:2.8.5")
 
+    // ===== 아이콘 - 관광지 검색 등 화면에서 사용 =====
     implementation("androidx.compose.material:material-icons-extended:1.7.6")
 
-    implementation("com.naver.maps:map-sdk:3.21.0")
+    // ===== 네이버 지도 SDK - "나의 여행 지도" 화면에서 사용 =====
+    implementation("com.naver.maps:map-sdk:3.23.3")
     implementation("io.github.fornewid:naver-map-compose:1.9.0")
 }

@@ -17,8 +17,6 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.tripping.app.ui.component.BottomNavBar
-import com.tripping.app.ui.component.BottomNavTab
 import com.tripping.app.ui.component.PlaceInfoCard
 import com.tripping.app.viewmodel.PlaceCategory
 import com.tripping.app.viewmodel.PlaceSearchViewModel
@@ -41,8 +39,7 @@ private val regionOptions = listOf("전체", "서울", "강원", "부산", "제�
 @Composable
 fun PlaceSearchScreen(
     viewModel: PlaceSearchViewModel = viewModel(),
-    onPlaceClick: (Long) -> Unit = {},
-    onNavTabSelected: (BottomNavTab) -> Unit = {}
+    onPlaceClick: (Long) -> Unit = {}
 ) {
     val places by viewModel.places.collectAsState()
     val routes by viewModel.routes.collectAsState()
@@ -214,13 +211,6 @@ fun PlaceSearchScreen(
                 }
             }
         }
-
-        // ===== 하단 네비게이션 바 =====
-        BottomNavBar(
-            selectedTab = BottomNavTab.SEARCH,
-            onTabSelected = onNavTabSelected,
-            modifier = Modifier.align(Alignment.BottomCenter)
-        )
     }
 }
 

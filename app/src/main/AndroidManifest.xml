@@ -3,6 +3,7 @@
     xmlns:tools="http://schemas.android.com/tools">
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" /> <!-- 네이버 지도 SDK 필수 -->
 
     <application
         android:allowBackup="true"
@@ -11,13 +12,12 @@
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"
         android:label="@string/app_name"
+        android:networkSecurityConfig="@xml/network_security_config"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.Tripping">
 
-        <meta-data
-            android:name="com.naver.maps.map.CLIENT_ID"
-            android:value="lc2jzo6cm8" />
+        <!-- 네이버 클라우드 플랫폼(NCP)에서 발급받은 Client ID (Dynamic Map API) -->
         <meta-data
             android:name="com.naver.maps.map.NCP_KEY_ID"
             android:value="lc2jzo6cm8" />

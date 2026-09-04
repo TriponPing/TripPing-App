@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    안드로이드는 기본적으로 http(암호화 안 된 통신)를 막습니다.
+    로컬 백엔드 서버(에뮬레이터 기준 10.0.2.2, 실기기 테스트 시 PC IP)만 예외로 허용해줍니다.
+    TODO: 나중에 서버가 https 붙으면 이 파일이랑 매니페스트의 networkSecurityConfig 줄 지워도 됨.
+-->
+<network-security-config>
+    <domain-config cleartextTrafficPermitted="true">
+        <domain includeSubdomains="true">10.0.2.2</domain>
+        <domain includeSubdomains="true">localhost</domain>
+    </domain-config>
+</network-security-config>
