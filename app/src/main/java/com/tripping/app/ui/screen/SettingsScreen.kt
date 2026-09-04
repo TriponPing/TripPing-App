@@ -1,5 +1,10 @@
 package com.tripping.app.ui.screen
 
+import android.graphics.BitmapFactory
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -8,6 +13,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -18,12 +24,19 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tripping.app.viewmodel.MyPageViewModel
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 // ===== 마이페이지 설정 화면 (마이페이지 오른쪽 위 톱니바퀴) =====
 // 프로필(닉네임/레벨)은 실제 API(GET /users/me) 연동됨.
@@ -31,7 +44,7 @@ import com.tripping.app.viewmodel.MyPageViewModel
 // TODO: 뱃지 API 생기면 badges 목록/꺼낼 뱃지 선택 상태를 서버에서 받아오도록 교체.
 
 private val ColorBackground = Color(0xFFF8F8FC)
-private val ColorLevelChipBg = Color(0xFFD9D9D9)
+private val ColorAccentBlue = Color(0xFF0074CE) // 앱 전반에서 쓰는 포인트 블루
 private val ColorBadgeCircleBg = Color(0xFFEFF3F8)
 private val ColorFeaturedTrayBg = Color(0xFFE3E3E3)
 
@@ -54,6 +67,29 @@ fun SettingsScreen(
     val profile by viewModel.profile.collectAsState()
 
     var showLogoutDialog by remember { mutableStateOf(false) }
+
+    // 프로필 사진 - 갤러리에서 고른 사진 로컬 미리보기 (TODO: 백엔드에 프로필 사진 업로드 API 생기면 여기서 실제 업로드 연결)
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    var pickedProfileImage by remember { mutableStateOf<ImageBitmap?>(null) }
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            coroutineScope.launch(Dispatchers.IO) {
+                val bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
+                    BitmapFactory.decodeStream(stream)
+                }
+                withContext(Dispatchers.Main) {
+                    pickedProfileImage = bitmap?.asImageBitmap()
+                }
+            }
+        }
+    }
+
+    // 뱃지 중에 마이페이지 프로필 영역에 실제로 노출할("꺼낼") 뱃지 id 집합
+    // TODO: 뱃지 API 생기면 서버에 저장/조회하도록 교체. 지금은 화면 안에서만 유지(초기값 = 전부 노출).
+    var featuredBadgeIds by remember { mutableStateOf(earnedBadges.map { it.id }.toSet()) }
 
     Column(
         modifier = Modifier
@@ -88,7 +124,7 @@ fun SettingsScreen(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Box {
-                    // 아바타 (TODO: 실제 프로필 이미지로 교체 - GET /users/me의 profileImage)
+                    // 아바타 (TODO: 실제 프로필 이미지로 교체/업로드 - GET·PATCH /users/me의 profileImage)
                     Box(
                         modifier = Modifier
                             .size(88.dp)
@@ -96,16 +132,32 @@ fun SettingsScreen(
                             .background(Color(0xFFE8EEF5)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(text = "👤", fontSize = 40.sp)
+                        val picked = pickedProfileImage
+                        if (picked != null) {
+                            Image(
+                                bitmap = picked,
+                                contentDescription = "프로필 사진",
+                                contentScale = ContentScale.Crop,
+                                modifier = Modifier
+                                    .fillMaxSize()
+                                    .clip(CircleShape)
+                            )
+                        } else {
+                            Text(text = "👤", fontSize = 40.sp)
+                        }
                     }
-                    // 프로필 사진 수정 - 텍스트 대신 사진 오른쪽 아래에 연필 아이콘으로
+                    // 프로필 사진 수정 - 텍스트 대신 사진 오른쪽 아래에 연필 아이콘으로. 누르면 갤러리(사진 선택기) 열림.
                     Box(
                         modifier = Modifier
                             .align(Alignment.BottomEnd)
                             .size(28.dp)
                             .clip(CircleShape)
                             .background(Color.White)
-                            .clickable { /* TODO: 프로필 사진 수정 */ },
+                            .clickable {
+                                photoPickerLauncher.launch(
+                                    PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                                )
+                            },
                         contentAlignment = Alignment.Center
                     ) {
                         Icon(
@@ -123,13 +175,13 @@ fun SettingsScreen(
                     Box(
                         modifier = Modifier
                             .clip(RoundedCornerShape(11.dp))
-                            .background(ColorLevelChipBg)
+                            .background(ColorAccentBlue)
                             .padding(horizontal = 10.dp, vertical = 3.dp)
                     ) {
                         Text(
                             text = profile?.level?.let { "Lv.$it" } ?: "-",
                             fontSize = 13.sp,
-                            color = ColorTextPrimary
+                            color = Color.White
                         )
                     }
                     Spacer(modifier = Modifier.width(8.dp))
@@ -152,6 +204,7 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(32.dp))
 
             // ===== 뱃지 - 늘어날 때마다 이 공간이 알아서 줄바꿈하면서 정렬됨 =====
+            // 체크 표시된 뱃지 = 아래 "꺼낼 뱃지"에 노출 중인 뱃지. 눌러서 켜고 끌 수 있음.
             Text(text = "뱃지", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
             Spacer(modifier = Modifier.height(12.dp))
             FlowRow(
@@ -159,12 +212,24 @@ fun SettingsScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier.fillMaxWidth()
             ) {
-                earnedBadges.forEach { badge -> BadgeItem(badge) }
+                earnedBadges.forEach { badge ->
+                    BadgeItem(
+                        badge = badge,
+                        selected = badge.id in featuredBadgeIds,
+                        onClick = {
+                            featuredBadgeIds = if (badge.id in featuredBadgeIds) {
+                                featuredBadgeIds - badge.id
+                            } else {
+                                featuredBadgeIds + badge.id
+                            }
+                        }
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // ===== 꺼낼 뱃지 - 마이페이지 프로필 영역에 실제로 보여줄 뱃지 (지금은 전부 다 보여주는 중) =====
+            // ===== 꺼낼 뱃지 - 마이페이지 프로필 영역에 실제로 보여줄 뱃지. 눌러서 빼면 위 "뱃지" 목록 체크도 같이 풀림 =====
             Text(text = "꺼낼 뱃지", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
             Spacer(modifier = Modifier.height(12.dp))
             Box(
@@ -174,12 +239,27 @@ fun SettingsScreen(
                     .background(ColorFeaturedTrayBg)
                     .padding(16.dp)
             ) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    earnedBadges.forEach { badge -> BadgeItem(badge) }
+                val featuredBadges = earnedBadges.filter { it.id in featuredBadgeIds }
+                if (featuredBadges.isEmpty()) {
+                    Text(
+                        text = "위 뱃지 목록에서 눌러서 대표 뱃지로 꺼내보세요",
+                        fontSize = 12.sp,
+                        color = ColorTextSecondary
+                    )
+                } else {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        featuredBadges.forEach { badge ->
+                            BadgeItem(
+                                badge = badge,
+                                selected = true,
+                                onClick = { featuredBadgeIds = featuredBadgeIds - badge.id }
+                            )
+                        }
+                    }
                 }
             }
 
@@ -223,19 +303,35 @@ fun SettingsScreen(
 }
 
 @Composable
-private fun BadgeItem(badge: ProfileBadge) {
+private fun BadgeItem(badge: ProfileBadge, selected: Boolean, onClick: () -> Unit) {
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
-        modifier = Modifier.width(56.dp)
+        modifier = Modifier
+            .width(56.dp)
+            .clickable { onClick() }
     ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .clip(CircleShape)
-                .background(ColorBadgeCircleBg),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(text = badge.emoji, fontSize = 20.sp)
+        Box {
+            Box(
+                modifier = Modifier
+                    .size(48.dp)
+                    .clip(CircleShape)
+                    .background(ColorBadgeCircleBg),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = badge.emoji, fontSize = 20.sp)
+            }
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Filled.CheckCircle,
+                    contentDescription = "꺼낸 뱃지",
+                    tint = ColorAccentBlue,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                )
+            }
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
