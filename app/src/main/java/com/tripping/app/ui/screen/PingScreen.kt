@@ -29,7 +29,9 @@ fun PingScreen(
 ) {
     var selectedTab by remember { mutableStateOf(PingTab.RECORD) }
 
-    Scaffold { innerPadding ->
+    // containerColor 명시 안 하면 Material3 기본 배경(연한 보라)이 쓰여서, 리스트 내용이 짧을 때
+    // 하단 네비바 위로 그 색이 띠처럼 삐져나와 보임 -> 흰색으로 고정
+    Scaffold(containerColor = Color.White) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
