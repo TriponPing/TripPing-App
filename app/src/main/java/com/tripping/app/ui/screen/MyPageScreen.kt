@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -54,6 +56,7 @@ private fun TripSummaryResponse.toCardModel(): MyPageTripCard = MyPageTripCard(
 private fun SavedRouteResponse.toCardModel(): MyPageTripCard = MyPageTripCard(
     title = representativeSpotName ?: "여행 기록",
     dateRange = travelDate,
+    pingCount = placeCount,
     isSaved = true,
     routeId = tripId
 )
@@ -101,7 +104,8 @@ fun MyPageScreen(
                 else -> SavedTripTab(
                     savedTrips = savedRoutes.map { it.toCardModel() },
                     total = savedRoutesTotal,
-                    onCancelSave = { routeId -> viewModel.unsaveRoute(routeId) }
+                    onCancelSave = { routeId -> viewModel.unsaveRoute(routeId) },
+                    onOpenTripDetail = onOpenTripDetail
                 )
             }
         }
@@ -290,7 +294,8 @@ private fun TripRecordTab(
 private fun SavedTripTab(
     savedTrips: List<MyPageTripCard>,
     total: Int,
-    onCancelSave: (Long) -> Unit
+    onCancelSave: (Long) -> Unit,
+    onOpenTripDetail: (Long, String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -305,7 +310,12 @@ private fun SavedTripTab(
                 color = ColorTextSecondary,
                 modifier = Modifier.weight(1f)
             )
-            Text(text = "🔖", fontSize = 14.sp)
+            Icon(
+                imageVector = Icons.Outlined.BookmarkBorder,
+                contentDescription = null,
+                tint = ColorTextPrimary,
+                modifier = Modifier.size(16.dp)
+            )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = total.toString(),
@@ -326,6 +336,7 @@ private fun SavedTripTab(
                 items(savedTrips) { trip ->
                     SavedTripCard(
                         trip = trip,
+                        onClick = { trip.routeId?.let { onOpenTripDetail(it, trip.title) } },
                         onCancelSave = {
                             trip.routeId?.let(onCancelSave)
                         }
@@ -359,29 +370,47 @@ private fun SectionHeader(title: String, actionLabel: String, onActionClick: () 
 }
 
 @Composable
-private fun SavedTripCard(trip: MyPageTripCard, onCancelSave: () -> Unit) {
-    Row(
+private fun SavedTripCard(trip: MyPageTripCard, onClick: () -> Unit, onCancelSave: () -> Unit) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
             .border(1.dp, ColorCardBorder, RoundedCornerShape(16.dp))
-            .padding(16.dp),
-        verticalAlignment = Alignment.Top
+            .clickable { onClick() }
+            .padding(16.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = trip.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(text = trip.dateRange, fontSize = 12.sp, color = ColorTextSecondary)
-            Spacer(modifier = Modifier.height(12.dp))
-            RoutePreviewDots()
+        Row(verticalAlignment = Alignment.Top) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = trip.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(text = trip.dateRange, fontSize = 12.sp, color = ColorTextSecondary)
+            }
+            Icon(
+                imageVector = Icons.Outlined.BookmarkBorder,
+                contentDescription = "저장 취소",
+                tint = ColorTextPrimary,
+                modifier = Modifier
+                    .size(20.dp)
+                    .clickable { onCancelSave() }
+            )
         }
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = "🔖",
-            fontSize = 18.sp,
-            modifier = Modifier.clickable { onCancelSave() }
-        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RoutePreviewDots(modifier = Modifier.weight(1f), count = trip.pingCount ?: 4)
+            if (trip.pingCount != null || trip.duration != null) {
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    trip.pingCount?.let {
+                        Text(text = "핑 ${it}개", fontSize = 12.sp, color = ColorTextSecondary)
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                    trip.duration?.let {
+                        Text(text = it, fontSize = 12.sp, color = ColorTextSecondary)
+                    }
+                }
+            }
+        }
     }
 }
 

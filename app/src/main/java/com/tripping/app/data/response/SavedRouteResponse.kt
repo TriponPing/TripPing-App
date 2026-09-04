@@ -8,5 +8,6 @@ data class SavedRouteResponse(
     val memberCount: Int?,
     val representativeSpotName: String?,
     val representativeImageUrl: String?,
+    val placeCount: Int?, // 이 루트에 포함된 방문 장소(스팟) 개수 - "핑 N개" 표시용
     val savedAt: String
 )
