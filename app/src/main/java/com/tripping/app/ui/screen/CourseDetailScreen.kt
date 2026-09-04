@@ -16,12 +16,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.naver.maps.geometry.LatLng
-import com.naver.maps.geometry.LatLngBounds
-import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.overlay.PathOverlay
 import com.tripping.app.ui.component.NaverMapContainer
+import com.tripping.app.ui.component.cameraUpdateToShowAll
 import com.tripping.app.viewmodel.MyPageViewModel
 
 // ===== 코스(저장된거/그린거) 상세보기 화면 =====
@@ -90,9 +89,7 @@ fun CourseDetailScreen(
             overlayObjects.add(marker)
         }
 
-        LatLngBounds.fromOrNull(spotLatLngs)?.let { bounds ->
-            map.moveCamera(CameraUpdate.fitBounds(bounds, 150))
-        }
+        cameraUpdateToShowAll(spotLatLngs)?.let { map.moveCamera(it) }
     }
 
     val title = detail?.spots?.firstOrNull()?.spotName ?: fallbackTitle ?: "코스 상세"

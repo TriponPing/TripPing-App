@@ -19,13 +19,13 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.naver.maps.geometry.LatLng
-import com.naver.maps.geometry.LatLngBounds
 import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.overlay.PathOverlay
 import com.tripping.app.data.response.MapPinResponse
 import com.tripping.app.ui.component.NaverMapContainer
+import com.tripping.app.ui.component.cameraUpdateToShowAll
 import com.tripping.app.viewmodel.MyPageViewModel
 import kotlinx.coroutines.delay
 
@@ -85,9 +85,7 @@ fun MyMapDetailScreen(
         }
 
         val points = pins.mapNotNull { p -> p.latitude?.let { la -> p.longitude?.let { lo -> LatLng(la, lo) } } }
-        LatLngBounds.fromOrNull(points)?.let { bounds ->
-            map.moveCamera(CameraUpdate.fitBounds(bounds, 120))
-        }
+        cameraUpdateToShowAll(points)?.let { map.moveCamera(it) }
     }
 
     // ── "여행 보기" - 선택된 핀 하나의 전체 경로(방문 순서대로) ──
@@ -147,9 +145,7 @@ fun MyMapDetailScreen(
             tripOverlayObjects.add(marker)
         }
 
-        LatLngBounds.fromOrNull(spotLatLngs)?.let { bounds ->
-            map.moveCamera(CameraUpdate.fitBounds(bounds, 150))
-        }
+        cameraUpdateToShowAll(spotLatLngs)?.let { map.moveCamera(it) }
     }
 
     // ── "내가 그린 루트 보기" - 저장한 루트(SAVED) 전체를 라인으로 표시, 각 루트 클릭 가능 ──

@@ -24,12 +24,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.naver.maps.geometry.LatLng
-import com.naver.maps.geometry.LatLngBounds
-import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 import com.tripping.app.R
 import com.tripping.app.data.response.MapPinResponse
+import com.tripping.app.ui.component.cameraUpdateToShowAll
 import com.tripping.app.data.response.SavedRouteResponse
 import com.tripping.app.data.response.TripSummaryResponse
 import com.tripping.app.ui.component.NaverMapContainer
@@ -448,9 +447,7 @@ private fun MyMapPreviewCard(
             }
 
             val points = pins.mapNotNull { p -> p.latitude?.let { la -> p.longitude?.let { lo -> LatLng(la, lo) } } }
-            LatLngBounds.fromOrNull(points)?.let { bounds ->
-                map.moveCamera(CameraUpdate.fitBounds(bounds, 80))
-            }
+            cameraUpdateToShowAll(points, paddingPx = 80, fallbackZoom = 14.0)?.let { map.moveCamera(it) }
         }
 
         Box(

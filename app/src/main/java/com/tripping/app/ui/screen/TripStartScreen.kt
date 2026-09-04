@@ -15,12 +15,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.naver.maps.geometry.LatLng
-import com.naver.maps.geometry.LatLngBounds
-import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.overlay.PathOverlay
 import com.tripping.app.ui.component.NaverMapContainer
+import com.tripping.app.ui.component.cameraUpdateToShowAll
 import com.tripping.app.viewmodel.MyPageViewModel
 
 // ===== "여행 바로 시작하기" 다음 페이지 =====
@@ -74,7 +73,7 @@ fun TripStartScreen(
                 modifier = Modifier.fillMaxSize(),
                 spotLatLngs = sortedSpotLatLngs,
                 interactive = true,
-                cameraPadding = 150
+                cameraPadding = 200
             )
 
             // 우측 하단: 미니 지도 미리보기 + 여행 계획 수정하기 버튼
@@ -157,9 +156,7 @@ private fun RouteMap(
             overlayObjects.add(marker)
         }
 
-        LatLngBounds.fromOrNull(spotLatLngs)?.let { bounds ->
-            map.moveCamera(CameraUpdate.fitBounds(bounds, cameraPadding))
-        }
+        cameraUpdateToShowAll(spotLatLngs, paddingPx = cameraPadding)?.let { map.moveCamera(it) }
     }
 
     NaverMapContainer(
