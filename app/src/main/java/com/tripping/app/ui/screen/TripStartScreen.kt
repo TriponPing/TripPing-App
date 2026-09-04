@@ -19,6 +19,7 @@ import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.overlay.PathOverlay
 import com.tripping.app.ui.component.NaverMapContainer
+import com.tripping.app.ui.component.applyPingIcon
 import com.tripping.app.ui.component.cameraUpdateToShowAll
 import com.tripping.app.viewmodel.MyPageViewModel
 
@@ -154,7 +155,7 @@ private fun RouteMap(
                 if (interactive) {
                     captionText = "${idx + 1}"
                 }
-                iconTintColor = android.graphics.Color.parseColor("#0074CE")
+                applyPingIcon()
                 this.map = map
             }
             overlayObjects.add(marker)

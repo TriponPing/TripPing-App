@@ -20,6 +20,7 @@ import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.overlay.PathOverlay
 import com.tripping.app.ui.component.NaverMapContainer
+import com.tripping.app.ui.component.applyPingIcon
 import com.tripping.app.ui.component.cameraUpdateToShowAll
 import com.tripping.app.viewmodel.MyPageViewModel
 
@@ -84,7 +85,7 @@ fun CourseDetailScreen(
             val marker = Marker().apply {
                 position = LatLng(la, lo)
                 captionText = "${spot.visitOrder ?: (idx + 1)}. ${spot.spotName ?: ""}"
-                iconTintColor = android.graphics.Color.parseColor("#0074CE")
+                applyPingIcon()
                 this.map = map
             }
             overlayObjects.add(marker)

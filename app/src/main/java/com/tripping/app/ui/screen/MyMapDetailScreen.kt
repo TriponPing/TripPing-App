@@ -25,6 +25,7 @@ import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.overlay.PathOverlay
 import com.tripping.app.data.response.MapPinResponse
 import com.tripping.app.ui.component.NaverMapContainer
+import com.tripping.app.ui.component.applyPingIcon
 import com.tripping.app.ui.component.cameraUpdateToShowAll
 import com.tripping.app.viewmodel.MyPageViewModel
 import kotlinx.coroutines.delay
@@ -71,8 +72,7 @@ fun MyMapDetailScreen(
             val marker = Marker().apply {
                 position = LatLng(lat, lng)
                 captionText = pin.representativeSpotName ?: "여행 ${index + 1}"
-                iconTintColor = if (pin.type.equals("SAVED", ignoreCase = true))
-                    AndroidColor.parseColor("#FF7A3D") else AndroidColor.parseColor("#0074CE")
+                applyPingIcon()
                 setOnClickListener {
                     selectedPin = pin
                     showTripOverlay = true
@@ -135,7 +135,7 @@ fun MyMapDetailScreen(
             val marker = Marker().apply {
                 position = LatLng(la, lo)
                 captionText = "${spot.visitOrder ?: (idx + 1)}. ${spot.spotName ?: ""}"
-                iconTintColor = lineColor
+                applyPingIcon()
                 setOnClickListener {
                     clickedName = spot.spotName
                     true

@@ -1,6 +1,5 @@
 package com.tripping.app.ui.screen
 
-import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -28,10 +27,11 @@ import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 import com.tripping.app.R
 import com.tripping.app.data.response.MapPinResponse
-import com.tripping.app.ui.component.cameraUpdateToShowAll
 import com.tripping.app.data.response.SavedRouteResponse
 import com.tripping.app.data.response.TripSummaryResponse
 import com.tripping.app.ui.component.NaverMapContainer
+import com.tripping.app.ui.component.applyPingIcon
+import com.tripping.app.ui.component.cameraUpdateToShowAll
 import com.tripping.app.viewmodel.MyPageViewModel
 
 // ===== 마이페이지 화면 - Figma 디자인 기준 =====
@@ -439,8 +439,7 @@ private fun MyMapPreviewCard(
                 val lng = pin.longitude ?: return@forEach
                 val marker = Marker().apply {
                     position = LatLng(lat, lng)
-                    iconTintColor = if (pin.type.equals("SAVED", ignoreCase = true))
-                        AndroidColor.parseColor("#FF7A3D") else AndroidColor.parseColor("#0074CE")
+                    applyPingIcon()
                     this.map = map
                 }
                 pinMarkers.add(marker)

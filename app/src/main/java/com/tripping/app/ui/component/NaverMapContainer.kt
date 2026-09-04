@@ -1,5 +1,6 @@
 package com.tripping.app.ui.component
 
+import android.graphics.PointF
 import android.os.Bundle
 import android.view.View
 import androidx.compose.runtime.Composable
@@ -18,6 +19,9 @@ import com.naver.maps.geometry.LatLngBounds
 import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
+import com.naver.maps.map.overlay.Marker
+import com.naver.maps.map.overlay.OverlayImage
+import com.tripping.app.R
 import kotlin.math.abs
 
 /**
@@ -93,4 +97,13 @@ fun cameraUpdateToShowAll(
     } else {
         CameraUpdate.fitBounds(bounds, paddingPx)
     }
+}
+
+// 지도에 찍는 핑 마커 아이콘 - 앱 전체에서 이거 하나로 통일해서 씀 (Ping 화면이랑 같은 blueping.png).
+// 기본 눈물방울 모양 핀 대신 이 원형 아이콘을 쓰고, anchor를 가운데로 맞춰서 좌표 위치에 원 중심이 오게 함.
+private val PingMarkerIcon: OverlayImage by lazy { OverlayImage.fromResource(R.drawable.blueping) }
+
+fun Marker.applyPingIcon() {
+    icon = PingMarkerIcon
+    anchor = PointF(0.5f, 0.5f)
 }
