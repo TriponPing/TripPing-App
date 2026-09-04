@@ -10,11 +10,10 @@ import retrofit2.converter.scalars.ScalarsConverterFactory
 
 object RetrofitClient {
 
-    private const val BASE_URL = "http://10.0.2.2:8080/" // 에뮬레이터 기준, 실기기는 PC IP로 변경
+    private const val BASE_URL = "http://10.0.2.2:8080/"
 
     private lateinit var cookieJar: SessionCookieJar
 
-    /** 앱 시작 시(MainActivity onCreate) 딱 한 번 호출해서 Context를 넘겨줘야 함 */
     fun init(context: Context) {
         if (!::cookieJar.isInitialized) {
             cookieJar = SessionCookieJar(context)
@@ -44,8 +43,10 @@ object RetrofitClient {
     }
 
     val authApi: AuthApi by lazy { retrofit.create(AuthApi::class.java) }
-
     val myPageApi: MyPageApi by lazy { retrofit.create(MyPageApi::class.java) }
+    val pingApi: PingApi by lazy { retrofit.create(PingApi::class.java) }
+    val placeApi: PlaceApi by lazy { retrofit.create(PlaceApi::class.java) }
+    val routeApi: RouteApi by lazy { retrofit.create(RouteApi::class.java) }
 
     /** 로그아웃 시 세션 쿠키 삭제 */
     fun clearSession() {
@@ -53,6 +54,4 @@ object RetrofitClient {
             cookieJar.clear()
         }
     }
-
-    val pingApi: PingApi by lazy { retrofit.create(PingApi::class.java) }
 }

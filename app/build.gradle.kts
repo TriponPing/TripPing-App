@@ -73,6 +73,10 @@ dependencies {
     // 이게 있으면 MainActivity를 계속 안 건드리고, 새 화면을 자유롭게 추가/연결할 수 있음
     implementation("androidx.navigation:navigation-compose:2.8.5")
 
+    // ===== 아이콘 - 관광지 검색 등 화면에서 사용 =====
+    implementation("androidx.compose.material:material-icons-extended:1.7.6")
+
     // ===== 네이버 지도 SDK - "나의 여행 지도" 화면에서 사용 =====
     implementation("com.naver.maps:map-sdk:3.23.3")
+    implementation("io.github.fornewid:naver-map-compose:1.9.0")
 }

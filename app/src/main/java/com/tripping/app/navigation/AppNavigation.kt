@@ -21,6 +21,7 @@ import com.tripping.app.ui.screen.MyMapDetailScreen
 import com.tripping.app.ui.screen.MyPageScreen
 import com.tripping.app.ui.screen.PingScreen
 import com.tripping.app.ui.screen.SignUpScreen
+import com.tripping.app.ui.screen.PlaceSearchScreen
 import com.tripping.app.ui.screen.TripHistoryScreen
 import com.tripping.app.viewmodel.AuthState
 import com.tripping.app.viewmodel.AuthViewModel
@@ -32,7 +33,8 @@ private val bottomBarRoutes = mapOf(
     "mypage" to AppBottomNavTab.MY,
     "trip_history" to AppBottomNavTab.MY,
     "my_map_detail" to AppBottomNavTab.MY,
-    "ping" to AppBottomNavTab.PING
+    "ping" to AppBottomNavTab.PING,
+    "placeSearch" to AppBottomNavTab.SEARCH
 )
 
 // 바텀 탭 전환 공통 로직: 이미 떠 있는 화면 재사용 + 백스택 중복 쌓임 방지
@@ -59,7 +61,7 @@ fun AppNavigation() {
                 AppBottomNavBar(
                     selectedTab = currentTab,
                     onHomeClick = { navigateToTab(navController, "home") },
-                    onSearchClick = { /* TODO: 탐색 화면 아직 없음 */ },
+                    onSearchClick = { navigateToTab(navController, "placeSearch") },
                     onRouteClick = { /* TODO: 루트 화면 아직 없음 */ },
                     onPingClick = { navigateToTab(navController, "ping") },
                     onMyClick = { navigateToTab(navController, "mypage") }
@@ -79,8 +81,6 @@ fun AppNavigation() {
                 LaunchedEffect(loginState) {
                     if (loginState is AuthState.Success) {
                         navController.navigate("home") {
-                            // 로그인 화면을 백스택에서 제거
-                            // → 홈 화면에서 뒤로가기 눌러도 로그인 화면으로 안 돌아가고 앱 종료됨
                             popUpTo("login") { inclusive = true }
                         }
                     }
@@ -104,7 +104,6 @@ fun AppNavigation() {
 
                 LaunchedEffect(signUpState) {
                     if (signUpState is AuthState.Success) {
-                        // 회원가입 성공 -> 로그인 화면으로 돌아가서 로그인하게 함
                         navController.popBackStack()
                     }
                 }
@@ -125,6 +124,17 @@ fun AppNavigation() {
                 HomeScreen(
                     onGoToMyPageClick = {
                         navigateToTab(navController, "mypage")
+                    },
+                    onNavigateToPlaceSearch = {
+                        navigateToTab(navController, "placeSearch")
+                    }
+                )
+            }
+
+            composable("placeSearch") {
+                PlaceSearchScreen(
+                    onPlaceClick = { spotId ->
+                        // TODO: 장소 상세조회 화면 만들면 여기서 이동 처리
                     }
                 )
             }
