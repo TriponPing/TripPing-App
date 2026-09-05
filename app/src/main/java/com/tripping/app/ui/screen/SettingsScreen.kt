@@ -43,7 +43,8 @@ import kotlinx.coroutines.withContext
 // ===== 마이페이지 설정 화면 (마이페이지 오른쪽 위 톱니바퀴) =====
 // 프로필(닉네임/레벨)은 실제 API(GET·PATCH /users/me) 연동됨.
 // 뱃지("뱃지"/"꺼낼 뱃지")도 실제 API(GET /users/me/badges, PUT /users/me/badges/featured) 연동됨.
-// 단, 뱃지 종류 자체(카탈로그)는 백엔드에 아직 획득 조건이 없어서 고정 2종류만 있음.
+// 단, 뱃지 종류 자체(카탈로그)는 실제 기획이 아직 없어서 지금은 비어있음(BadgeCatalog 참고) -
+// 조회/저장/꺼내기 기능만 먼저 만들어둔 상태고, 실제 뱃지가 추가되면 그대로 여기 뜸.
 
 private val ColorBackground = Color(0xFFF8F8FC)
 private val ColorAccentBlue = Color(0xFF0074CE) // 앱 전반에서 쓰는 포인트 블루
@@ -205,16 +206,20 @@ fun SettingsScreen(
             // 체크 표시된 뱃지 = 아래 "꺼낼 뱃지"에 노출 중인 뱃지. 눌러서 켜고 끌 수 있음.
             Text(text = "뱃지", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
             Spacer(modifier = Modifier.height(12.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                badges.forEach { badge ->
-                    BadgeItem(
-                        badge = badge,
-                        onClick = { viewModel.toggleFeaturedBadge(badge.code) }
-                    )
+            if (badges.isEmpty()) {
+                Text(text = "아직 획득한 뱃지가 없어요", fontSize = 12.sp, color = ColorTextSecondary)
+            } else {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    badges.forEach { badge ->
+                        BadgeItem(
+                            badge = badge,
+                            onClick = { viewModel.toggleFeaturedBadge(badge.code) }
+                        )
+                    }
                 }
             }
 
@@ -233,7 +238,11 @@ fun SettingsScreen(
                 val featuredBadges = badges.filter { it.featured }
                 if (featuredBadges.isEmpty()) {
                     Text(
-                        text = "위 뱃지 목록에서 눌러서 대표 뱃지로 꺼내보세요",
+                        text = if (badges.isEmpty()) {
+                            "아직 뱃지가 없어요"
+                        } else {
+                            "위 뱃지 목록에서 눌러서 대표 뱃지로 꺼내보세요"
+                        },
                         fontSize = 12.sp,
                         color = ColorTextSecondary
                     )
