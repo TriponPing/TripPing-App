@@ -30,12 +30,13 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import coil.compose.AsyncImage
 import com.tripping.app.R
 import com.tripping.app.data.response.CurrentTripSummaryResponse
+import com.tripping.app.data.response.PopularTripResponse
 import com.tripping.app.ui.model.HomeCourseCard
 import com.tripping.app.ui.model.HomeKeyword
 import com.tripping.app.ui.model.HomePopularPlace
-import com.tripping.app.ui.model.HomePopularRoute
 import com.tripping.app.viewmodel.HomeViewModel
 
 // ===== 색상 (피그마 파일 MRryaRzdtZqvbGJf07TqMk, node 19:2 / 108:793 / 74:3178 / 88:3521 에서 추출) =====
@@ -70,17 +71,17 @@ fun HomeScreen(
 ) {
     // [1번 섹션] 진행 중인 여행 - 실제 API(GET /trips/current-summary) 연동됨
     // [2번 섹션] 인사말 닉네임 - 실제 API(GET /auth/me) 연동됨
+    // [3번 섹션] 이번 주 인기 루트 - 실제 API(GET /trips/popular) 연동됨
     val currentTrip by viewModel.currentTrip.collectAsState()
     val nickname by viewModel.nickname.collectAsState()
+    val popularTrips by viewModel.popularTrips.collectAsState()
     LaunchedEffect(Unit) {
         viewModel.loadCurrentTrip()
         viewModel.loadNickname()
+        viewModel.loadPopularTrips()
     }
 
-    // TODO: 인기 루트/인기 장소/인기 키워드/내 주변 코스 API 나오면 mock 데이터 교체
-    val popularRoutes = remember {
-        listOf(HomePopularRoute(1, listOf("성수", "서울 숲", "한강", "뚝뚝-"), "2~3시간", "3.2만명 인기"))
-    }
+    // TODO: 인기 장소/인기 키워드/내 주변 코스 API 나오면 mock 데이터 교체
     val popularPlaces = remember {
         listOf(
             HomePopularPlace(1, "해운대", "부산"),
@@ -139,8 +140,19 @@ fun HomeScreen(
         item { SectionHeader(title = "이번 주 인기 루트", showSeeAll = true, onSeeAllClick = onSeeAllPopularRoutes) }
         item { Spacer(modifier = Modifier.height(16.dp)) }
         item {
-            Box(modifier = Modifier.padding(horizontal = HomeScreenHorizontalPadding, vertical = 4.dp)) {
-                PopularRouteCard(popularRoutes.first())
+            val topRoute = popularTrips.firstOrNull()
+            if (topRoute != null) {
+                Box(modifier = Modifier.padding(horizontal = HomeScreenHorizontalPadding, vertical = 4.dp)) {
+                    PopularRouteCard(topRoute)
+                }
+            } else {
+                Text(
+                    text = "아직 이번 주 인기 루트가 없어요",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = HomeGrayText,
+                    modifier = Modifier.padding(horizontal = HomeScreenHorizontalPadding, vertical = 4.dp)
+                )
             }
         }
         item { Spacer(modifier = Modifier.height(28.dp)) }
@@ -380,37 +392,51 @@ private fun SectionHeader(title: String, showSeeAll: Boolean, onSeeAllClick: () 
 }
 
 // ===== "이번 주 인기 루트" 카드: 사진 위에 정거장 점 오버레이 + 사진 하단과 겹치는 흰색 정보 패널 =====
+// route.stopNames/photoUrl은 실제 API(GET /trips/popular) 응답. 소요시간(durationLabel)은 DB에
+// 저장되는 데이터가 없어서(팀 논의 결과) 라벨 자체를 뺐음 - 지어내지 않음.
 @Composable
-private fun PopularRouteCard(route: HomePopularRoute) {
+private fun PopularRouteCard(route: PopularTripResponse) {
     Box(modifier = Modifier.fillMaxWidth().height(164.dp)) {
-        Image(
-            painter = painterResource(R.drawable.home_popular_route_photo),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(148.dp)
-                .align(Alignment.TopStart)
-                .clip(RoundedCornerShape(8.dp))
-        )
+        val photoModifier = Modifier
+            .fillMaxWidth()
+            .height(148.dp)
+            .align(Alignment.TopStart)
+            .clip(RoundedCornerShape(8.dp))
+        if (!route.photoUrl.isNullOrBlank()) {
+            AsyncImage(
+                model = route.photoUrl,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = photoModifier
+            )
+        } else {
+            Image(
+                painter = painterResource(R.drawable.home_popular_route_photo),
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
+                modifier = photoModifier
+            )
+        }
 
         // 사진 위 정거장 점 + 연결선 - 아래 이름 행(가로 패딩 15dp)과 같은 기준으로 맞춰야 점과 이름이 정렬됨
-        Box(
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .offset(y = 60.dp)
-                .fillMaxWidth()
-                .padding(horizontal = 15.dp)
-        ) {
+        if (route.stopNames.isNotEmpty()) {
             Box(
                 modifier = Modifier
-                    .align(Alignment.CenterStart)
+                    .align(Alignment.TopStart)
+                    .offset(y = 60.dp)
                     .fillMaxWidth()
-                    .height(3.dp)
-                    .background(HomeAccentBlue)
-            )
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                repeat(route.stops.size) { StepDot() }
+                    .padding(horizontal = 15.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.CenterStart)
+                        .fillMaxWidth()
+                        .height(3.dp)
+                        .background(HomeAccentBlue)
+                )
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    repeat(route.stopNames.size) { StepDot() }
+                }
             }
         }
 
@@ -425,21 +451,36 @@ private fun PopularRouteCard(route: HomePopularRoute) {
                 .background(Color.White)
                 .padding(horizontal = 9.dp, vertical = 17.dp)
         ) {
-            // 이 행만 좌우 6dp를 더 줘서(기본 9dp + 6dp = 15dp) 위 점 행과 동일한 가로 기준으로 정렬함
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                route.stops.forEach { stop ->
-                    Text(text = stop, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HomeTextPrimary)
+            if (route.stopNames.isNotEmpty()) {
+                // 이 행만 좌우 6dp를 더 줘서(기본 9dp + 6dp = 15dp) 위 점 행과 동일한 가로 기준으로 정렬함
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    route.stopNames.forEach { stop ->
+                        Text(text = stop, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HomeTextPrimary)
+                    }
                 }
+            } else {
+                Text(
+                    text = "등록된 Ping 기록이 없어요",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = HomeGrayText
+                )
             }
             Spacer(modifier = Modifier.height(13.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(text = route.popularityLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = HomeAccentBlue)
-                Text(text = route.durationLabel, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = HomeGrayText)
-            }
+            Text(text = formatPopularityLabel(route.savedCount), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = HomeAccentBlue)
         }
+    }
+}
+
+// 백엔드는 저장(찜) 개수(savedCount)만 내려줘서, 표시용 문구("3.2만명 인기" / "12명 인기")로 프론트에서 포맷팅함.
+private fun formatPopularityLabel(savedCount: Long): String {
+    return if (savedCount >= 10000) {
+        "%.1f만명 인기".format(savedCount / 10000.0)
+    } else {
+        "${savedCount}명 인기"
     }
 }
 

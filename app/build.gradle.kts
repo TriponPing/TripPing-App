@@ -79,4 +79,7 @@ dependencies {
     // ===== 네이버 지도 SDK - "나의 여행 지도" 화면에서 사용 =====
     implementation("com.naver.maps:map-sdk:3.23.3")
     implementation("io.github.fornewid:naver-map-compose:1.9.0")
+
+    // ===== Coil - 백엔드가 내려주는 실제 이미지 URL(TouristSpot.imageUrl 등)을 로드할 때 사용 =====
+    implementation("io.coil-kt:coil-compose:2.7.0")
 }
