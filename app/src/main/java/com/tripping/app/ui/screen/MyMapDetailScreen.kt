@@ -4,6 +4,7 @@ import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
@@ -23,7 +24,7 @@ import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.overlay.PathOverlay
-import com.tripping.app.data.response.MapPinResponse
+import com.tripping.app.data.response.MapDetailResponse
 import com.tripping.app.ui.component.NaverMapContainer
 import com.tripping.app.ui.component.applyPingIcon
 import com.tripping.app.ui.component.cameraUpdateToShowAll
@@ -33,11 +34,14 @@ import kotlinx.coroutines.delay
 // ===== 나의 여행 지도 자세히보기 화면 (마이페이지 "나의 여행 지도 > 자세히 보기") =====
 // 실제 API 연동:
 //   GET /users/me/map               -> 지도에 찍을 핀 전체 목록 (DRAWN=다녀온 여행 / SAVED=저장한 루트)
-//   GET /users/me/map/detail?type=  -> 핀(또는 루트)을 클릭했을 때 그 타입의 전체 경로
+//   GET /users/me/map/detail?type=  -> 타입별(drawn|saved) 전체 경로 - "여행 보기"/"내가 그린 루트 보기" 토글용
 //   GET /users/me/map/search        -> 코스 이름 검색
 // 지도는 네이버 지도 SDK(NCP Dynamic Map, Client ID는 AndroidManifest.xml에 등록) 사용.
+// Figma대로 상단 헤더 블록 없이 지도를 화면 꽉 채우고, 뒤로가기+검색창은 지도 위에 떠있게 배치함.
 
 private val ColorAccentBlue = Color(0xFF0074CE)
+private const val TYPE_DRAWN = "drawn"
+private const val TYPE_SAVED = "saved"
 
 @Composable
 fun MyMapDetailScreen(
@@ -53,13 +57,12 @@ fun MyMapDetailScreen(
     val searchResults by viewModel.mapSearchResults.collectAsState()
 
     var naverMap by remember { mutableStateOf<NaverMap?>(null) }
-    var selectedPin by remember { mutableStateOf<MapPinResponse?>(null) }
-    var showTripOverlay by remember { mutableStateOf(false) }        // "여행 보기"/"여행 닫기" 토글
-    var showSavedRoutesOverlay by remember { mutableStateOf(false) } // "내가 그린 루트 보기" 토글
+    var showDrawnRoutesOverlay by remember { mutableStateOf(false) } // "여행 보기" - 내가 다녀온 여행 전체 켜고 끄기
+    var showSavedRoutesOverlay by remember { mutableStateOf(false) } // "내가 그린 루트 보기" - 저장한 루트 전체 켜고 끄기
     var searchQuery by remember { mutableStateOf("") }
     var clickedName by remember { mutableStateOf<String?>(null) }
 
-    // ── 지도에 찍을 핀 전체 (pins가 바뀔 때마다 다시 그림) ──
+    // ── 지도에 찍을 핀 전체 (pins가 바뀔 때마다 다시 그림) - 탭하면 이름만 안내 ──
     val pinMarkers = remember { mutableListOf<Marker>() }
     LaunchedEffect(naverMap, pins) {
         val map = naverMap ?: return@LaunchedEffect
@@ -74,8 +77,6 @@ fun MyMapDetailScreen(
                 captionText = pin.representativeSpotName ?: "여행 ${index + 1}"
                 applyPingIcon()
                 setOnClickListener {
-                    selectedPin = pin
-                    showTripOverlay = true
                     clickedName = pin.representativeSpotName
                     true
                 }
@@ -88,101 +89,34 @@ fun MyMapDetailScreen(
         cameraUpdateToShowAll(points)?.let { map.moveCamera(it) }
     }
 
-    // ── "여행 보기" - 선택된 핀 하나의 전체 경로(방문 순서대로) ──
-    val tripOverlayObjects = remember { mutableListOf<Any>() } // Marker | PathOverlay
-    LaunchedEffect(naverMap, selectedPin, showTripOverlay, detailByType) {
-        val map = naverMap
-        tripOverlayObjects.forEach {
-            when (it) {
-                is Marker -> it.map = null
-                is PathOverlay -> it.map = null
-            }
-        }
-        tripOverlayObjects.clear()
-
-        val pin = selectedPin
-        if (map == null || pin == null || !showTripOverlay) return@LaunchedEffect
-
-        val type = pin.type.lowercase()
-        val list = detailByType[type] ?: run {
-            viewModel.loadMapDetail(type)
-            return@LaunchedEffect
-        }
-        val trip = list.find { it.tripId == pin.tripId } ?: return@LaunchedEffect
-        val sortedSpots = trip.spots.sortedBy { it.visitOrder ?: 0 }
-        val spotLatLngs = sortedSpots.mapNotNull { s -> s.latitude?.let { la -> s.longitude?.let { lo -> LatLng(la, lo) } } }
-        if (spotLatLngs.isEmpty()) return@LaunchedEffect
-
-        val lineColor = if (type == "saved") AndroidColor.parseColor("#FF7A3D") else AndroidColor.parseColor("#0074CE")
-
-        if (spotLatLngs.size >= 2) {
-            val path = PathOverlay().apply {
-                coords = spotLatLngs
-                color = lineColor
-                width = 10
-                setOnClickListener {
-                    clickedName = trip.spots.firstOrNull()?.spotName
-                    true
-                }
-                this.map = map
-            }
-            tripOverlayObjects.add(path)
-        }
-
-        sortedSpots.forEachIndexed { idx, spot ->
-            val la = spot.latitude ?: return@forEachIndexed
-            val lo = spot.longitude ?: return@forEachIndexed
-            val marker = Marker().apply {
-                position = LatLng(la, lo)
-                captionText = "${spot.visitOrder ?: (idx + 1)}. ${spot.spotName ?: ""}"
-                applyPingIcon()
-                setOnClickListener {
-                    clickedName = spot.spotName
-                    true
-                }
-                this.map = map
-            }
-            tripOverlayObjects.add(marker)
-        }
-
-        cameraUpdateToShowAll(spotLatLngs)?.let { map.moveCamera(it) }
+    // ── "여행 보기" - 내가 다녀온 여행(DRAWN) 전체를 라인으로 표시, 각 루트 클릭 가능 ──
+    val drawnRouteOverlayObjects = remember { mutableListOf<Any>() } // Marker | PathOverlay
+    LaunchedEffect(naverMap, showDrawnRoutesOverlay, detailByType) {
+        drawRouteOverlays(
+            naverMap = naverMap,
+            show = showDrawnRoutesOverlay,
+            detailByType = detailByType,
+            type = TYPE_DRAWN,
+            lineColor = AndroidColor.parseColor("#0074CE"),
+            overlayObjects = drawnRouteOverlayObjects,
+            loadIfMissing = { viewModel.loadMapDetail(TYPE_DRAWN) },
+            onClickTrip = { name -> clickedName = name }
+        )
     }
 
     // ── "내가 그린 루트 보기" - 저장한 루트(SAVED) 전체를 라인으로 표시, 각 루트 클릭 가능 ──
-    val savedRouteOverlayObjects = remember { mutableListOf<PathOverlay>() }
+    val savedRouteOverlayObjects = remember { mutableListOf<Any>() } // Marker | PathOverlay
     LaunchedEffect(naverMap, showSavedRoutesOverlay, detailByType) {
-        val map = naverMap
-        savedRouteOverlayObjects.forEach { it.map = null }
-        savedRouteOverlayObjects.clear()
-
-        if (map == null || !showSavedRoutesOverlay) return@LaunchedEffect
-
-        val list = detailByType["saved"] ?: run {
-            viewModel.loadMapDetail("saved")
-            return@LaunchedEffect
-        }
-        list.forEach { trip ->
-            val sortedSpots = trip.spots.sortedBy { it.visitOrder ?: 0 }
-            val coords = sortedSpots.mapNotNull { s -> s.latitude?.let { la -> s.longitude?.let { lo -> LatLng(la, lo) } } }
-            if (coords.size < 2) return@forEach
-            val path = PathOverlay().apply {
-                this.coords = coords
-                color = AndroidColor.parseColor("#FF7A3D")
-                width = 7
-                // 루트 클릭 시 그 루트를 선택해서 "여행 보기" 상태로 자세히 표시 -> 루트 클릭 가능 요구사항
-                setOnClickListener {
-                    val pin = pins.find { p -> p.tripId == trip.tripId && p.type.equals("SAVED", true) }
-                    if (pin != null) {
-                        selectedPin = pin
-                        showTripOverlay = true
-                        clickedName = sortedSpots.firstOrNull()?.spotName
-                    }
-                    true
-                }
-                this.map = map
-            }
-            savedRouteOverlayObjects.add(path)
-        }
+        drawRouteOverlays(
+            naverMap = naverMap,
+            show = showSavedRoutesOverlay,
+            detailByType = detailByType,
+            type = TYPE_SAVED,
+            lineColor = AndroidColor.parseColor("#FF7A3D"),
+            overlayObjects = savedRouteOverlayObjects,
+            loadIfMissing = { viewModel.loadMapDetail(TYPE_SAVED) },
+            onClickTrip = { name -> clickedName = name }
+        )
     }
 
     // 검색 디바운스 (300ms)
@@ -195,38 +129,37 @@ fun MyMapDetailScreen(
         }
     }
 
-    Column(modifier = Modifier.fillMaxSize()) {
-        // 상단바
-        Row(
+    Box(modifier = Modifier.fillMaxSize()) {
+        NaverMapContainer(
+            modifier = Modifier.fillMaxSize(),
+            onMapReady = { naverMap = it }
+        )
+
+        // 뒤로가기 + 검색창 - 헤더 블록 없이 지도 위에 공중에 떠있게 배치
+        Column(
             modifier = Modifier
+                .align(Alignment.TopCenter)
                 .fillMaxWidth()
-                .background(Color.White)
-                .clickable { onBackClick() }
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
         ) {
-            Text(text = "‹", fontSize = 20.sp, color = ColorTextPrimary)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(text = "나의 여행 지도 자세히보기", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
-        }
-
-        Box(modifier = Modifier.weight(1f)) {
-            NaverMapContainer(
-                modifier = Modifier.fillMaxSize(),
-                onMapReady = { naverMap = it }
-            )
-
-            // 검색창 + 검색 결과 드롭다운
-            Column(
-                modifier = Modifier
-                    .align(Alignment.TopCenter)
-                    .fillMaxWidth()
-                    .padding(16.dp)
-            ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .clickable { onBackClick() },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "‹", fontSize = 20.sp, color = ColorTextPrimary)
+                }
+                Spacer(modifier = Modifier.width(8.dp))
                 OutlinedTextField(
                     value = searchQuery,
                     onValueChange = { searchQuery = it },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(24.dp)),
                     placeholder = { Text("코스 이름으로 찾아보세요!", fontSize = 13.sp, color = ColorTextSecondary) },
                     singleLine = true,
                     shape = RoundedCornerShape(24.dp),
@@ -237,77 +170,138 @@ fun MyMapDetailScreen(
                         focusedContainerColor = Color.White
                     )
                 )
+            }
 
-                if (searchQuery.isNotBlank() && searchResults.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.White)
-                    ) {
-                        searchResults.forEach { result ->
-                            val icon = if (result.type.equals("SAVED", true)) "🔖" else "📍"
-                            Text(
-                                text = "$icon ${result.travelDate}",
-                                fontSize = 13.sp,
-                                color = ColorTextPrimary,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        val pin = pins.find { it.tripId == result.tripId && it.type.equals(result.type, true) }
-                                        if (pin != null) {
-                                            selectedPin = pin
-                                            showTripOverlay = true
-                                            clickedName = pin.representativeSpotName
-                                            val la = pin.latitude
-                                            val lo = pin.longitude
-                                            if (la != null && lo != null) {
-                                                naverMap?.moveCamera(CameraUpdate.scrollAndZoomTo(LatLng(la, lo), 14.0))
-                                            }
+            if (searchQuery.isNotBlank() && searchResults.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(Color.White)
+                ) {
+                    searchResults.forEach { result ->
+                        val icon = if (result.type.equals("SAVED", true)) "🔖" else "📍"
+                        Text(
+                            text = "$icon ${result.travelDate}",
+                            fontSize = 13.sp,
+                            color = ColorTextPrimary,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    val pin = pins.find { it.tripId == result.tripId && it.type.equals(result.type, true) }
+                                    if (pin != null) {
+                                        clickedName = pin.representativeSpotName
+                                        val la = pin.latitude
+                                        val lo = pin.longitude
+                                        if (la != null && lo != null) {
+                                            naverMap?.moveCamera(CameraUpdate.scrollAndZoomTo(LatLng(la, lo), 14.0))
                                         }
-                                        searchQuery = ""
                                     }
-                                    .padding(horizontal = 16.dp, vertical = 12.dp)
-                            )
-                        }
+                                    searchQuery = ""
+                                }
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
                     }
                 }
             }
+        }
 
-            // 지도 위 핀/루트를 클릭했을 때 이름 안내
-            clickedName?.let { name ->
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(top = 92.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xCC000000))
-                        .padding(horizontal = 12.dp, vertical = 6.dp)
-                ) {
-                    Text(text = name, fontSize = 12.sp, color = Color.White)
-                }
-            }
-
-            // 우측 하단 토글 버튼 2개
-            Column(
+        // 지도 위 핀/루트를 클릭했을 때 이름 안내
+        clickedName?.let { name ->
+            Box(
                 modifier = Modifier
-                    .align(Alignment.BottomEnd)
-                    .padding(16.dp),
-                horizontalAlignment = Alignment.End
+                    .align(Alignment.TopCenter)
+                    .padding(top = 92.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xCC000000))
+                    .padding(horizontal = 12.dp, vertical = 6.dp)
             ) {
-                MapToggleButton(
-                    label = if (showTripOverlay && selectedPin != null) "여행 닫기" else "여행 보기",
-                    enabled = selectedPin != null,
-                    onClick = { showTripOverlay = !showTripOverlay }
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                MapToggleButton(
-                    label = "내가 그린 루트 보기",
-                    active = showSavedRoutesOverlay,
-                    onClick = { showSavedRoutesOverlay = !showSavedRoutesOverlay }
-                )
+                Text(text = name, fontSize = 12.sp, color = Color.White)
             }
+        }
+
+        // 우측 하단 토글 버튼 2개 - 둘 다 그냥 온/오프 토글(문구는 안 바뀌고 색깔만 바뀜)
+        Column(
+            modifier = Modifier
+                .align(Alignment.BottomEnd)
+                .padding(16.dp),
+            horizontalAlignment = Alignment.End
+        ) {
+            MapToggleButton(
+                label = "여행 보기",
+                active = showDrawnRoutesOverlay,
+                onClick = { showDrawnRoutesOverlay = !showDrawnRoutesOverlay }
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            MapToggleButton(
+                label = "내가 그린 루트 보기",
+                active = showSavedRoutesOverlay,
+                onClick = { showSavedRoutesOverlay = !showSavedRoutesOverlay }
+            )
+        }
+    }
+}
+
+// "여행 보기"/"내가 그린 루트 보기" 공용 - type(drawn|saved) 전체 루트를 라인+마커로 그리거나 지움
+private suspend fun drawRouteOverlays(
+    naverMap: NaverMap?,
+    show: Boolean,
+    detailByType: Map<String, List<MapDetailResponse>>,
+    type: String,
+    lineColor: Int,
+    overlayObjects: MutableList<Any>,
+    loadIfMissing: () -> Unit,
+    onClickTrip: (String?) -> Unit
+) {
+    val map = naverMap
+    overlayObjects.forEach {
+        when (it) {
+            is Marker -> it.map = null
+            is PathOverlay -> it.map = null
+        }
+    }
+    overlayObjects.clear()
+
+    if (map == null || !show) return
+
+    val list = detailByType[type] ?: run {
+        loadIfMissing()
+        return
+    }
+
+    list.forEach { trip ->
+        val sortedSpots = trip.spots.sortedBy { it.visitOrder ?: 0 }
+        val coords = sortedSpots.mapNotNull { s -> s.latitude?.let { la -> s.longitude?.let { lo -> LatLng(la, lo) } } }
+        if (coords.isEmpty()) return@forEach
+
+        if (coords.size >= 2) {
+            val path = PathOverlay().apply {
+                this.coords = coords
+                color = lineColor
+                width = 7
+                setOnClickListener {
+                    onClickTrip(sortedSpots.firstOrNull()?.spotName)
+                    true
+                }
+                this.map = map
+            }
+            overlayObjects.add(path)
+        }
+
+        sortedSpots.forEach { spot ->
+            val la = spot.latitude ?: return@forEach
+            val lo = spot.longitude ?: return@forEach
+            val marker = Marker().apply {
+                position = LatLng(la, lo)
+                applyPingIcon()
+                setOnClickListener {
+                    onClickTrip(spot.spotName)
+                    true
+                }
+                this.map = map
+            }
+            overlayObjects.add(marker)
         }
     }
 }
@@ -315,22 +309,21 @@ fun MyMapDetailScreen(
 @Composable
 private fun MapToggleButton(
     label: String,
-    enabled: Boolean = true,
-    active: Boolean = false,
+    active: Boolean,
     onClick: () -> Unit
 ) {
     Box(
         modifier = Modifier
             .clip(RoundedCornerShape(20.dp))
             .background(if (active) ColorAccentBlue else Color.White)
-            .then(if (enabled) Modifier.clickable { onClick() } else Modifier)
+            .clickable { onClick() }
             .padding(horizontal = 16.dp, vertical = 10.dp)
     ) {
         Text(
             text = label,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
-            color = if (active) Color.White else if (enabled) ColorAccentBlue else ColorTextSecondary
+            color = if (active) Color.White else ColorAccentBlue
         )
     }
 }
