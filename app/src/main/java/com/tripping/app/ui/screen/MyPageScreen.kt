@@ -260,7 +260,7 @@ private fun TripRecordTab(
                 SectionHeader(title = "다녀온 여행", actionLabel = "자세히 보기", onActionClick = onOpenTripHistory)
                 Spacer(modifier = Modifier.height(12.dp))
                 if (trips.isEmpty()) {
-                    EmptyStateText("아직 다녀온 여행이 없어요")
+                    EmptyTripView()
                 } else {
                     trips.forEach { trip ->
                         TripCard(
@@ -278,12 +278,16 @@ private fun TripRecordTab(
             Column(modifier = Modifier.fillParentMaxHeight(0.55f)) {
                 SectionHeader(title = "나의 여행 지도", actionLabel = "자세히 보기", onActionClick = onOpenMyMap)
                 Spacer(modifier = Modifier.height(12.dp))
-                MyMapPreviewCard(
-                    pins = mapPins,
-                    visitedPlaceCount = visitedPlaceCount,
-                    onClick = onOpenMyMap,
-                    modifier = Modifier.weight(1f)
-                )
+                if (mapPins.isEmpty()) {
+                    EmptyTripView()
+                } else {
+                    MyMapPreviewCard(
+                        pins = mapPins,
+                        visitedPlaceCount = visitedPlaceCount,
+                        onClick = onOpenMyMap,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }
