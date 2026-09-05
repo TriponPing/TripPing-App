@@ -1,3 +1,4 @@
+// [파일 설명] Ping 탭 > "기록" 화면 UI. 가장 최근 다녀온 여행의 핑 타임라인을 보여주고, 그 여행 요약 카드(RouteCard)로 이동하는 진입점을 제공함.
 package com.tripping.app.ui.screen
 
 import androidx.compose.foundation.Image
@@ -23,7 +24,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tripping.app.R
 import com.tripping.app.viewmodel.PingItem
 import com.tripping.app.viewmodel.PingStatus
-import com.tripping.app.ui.viewmodel.PingViewModel
+import com.tripping.app.viewmodel.PingViewModel
 
 // ===== 색상 설정 =====
 private val BluePrimary = Color(0xFF4A72C4)
@@ -44,10 +45,9 @@ internal fun PingRecordContent(
         viewModel.loadRecentTripWithPings()
     }
 
-    val recentTrip = viewModel.recentTrip     // 여행 이름/날짜/장소수 (TripSummaryResponse)
-    val pingDtos = viewModel.pings             // 핑 목록 (List<PingDto>) - 이제 바로 참조
+    val recentTrip = viewModel.recentTrip
+    val pingDtos = viewModel.pings
 
-    // 서버 응답 데이터를 UI 모델로 변환 (pingTime 안전하게 포맷팅)
     val pingsFromDb = pingDtos.map { dto ->
         val formattedTime = try {
             if (dto.pingTime.length >= 16) dto.pingTime.substring(11, 16) else dto.pingTime

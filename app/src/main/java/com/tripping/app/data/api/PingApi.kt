@@ -1,5 +1,7 @@
+// [파일 설명] Ping(여행 중 방문 장소 기록) 관련 서버 통신 담당. 핑 등록/조회, 핑 후기 등록·수정·삭제 API를 정의함.
 package com.tripping.app.data.api
 
+import com.tripping.app.data.request.CreatePingRequest
 import com.tripping.app.data.request.PingReviewRequest
 import com.tripping.app.data.response.CurrentTripResponse
 import com.tripping.app.data.response.PingDto
@@ -17,11 +19,14 @@ interface PingApi {
     suspend fun getOngoingPings(@Path("routeId") routeId: Long): PingResponse
 
     // 방문 장소 Ping 등록
+    // ✅ 요청 바디(spotId/placeName/위경도) 추가, 반환 타입도 PingDto로 수정
     @POST("routes/{routeId}/pings")
-    suspend fun createPing(@Path("routeId") routeId: Long): PingResponse
+    suspend fun createPing(
+        @Path("routeId") routeId: Long,
+        @Body request: CreatePingRequest
+    ): PingDto
 
     // 여행 Ping 기록 조회 (완료된 여행의 전체 핑 기록)
-    // ✅ 스웨거 실제 응답은 List<PingDto> (routeId/status/travelDate 없이 핑 배열만 옴)
     @GET("trips/{routeId}/pings")
     suspend fun getTripPingHistory(@Path("routeId") routeId: Long): List<PingDto>
 
