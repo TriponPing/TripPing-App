@@ -6,6 +6,7 @@ import com.tripping.app.data.request.PingReviewRequest
 import com.tripping.app.data.response.CurrentTripResponse
 import com.tripping.app.data.response.PingDto
 import com.tripping.app.data.response.PingResponse
+import com.tripping.app.data.response.SpotPingStatsResponse
 import retrofit2.http.*
 
 interface PingApi {
@@ -52,5 +53,5 @@ interface PingApi {
     @GET("spots/{spotId}/ping-stats")
     suspend fun getSpotPingStats(
         @Path("spotId") spotId: Long
-    ): Unit
+    ): SpotPingStatsResponse
 }

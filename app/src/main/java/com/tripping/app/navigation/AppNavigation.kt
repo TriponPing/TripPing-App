@@ -1,6 +1,7 @@
 package com.tripping.app.navigation
 
 import android.net.Uri
+import android.widget.Toast
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -9,6 +10,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavType
@@ -335,6 +337,7 @@ fun AppNavigation() {
             ) { backStackEntry ->
                 val routeId = backStackEntry.arguments?.getLong("routeId") ?: 0L
                 val pingViewModel: com.tripping.app.viewmodel.PingViewModel = viewModel()
+                val context = LocalContext.current
 
                 PingPlaceSearchScreen(
                     onPlaceSelected = { place ->
@@ -345,6 +348,7 @@ fun AppNavigation() {
                             latitude = place.latitude,
                             longitude = place.longitude,
                             onSuccess = {
+                                Toast.makeText(context, "과거 여행에 추가되었습니다!", Toast.LENGTH_SHORT).show()
                                 // 핑 등록 성공 -> 코스 상세 화면으로 돌아감 (돌아가면 LaunchedEffect가 재조회해서 새 핑이 바로 보임)
                                 navController.popBackStack()
                             }

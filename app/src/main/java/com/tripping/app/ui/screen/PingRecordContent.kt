@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -276,10 +275,6 @@ internal fun RouteCard(title: String, dateText: String, pingCount: Int, onClick:
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(GrayBg)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
             Text(text = dateText, fontSize = 11.sp, color = GrayText)
