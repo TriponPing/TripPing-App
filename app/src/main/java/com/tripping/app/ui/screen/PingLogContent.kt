@@ -17,7 +17,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.tripping.app.ui.model.PingLogCourse
+import com.tripping.app.viewmodel.PingLogCourse
 
 // ===== 색상 (필요시 공통 파일로 관리) =====
 private val GrayBg = Color(0xFFF3F3F5)
@@ -25,16 +25,16 @@ private val GrayText = Color(0xFF9A9A9A)
 private val CardBorder = Color(0xFFECECEC)
 
 @Composable
-internal fun PingLogContent(onCourseClick: (Int) -> Unit) {
+internal fun PingLogContent(onCourseClick: (Long) -> Unit) { // 👈 course.id가 Long이므로 Int에서 Long으로 변경
     var selectedRegion by remember { mutableStateOf("지역") }
 
     // TODO: 실제로는 지역 선택에 따른 API 호출 결과로 교체
     val mockCourses = remember {
         listOf(
-            PingLogCourse(1, "등록자이름", "A 코스", listOf("강남", "코엑스", "석촌호수"), 5, 31, 4.8),
-            PingLogCourse(2, "등록자이름", "A 코스", listOf("강남", "코엑스", "석촌호수"), 5, 31, 4.8),
-            PingLogCourse(3, "등록자이름", "A 코스", listOf("강남", "코엑스", "석촌호수"), 5, 31, 4.8),
-            PingLogCourse(4, "등록자이름", "A 코스", listOf("강남", "코엑스", "석촌호수"), 5, 31, 4.8)
+            PingLogCourse(1L, "등록자이름", "A 코스", listOf("강남", "코엑스", "석촌호수"), 5, 31, 4),
+            PingLogCourse(2L, "등록자이름", "A 코스", listOf("강남", "코엑스", "석촌호수"), 5, 31, 4),
+            PingLogCourse(3L, "등록자이름", "A 코스", listOf("강남", "코엑스", "석촌호수"), 5, 31, 4),
+            PingLogCourse(4L, "등록자이름", "A 코스", listOf("강남", "코엑스", "석촌호수"), 5, 31, 4)
         )
     }
 
