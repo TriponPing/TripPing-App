@@ -38,7 +38,8 @@ internal fun PingRecordContent(
     viewModel: PingViewModel = viewModel(),
     onAddPingClick: () -> Unit,
     onPingLogClick: (Long) -> Unit,
-    onRouteCardClick: (routeId: Long, title: String) -> Unit
+    onRouteCardClick: (routeId: Long, title: String) -> Unit,
+    onMoreClick: () -> Unit // 👈 추가된 부분: 바로가기 클릭 시 실행될 콜백
 ) {
     LaunchedEffect(Unit) {
         viewModel.loadPingTabData()
@@ -115,7 +116,13 @@ internal fun PingRecordContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(text = "기록을 추가하고 싶은 여행이 있나요?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text(text = "바로가기", fontSize = 13.sp, color = GrayText, modifier = Modifier.clickable { })
+                // 👈 수정된 부분: 바로가기 텍스트에 clickable 추가
+                Text(
+                    text = "바로가기",
+                    fontSize = 13.sp,
+                    color = GrayText,
+                    modifier = Modifier.clickable { onMoreClick() }
+                )
             }
             Spacer(modifier = Modifier.height(12.dp))
 
