@@ -24,7 +24,7 @@ private enum class PingTab { RECORD, LOG }
 fun PingScreen(
     onAddPingClick: () -> Unit = {},
     onPingLogClick: (Long) -> Unit = {},
-    onRouteCardClick: (Long) -> Unit = {}, // 👈 Int -> Long으로 수정 (tripId가 Long이라서)
+    onRouteCardClick: (routeId: Long, title: String) -> Unit = { _, _ -> },
     onCourseClick: (Long) -> Unit = {}
 ) {
     var selectedTab by remember { mutableStateOf(PingTab.RECORD) }

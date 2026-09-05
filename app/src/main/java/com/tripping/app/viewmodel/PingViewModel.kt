@@ -66,6 +66,22 @@ class PingViewModel : ViewModel() {
         }
     }
 
+    /** 코스 상세 화면 진입 시: 특정 여행(routeId)의 핑 기록만 다시 불러옴 (recentTrip과 별개로 동작) */
+    fun loadPingsForRoute(routeId: Long) {
+        viewModelScope.launch {
+            isLoading = true
+            errorMessage = null
+            try {
+                pings = RetrofitClient.pingApi.getTripPingHistory(routeId)
+            } catch (e: Exception) {
+                errorMessage = e.localizedMessage ?: "데이터를 불러오지 못했습니다."
+                pings = emptyList()
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
     /**
      * 진행 중인 여행(routeId)에 새 방문 장소를 핑으로 등록.
      * 성공하면 방금 등록한 PingDto를 콜백으로 넘겨줌 (다음 화면에서 pingId가 필요하므로).

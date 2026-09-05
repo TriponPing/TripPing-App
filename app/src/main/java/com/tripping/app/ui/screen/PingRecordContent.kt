@@ -39,15 +39,16 @@ internal fun PingRecordContent(
     viewModel: PingViewModel = viewModel(),
     onAddPingClick: () -> Unit,
     onPingLogClick: (Long) -> Unit,
-    onRouteCardClick: (Long) -> Unit
+    onRouteCardClick: (routeId: Long, title: String) -> Unit
 ) {
     LaunchedEffect(Unit) {
         viewModel.loadRecentTripWithPings()
     }
 
-    val recentTrip = viewModel.recentTrip
-    val pingDtos = viewModel.pings
+    val recentTrip = viewModel.recentTrip     // 여행 이름/날짜/장소수 (TripSummaryResponse)
+    val pingDtos = viewModel.pings             // 핑 목록 (List<PingDto>) - 이제 바로 참조
 
+    // 서버 응답 데이터를 UI 모델로 변환 (pingTime 안전하게 포맷팅)
     val pingsFromDb = pingDtos.map { dto ->
         val formattedTime = try {
             if (dto.pingTime.length >= 16) dto.pingTime.substring(11, 16) else dto.pingTime
@@ -123,7 +124,9 @@ internal fun PingRecordContent(
                     title = recentTrip.representativeSpotName ?: "여행 기록",
                     dateText = recentTrip.travelDate,
                     pingCount = recentTrip.placeCount ?: 0,
-                    onClick = { onRouteCardClick(recentTrip.tripId) }
+                    onClick = {
+                        onRouteCardClick(recentTrip.tripId, recentTrip.representativeSpotName ?: "여행 기록")
+                    }
                 )
             }
         }
