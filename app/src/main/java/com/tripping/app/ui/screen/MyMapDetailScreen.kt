@@ -45,6 +45,7 @@ import kotlinx.coroutines.delay
 
 private val ColorAccentBlue = Color(0xFF0074CE)
 private const val TYPE_DRAWN = "drawn"
+private const val TYPE_SAVED = "saved"
 
 @Composable
 fun MyMapDetailScreen(
@@ -53,6 +54,10 @@ fun MyMapDetailScreen(
 ) {
     LaunchedEffect(Unit) {
         viewModel.loadMyMap()
+        // "여행 보기"가 여행 하나당 대표 장소 1개짜리 요약 핀이 아니라 실제 방문 장소를
+        // 전부 보여주도록, 다녀온 여행/저장한 루트 둘 다 상세(전체 스팟)를 미리 불러옴
+        viewModel.loadMapDetail(TYPE_DRAWN)
+        viewModel.loadMapDetail(TYPE_SAVED)
     }
 
     val pins by viewModel.mapPins.collectAsState()
@@ -65,31 +70,43 @@ fun MyMapDetailScreen(
     var searchQuery by remember { mutableStateOf("") }
     var clickedName by remember { mutableStateOf<String?>(null) }
 
+    // "여행 보기"에 실제로 찍을 방문 장소 전체 - 다녀온 여행 + 저장한 루트 안의 모든 스팟을 펼침
+    // (GET /users/me/map은 여행 하나당 대표 장소 1개짜리 요약 핀이라, 여러 장소를 들른 여행은
+    //  대표 장소 하나만 보이는 문제가 있었음 -> 상세(map/detail) 데이터를 스팟 단위로 다 풀어서 사용)
+    val allVisitedSpots = remember(detailByType) {
+        val drawn = detailByType[TYPE_DRAWN].orEmpty()
+        val saved = detailByType[TYPE_SAVED].orEmpty()
+        (drawn + saved).flatMap { it.spots }
+    }
+
     // 핀이 새로 로드되면 전부 보이도록 카메라 위치 맞춤 (핀을 껐다 켜는 것과 무관하게 최초 1회성 성격)
-    LaunchedEffect(naverMap, pins) {
+    LaunchedEffect(naverMap, allVisitedSpots, pins) {
         val map = naverMap ?: return@LaunchedEffect
-        val points = pins.mapNotNull { p -> p.latitude?.let { la -> p.longitude?.let { lo -> LatLng(la, lo) } } }
+        val detailPoints = allVisitedSpots.mapNotNull { s -> s.latitude?.let { la -> s.longitude?.let { lo -> LatLng(la, lo) } } }
+        val points = detailPoints.ifEmpty {
+            pins.mapNotNull { p -> p.latitude?.let { la -> p.longitude?.let { lo -> LatLng(la, lo) } } }
+        }
         cameraUpdateToShowAll(points)?.let { map.moveCamera(it) }
     }
 
-    // ── 지도에 찍을 핀 전체 - "여행 보기" 토글로 껐다 켰다. 탭하면 이름만 안내 ──
+    // ── 지도에 찍을 핀 전체(방문 장소 하나하나) - "여행 보기" 토글로 껐다 켰다. 탭하면 이름만 안내 ──
     val pinMarkers = remember { mutableListOf<Marker>() }
-    LaunchedEffect(naverMap, pins, showPins) {
+    LaunchedEffect(naverMap, allVisitedSpots, showPins) {
         val map = naverMap
         pinMarkers.forEach { it.map = null }
         pinMarkers.clear()
 
         if (map == null || !showPins) return@LaunchedEffect
 
-        pins.forEachIndexed { index, pin ->
-            val lat = pin.latitude ?: return@forEachIndexed
-            val lng = pin.longitude ?: return@forEachIndexed
+        allVisitedSpots.forEach { spot ->
+            val lat = spot.latitude ?: return@forEach
+            val lng = spot.longitude ?: return@forEach
             val marker = Marker().apply {
                 position = LatLng(lat, lng)
-                captionText = pin.representativeSpotName ?: "여행 ${index + 1}"
+                captionText = spot.spotName ?: ""
                 applyPingIcon()
                 setOnClickListener {
-                    clickedName = pin.representativeSpotName
+                    clickedName = spot.spotName
                     true
                 }
                 this.map = map
