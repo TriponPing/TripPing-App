@@ -25,6 +25,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -427,14 +428,20 @@ private fun PopularRouteCard(route: PopularTripResponse) {
                     .fillMaxWidth()
                     .padding(horizontal = 15.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .align(Alignment.CenterStart)
-                        .fillMaxWidth()
-                        .height(3.dp)
-                        .background(HomeAccentBlue)
-                )
-                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                // Ping이 1개뿐이면 이어줄 다음 정거장이 없으니 연결선을 그리지 않음
+                if (route.stopNames.size > 1) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.CenterStart)
+                            .fillMaxWidth()
+                            .height(3.dp)
+                            .background(HomeAccentBlue)
+                    )
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = if (route.stopNames.size > 1) Arrangement.SpaceBetween else Arrangement.Center
+                ) {
                     repeat(route.stopNames.size) { StepDot() }
                 }
             }
@@ -455,7 +462,7 @@ private fun PopularRouteCard(route: PopularTripResponse) {
                 // 이 행만 좌우 6dp를 더 줘서(기본 9dp + 6dp = 15dp) 위 점 행과 동일한 가로 기준으로 정렬함
                 Row(
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = if (route.stopNames.size > 1) Arrangement.SpaceBetween else Arrangement.Center
                 ) {
                     route.stopNames.forEach { stop ->
                         Text(text = stop, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HomeTextPrimary)
@@ -470,7 +477,14 @@ private fun PopularRouteCard(route: PopularTripResponse) {
                 )
             }
             Spacer(modifier = Modifier.height(13.dp))
-            Text(text = formatPopularityLabel(route.savedCount), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = HomeAccentBlue)
+            Text(
+                text = formatPopularityLabel(route.savedCount),
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = HomeAccentBlue,
+                modifier = if (route.stopNames.size > 1) Modifier else Modifier.fillMaxWidth(),
+                textAlign = if (route.stopNames.size > 1) TextAlign.Start else TextAlign.Center
+            )
         }
     }
 }
