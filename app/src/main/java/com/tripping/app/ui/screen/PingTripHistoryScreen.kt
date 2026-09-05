@@ -20,44 +20,27 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tripping.app.R
-import com.tripping.app.viewmodel.PingViewModel
+import com.tripping.app.viewmodel.MyPageViewModel // 👈 MyPageViewModel 임포트
 
 // ===== 기존 스타일에 맞춘 색상 설정 =====
 private val BluePrimary = Color(0xFF4A72C4)
 private val GrayText = Color(0xFF9A9A9A)
 private val CardBorder = Color(0xFFECECEC)
 
-/**
- * 💡 다녀온 여행 목록에 쓰일 데이터 모델 예시
- * (실제 프로젝트 구조에 맞게 데이터 클래스 위치를 조정하거나 대체하여 사용하세요)
- */
-data class TripHistoryItem(
-    val tripId: Long,
-    val title: String,
-    val dateText: String,
-    val pingCount: Int,
-    val durationText: String
-)
-
 @Composable
 fun PingHistoryScreen(
     modifier: Modifier = Modifier,
-    viewModel: PingViewModel = viewModel(),
+    myPageViewModel: MyPageViewModel = viewModel(), // 👈 MyPageViewModel을 사용합니다
     onBackClick: () -> Unit,
     onTripClick: (tripId: Long, title: String) -> Unit
 ) {
-    // 💡 ViewModel로부터 다녀온 여행 목록 상태를 구독합니다.
-    // (ViewModel에 tripHistoryList StateFlow 또는 LiveData가 선언되어 있다고 가정합니다)
-    // val tripHistoryList by viewModel.tripHistoryList.collectAsState()
-
-    // 💡 ViewModel 연동 전 테스트를 원하신다면 아래 임시 리스트를 ViewModel 상태값으로 대체하세요.
-    val sampleTripList = remember {
-        listOf(
-            TripHistoryItem(1L, "성수 나들이 코스2", "2026.08.13 ~ 08.14", 3, "1일 1시간 6분"),
-            TripHistoryItem(2L, "성수 나들이 코스2", "2026.08.13 ~ 08.14", 2, "1일 1시간 6분"),
-            TripHistoryItem(3L, "성수 나들이 코스2", "2026.08.13 ~ 08.14", 1, "1일 1시간 6분")
-        )
+    // 💡 화면 진입 시 MyPageViewModel을 통해 다녀온 여행 전체 목록 데이터를 불러옵니다.
+    LaunchedEffect(Unit) {
+        myPageViewModel.loadAllTrips()
     }
+
+    // 💡 MyPageViewModel에 정의된 allTrips StateFlow를 구독합니다.
+    val allTrips by myPageViewModel.allTrips.collectAsState()
 
     Column(
         modifier = modifier
@@ -87,18 +70,18 @@ fun PingHistoryScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 다녀온 여행 카드 리스트 (하드코딩 제거 및 items 반복문 적용)
+        // 서버에서 받아온 실제 여행 목록(allTrips)을 반복문으로 출력
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(sampleTripList) { trip ->
+            items(allTrips) { trip ->
                 FinishedTripCard(
-                    title = trip.title,
-                    dateText = trip.dateText,
-                    pingCount = trip.pingCount,
-                    durationText = trip.durationText,
-                    statusDotsCount = trip.pingCount, // 핑 개수에 맞춰 타임라인 닷 개수 연동
-                    onClick = { onTripClick(trip.tripId, trip.title) }
+                    title = trip.representativeSpotName ?: "여행 기록",
+                    dateText = trip.travelDate,
+                    pingCount = trip.placeCount ?: 0,
+                    durationText = trip.travelDate, // 👈 날짜 혹은 필요하신 텍스트 대체
+                    statusDotsCount = trip.placeCount ?: 0, // 핑 개수에 맞춰 타임라인 닷 개수 연동
+                    onClick = { onTripClick(trip.tripId, trip.representativeSpotName ?: "여행 기록") }
                 )
             }
         }
@@ -123,7 +106,7 @@ internal fun FinishedTripCard(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            // 상단: 제목 (저장 아이콘 제거 완료)
+            // 상단: 제목
             Text(
                 text = title,
                 fontWeight = FontWeight.Bold,
@@ -160,7 +143,7 @@ internal fun FinishedTripCard(
 
         Spacer(modifier = Modifier.width(12.dp))
 
-        // 우측 하단 정보 (핑 개수 및 소요 시간)
+        // 우측 하단 정보 (핑 개수 및 날짜/소요 시간)
         Column(
             horizontalAlignment = Alignment.End
         ) {

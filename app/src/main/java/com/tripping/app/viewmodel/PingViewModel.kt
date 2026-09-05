@@ -171,6 +171,7 @@ class PingViewModel : ViewModel() {
         }
     }
 
+
     fun submitReview(
         pingId: Long,
         content: String,
@@ -218,4 +219,6 @@ class PingViewModel : ViewModel() {
             }
         }
     }
+
+
 }
