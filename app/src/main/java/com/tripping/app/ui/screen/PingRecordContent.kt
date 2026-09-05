@@ -114,7 +114,7 @@ internal fun PingRecordContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "기록을 추가하고 싶은 핑로그가 있나요?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(text = "기록을 추가하고 싶은 여행이 있나요?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 Text(text = "바로가기", fontSize = 13.sp, color = GrayText, modifier = Modifier.clickable { })
             }
             Spacer(modifier = Modifier.height(12.dp))
