@@ -14,7 +14,6 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
@@ -39,14 +38,16 @@ internal fun PingRecordContent(
     viewModel: PingViewModel = viewModel(),
     onAddPingClick: () -> Unit,
     onPingLogClick: (Long) -> Unit,
-    onRouteCardClick: (routeId: Long, title: String) -> Unit
+    onRouteCardClick: (routeId: Long, title: String) -> Unit,
+    onMoreClick: () -> Unit // 👈 추가된 부분: 바로가기 클릭 시 실행될 콜백
 ) {
     LaunchedEffect(Unit) {
-        viewModel.loadRecentTripWithPings()
+        viewModel.loadPingTabData()
     }
 
-    val recentTrip = viewModel.recentTrip     // 여행 이름/날짜/장소수 (TripSummaryResponse)
-    val pingDtos = viewModel.pings             // 핑 목록 (List<PingDto>) - 이제 바로 참조
+    val recentTrip = viewModel.recentTrip       // 아래쪽 카드용: 가장 최근 "다녀온" 여행 요약
+    val hasOngoingTrip = viewModel.hasOngoingTrip
+    val pingDtos = viewModel.ongoingPings        // 위쪽 타임라인용: "진행중" 여행의 핑 목록
 
     // 서버 응답 데이터를 UI 모델로 변환 (pingTime 안전하게 포맷팅)
     val pingsFromDb = pingDtos.map { dto ->
@@ -67,7 +68,7 @@ internal fun PingRecordContent(
         )
     }
 
-    val hasTrip = recentTrip != null
+    val hasTrip = hasOngoingTrip
     val canAddMorePing = pingsFromDb.size < 4
 
     LazyColumn(
@@ -114,8 +115,14 @@ internal fun PingRecordContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "기록을 추가하고 싶은 핑로그가 있나요?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text(text = "바로가기", fontSize = 13.sp, color = GrayText, modifier = Modifier.clickable { })
+                Text(text = "기록을 추가하고 싶은 여행이 있나요?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                // 👈 수정된 부분: 바로가기 텍스트에 clickable 추가
+                Text(
+                    text = "바로가기",
+                    fontSize = 13.sp,
+                    color = GrayText,
+                    modifier = Modifier.clickable { onMoreClick() }
+                )
             }
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -159,7 +166,7 @@ internal fun EmptyTripView() {
             )
         }
         Text(
-            text = "아직 만들어진 여행이 없어요",
+            text = "진행중인 여행이 없어요",
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
             color = EmptyTextColor
@@ -276,10 +283,6 @@ internal fun RouteCard(title: String, dateText: String, pingCount: Int, onClick:
             .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(
-            modifier = Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(GrayBg)
-        )
-        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
             Text(text = title, fontWeight = FontWeight.Bold, fontSize = 15.sp)
             Text(text = dateText, fontSize = 11.sp, color = GrayText)
