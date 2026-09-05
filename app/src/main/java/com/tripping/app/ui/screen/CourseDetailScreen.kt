@@ -1,5 +1,6 @@
 package com.tripping.app.ui.screen
 
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -23,6 +24,7 @@ import com.tripping.app.ui.component.NaverMapContainer
 import com.tripping.app.ui.component.applyPingIcon
 import com.tripping.app.ui.component.cameraUpdateToShowAll
 import com.tripping.app.viewmodel.MyPageViewModel
+
 
 // ===== 코스(저장된거/그린거) 상세보기 화면 =====
 // "다녀온 여행" 카드를 누르면 여기로 옴. GET /users/me/trips/{tripId} 데이터로 지도를 그려줌.
