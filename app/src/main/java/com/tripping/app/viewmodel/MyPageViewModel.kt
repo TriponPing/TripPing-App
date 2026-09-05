@@ -19,6 +19,11 @@ import kotlinx.coroutines.launch
 
 class MyPageViewModel : ViewModel() {
 
+    companion object {
+        // 꺼낼 뱃지(마이페이지 프로필에 노출) 최대 개수 - 백엔드 MyPageBadgeService.MAX_FEATURED_BADGES와 동일하게 유지
+        const val MAX_FEATURED_BADGES = 4
+    }
+
     private val _profile = MutableStateFlow<ProfileResponse?>(null)
     val profile: StateFlow<ProfileResponse?> = _profile
 
@@ -65,6 +70,7 @@ class MyPageViewModel : ViewModel() {
         loadRecentTrips()
         loadSavedRoutes()
         loadMyMap()
+        loadBadges()
     }
 
     fun loadProfile() {
@@ -248,7 +254,15 @@ class MyPageViewModel : ViewModel() {
     fun toggleFeaturedBadge(code: String) {
         val current = _badges.value
         val currentlyFeatured = current.filter { it.featured }.map { it.code }.toSet()
-        val nextFeatured = if (code in currentlyFeatured) currentlyFeatured - code else currentlyFeatured + code
+        val isCurrentlyFeatured = code in currentlyFeatured
+
+        // 꺼낼 뱃지는 최대 4개까지만 - 이미 4개 찬 상태에서 새로 켜려는 시도는 막음
+        if (!isCurrentlyFeatured && currentlyFeatured.size >= MAX_FEATURED_BADGES) {
+            _errorMessage.value = "꺼낼 뱃지는 최대 ${MAX_FEATURED_BADGES}개까지 선택할 수 있어요."
+            return
+        }
+
+        val nextFeatured = if (isCurrentlyFeatured) currentlyFeatured - code else currentlyFeatured + code
 
         // 낙관적 업데이트 - 서버 응답 기다리지 않고 화면 먼저 갱신
         _badges.value = current.map { it.copy(featured = it.code in nextFeatured) }

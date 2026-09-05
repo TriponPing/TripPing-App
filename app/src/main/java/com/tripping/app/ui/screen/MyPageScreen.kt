@@ -28,6 +28,7 @@ import com.naver.maps.geometry.LatLng
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 import com.tripping.app.R
+import com.tripping.app.data.response.BadgeResponse
 import com.tripping.app.data.response.MapPinResponse
 import com.tripping.app.data.response.SavedRouteResponse
 import com.tripping.app.data.response.TripSummaryResponse
@@ -37,8 +38,7 @@ import com.tripping.app.ui.component.cameraUpdateToShowAll
 import com.tripping.app.viewmodel.MyPageViewModel
 
 // ===== 마이페이지 화면 - Figma 디자인 기준 =====
-// 실제 API(GET /users/me, /users/me/trips/recent, /users/me/routes/saved, /users/me/map) 연동됨.
-// TODO: 뱃지(여행 작성자/연속 출석)는 백엔드에 아직 관련 API가 없어서 임시 고정값으로 둠.
+// 실제 API(GET /users/me, /users/me/trips/recent, /users/me/routes/saved, /users/me/map, /users/me/badges) 연동됨.
 
 private val ColorBackground = Color(0xFFF8F8FC)
 private val ColorAccentBlue = Color(0xFF0074CE)
@@ -81,6 +81,7 @@ fun MyPageScreen(
     val savedRoutesTotal by viewModel.savedRoutesTotal.collectAsState()
     val visitedPlaceCount by viewModel.visitedPlaceCount.collectAsState()
     val mapPins by viewModel.mapPins.collectAsState()
+    val badges by viewModel.badges.collectAsState()
 
     Column(
         modifier = Modifier
@@ -88,7 +89,11 @@ fun MyPageScreen(
             .background(ColorBackground)
     ) {
         MyPageTopBar(onOpenSettings = onOpenSettings)
-        MyPageProfileSection(nickname = profile?.nickname, level = profile?.level)
+        MyPageProfileSection(
+            nickname = profile?.nickname,
+            level = profile?.level,
+            featuredBadges = badges.filter { it.featured }
+        )
         MyPageTabRow(selectedTab = selectedTab, onTabSelected = { selectedTab = it })
 
         Box(modifier = Modifier.weight(1f)) {
@@ -142,7 +147,7 @@ private fun MyPageTopBar(onOpenSettings: () -> Unit) {
 
 // ===== 프로필 영역 (아바타 + 이름 + 레벨 + 뱃지) =====
 @Composable
-private fun MyPageProfileSection(nickname: String?, level: String?) {
+private fun MyPageProfileSection(nickname: String?, level: String?, featuredBadges: List<BadgeResponse>) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -181,10 +186,11 @@ private fun MyPageProfileSection(nickname: String?, level: String?) {
             }
         }
 
-        // 뱃지 2개 (TODO: 실제 뱃지 아이콘/데이터로 교체 - 백엔드에 아직 관련 API 없음)
-        BadgeCircle(emoji = "📷", label = "여행 작성자")
-        Spacer(modifier = Modifier.width(8.dp))
-        BadgeCircle(emoji = "📅", label = "연속 출석")
+        // 설정 화면 "꺼낼 뱃지"에서 고른 뱃지만 표시 (없으면 아무것도 안 뜸)
+        featuredBadges.forEachIndexed { index, badge ->
+            if (index > 0) Spacer(modifier = Modifier.width(8.dp))
+            BadgeCircle(emoji = badge.emoji, label = badge.label)
+        }
     }
 }
 
