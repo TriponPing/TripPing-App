@@ -41,11 +41,12 @@ internal fun PingRecordContent(
     onRouteCardClick: (routeId: Long, title: String) -> Unit
 ) {
     LaunchedEffect(Unit) {
-        viewModel.loadRecentTripWithPings()
+        viewModel.loadPingTabData()
     }
 
-    val recentTrip = viewModel.recentTrip     // 여행 이름/날짜/장소수 (TripSummaryResponse)
-    val pingDtos = viewModel.pings             // 핑 목록 (List<PingDto>) - 이제 바로 참조
+    val recentTrip = viewModel.recentTrip       // 아래쪽 카드용: 가장 최근 "다녀온" 여행 요약
+    val hasOngoingTrip = viewModel.hasOngoingTrip
+    val pingDtos = viewModel.ongoingPings        // 위쪽 타임라인용: "진행중" 여행의 핑 목록
 
     // 서버 응답 데이터를 UI 모델로 변환 (pingTime 안전하게 포맷팅)
     val pingsFromDb = pingDtos.map { dto ->
@@ -66,7 +67,7 @@ internal fun PingRecordContent(
         )
     }
 
-    val hasTrip = recentTrip != null
+    val hasTrip = hasOngoingTrip
     val canAddMorePing = pingsFromDb.size < 4
 
     LazyColumn(
@@ -158,7 +159,7 @@ internal fun EmptyTripView() {
             )
         }
         Text(
-            text = "아직 만들어진 여행이 없어요",
+            text = "진행중인 여행이 없어요",
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
             color = EmptyTextColor

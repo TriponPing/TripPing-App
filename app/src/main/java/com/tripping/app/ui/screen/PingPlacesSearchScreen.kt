@@ -64,6 +64,7 @@ fun PingPlaceSearchScreen(
     var regionMenuExpanded by remember { mutableStateOf(false) }
     var selectedRegion by remember { mutableStateOf("지역") }
     var isRegistering by remember { mutableStateOf(false) } // "+" 눌러서 신규 장소 등록 중일 때 버튼 비활성화용
+    var showCategoryPicker by remember { mutableStateOf(false) } // 신규 장소 등록 전, 카테고리 선택창 노출 여부
 
     val pinIcon = remember { OverlayImage.fromResource(R.drawable.ic_map_pin) }
     val coroutineScope = rememberCoroutineScope()
@@ -220,14 +221,31 @@ fun PingPlaceSearchScreen(
                                 // 이미 DB에 있는 장소 -> 바로 핑 등록 진행
                                 onPlaceSelected(place)
                             } else {
-                                // DB에 없는 장소 -> 먼저 등록해서 spotId 받은 다음 핑 등록 진행
+                                // DB에 없는 장소 -> 카테고리부터 물어봄 (네이버 지도 SDK가 카테고리를 안 줘서
+                                // 자동 판별이 안 되므로, 배포 일정상 사용자가 직접 고르게 함)
+                                showCategoryPicker = true
+                            }
+                        },
+                        modifier = Modifier
+                            .align(Alignment.BottomCenter)
+                            .padding(start = 16.dp, end = 16.dp, bottom = 24.dp)
+                    )
+                }
+
+                // 신규 장소 카테고리 선택창 - 고른 카테고리로 등록 -> 핑 등록까지 이어감
+                if (showCategoryPicker) {
+                    selectedPlace?.let { place ->
+                        CategoryPickerDialog(
+                            onDismiss = { showCategoryPicker = false },
+                            onCategorySelected = { categoryLabel ->
+                                showCategoryPicker = false
                                 isRegistering = true
                                 coroutineScope.launch {
                                     try {
                                         val created = RetrofitClient.placeApi.createPlace(
                                             CreatePlaceRequest(
                                                 name = place.name,
-                                                category = place.category,
+                                                category = categoryLabel,
                                                 latitude = place.latitude,
                                                 longitude = place.longitude
                                             )
@@ -240,11 +258,8 @@ fun PingPlaceSearchScreen(
                                     }
                                 }
                             }
-                        },
-                        modifier = Modifier
-                            .align(Alignment.BottomCenter)
-                            .padding(start = 16.dp, end = 16.dp, bottom = 24.dp)
-                    )
+                        )
+                    }
                 }
             }
         }
@@ -299,7 +314,11 @@ private fun SelectedPlaceCard(
 
         // "가장 많이 가는 시간" 행 (시계 아이콘 + 라벨/값)
         Row(verticalAlignment = Alignment.Top) {
-            Text(text = "🕒", fontSize = 15.sp, modifier = Modifier.padding(top = 1.dp))
+            Image(
+                painter = painterResource(id = R.drawable.clock),
+                contentDescription = null,
+                modifier = Modifier.size(15.dp).padding(top = 1.dp)
+            )
             Spacer(modifier = Modifier.width(8.dp))
             Column {
                 Text(text = "가장 많이 가는 시간", fontSize = 12.sp, color = GrayText)
@@ -318,7 +337,11 @@ private fun SelectedPlaceCard(
 
         // "핑 개수" 행 (핀 아이콘 + 라벨/값)
         Row(verticalAlignment = Alignment.Top) {
-            Text(text = "📍", fontSize = 15.sp, modifier = Modifier.padding(top = 1.dp))
+            Image(
+                painter = painterResource(id = R.drawable.ping),
+                contentDescription = null,
+                modifier = Modifier.size(15.dp).padding(top = 1.dp)
+            )
             Spacer(modifier = Modifier.width(8.dp))
             Column {
                 Text(text = "핑 개수", fontSize = 12.sp, color = GrayText)
@@ -331,4 +354,37 @@ private fun SelectedPlaceCard(
             }
         }
     }
+}
+
+// 신규(미등록) 장소 등록 시 카테고리를 직접 고르는 선택창
+@Composable
+private fun CategoryPickerDialog(
+    onDismiss: () -> Unit,
+    onCategorySelected: (String) -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(text = "카테고리를 선택해주세요", fontWeight = FontWeight.Bold) },
+        text = {
+            Column {
+                PlaceCategory.entries.forEach { category ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onCategorySelected(category.label) }
+                            .padding(vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = category.label, fontSize = 16.sp, fontWeight = FontWeight.Medium)
+                    }
+                }
+            }
+        },
+        confirmButton = {},
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(text = "취소", color = GrayText)
+            }
+        }
+    )
 }

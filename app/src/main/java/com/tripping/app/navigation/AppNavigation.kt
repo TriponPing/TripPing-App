@@ -341,15 +341,14 @@ fun AppNavigation() {
 
                 PingPlaceSearchScreen(
                     onPlaceSelected = { place ->
-                        pingViewModel.createPing(
+                        pingViewModel.addSpotToTrip(
                             routeId = routeId,
                             spotId = place.spotId,
-                            placeName = place.name,
                             latitude = place.latitude,
                             longitude = place.longitude,
                             onSuccess = {
                                 Toast.makeText(context, "과거 여행에 추가되었습니다!", Toast.LENGTH_SHORT).show()
-                                // 핑 등록 성공 -> 코스 상세 화면으로 돌아감 (돌아가면 LaunchedEffect가 재조회해서 새 핑이 바로 보임)
+                                // 등록 성공 -> 코스 상세 화면으로 돌아감 (돌아가면 LaunchedEffect가 재조회해서 새 스팟이 바로 보임)
                                 navController.popBackStack()
                             }
                         )

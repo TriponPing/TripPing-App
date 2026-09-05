@@ -28,28 +28,25 @@ fun PingCourseDetailScreen(
     onAddPingClick: () -> Unit,
     onPingLogClick: (Long) -> Unit
 ) {
-    // 이 코스(routeId)만의 핑 기록을 새로 불러옴
+    // 이 코스(routeId)의 확정된 방문 스팟(ACTUAL_ROUTE_SPOT)을 불러옴
     LaunchedEffect(routeId) {
-        viewModel.loadPingsForRoute(routeId)
+        viewModel.loadTripSpots(routeId)
     }
 
-    val pingDtos = viewModel.pings
+    val spots = viewModel.tripSpots
 
-    val pingsFromDb = pingDtos.map { dto ->
+    val pingsFromDb = spots.mapIndexed { index, spot ->
         val formattedTime = try {
-            if (dto.pingTime.length >= 16) dto.pingTime.substring(11, 16) else dto.pingTime
+            spot.visitTime?.let { if (it.length >= 16) it.substring(11, 16) else it } ?: "시간 미정"
         } catch (e: Exception) {
             "시간 미정"
         }
 
         PingItem(
-            id = dto.pingId,
-            placeName = dto.placeName,
+            id = spot.spotId ?: index.toLong(),
+            placeName = spot.spotName ?: "이름 없음",
             time = formattedTime,
-            status = when (dto.isConfirmed) {
-                true -> PingStatus.DONE
-                else -> PingStatus.CURRENT
-            }
+            status = PingStatus.DONE // 이미 확정된(다녀온) 방문 기록이라 전부 완료 상태
         )
     }
 
