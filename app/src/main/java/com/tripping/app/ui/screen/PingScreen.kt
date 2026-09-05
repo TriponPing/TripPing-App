@@ -23,9 +23,9 @@ private enum class PingTab { RECORD, LOG }
 @Composable
 fun PingScreen(
     onAddPingClick: () -> Unit = {},
-    onPingLogClick: (Int) -> Unit = {},
+    onPingLogClick: (Long) -> Unit = {}, // 👈 Int -> Long으로 수정
     onRouteCardClick: (Int) -> Unit = {},
-    onCourseClick: (Int) -> Unit = {}
+    onCourseClick: (Long) -> Unit = {}   // 👈 Int -> Long으로 수정
 ) {
     var selectedTab by remember { mutableStateOf(PingTab.RECORD) }
 

@@ -19,40 +19,59 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tripping.app.R
-import com.tripping.app.ui.model.PingItem
-import com.tripping.app.ui.model.PingStatus
+import com.tripping.app.viewmodel.PingItem
+import com.tripping.app.viewmodel.PingStatus
+import com.tripping.app.ui.viewmodel.PingViewModel
 
 // ===== 색상 설정 =====
 private val BluePrimary = Color(0xFF4A72C4)
 private val GrayBg = Color(0xFFF3F3F5)
 private val GrayText = Color(0xFF9A9A9A)
 private val CardBorder = Color(0xFFECECEC)
+private val EmptyTextColor = Color(0xFFE6E6E6) // 👈 요청하신 텍스트 색상
 
 @Composable
 internal fun PingRecordContent(
-    modifier: Modifier = Modifier, // 👈 네비게이션 바 패딩 등을 외부에서 받을 수 있도록 modifier 추가
+    modifier: Modifier = Modifier,
+    viewModel: PingViewModel = viewModel(),
+    routeId: Int = 1,
     onAddPingClick: () -> Unit,
-    onPingLogClick: (Int) -> Unit,
+    onPingLogClick: (Long) -> Unit, // 👈 핑 ID 타입 불일치 해결을 위해 Long으로 변경
     onRouteCardClick: (Int) -> Unit
 ) {
-    // 현재 진행 중인 여행의 핑 리스트 (테스트를 위해 빈 리스트로 설정)
-    val mockPings = remember {
-        emptyList<PingItem>()
-        /*
-        listOf(
-            PingItem(1, "ABC카페", "12시 30분", PingStatus.DONE),
-            PingItem(2, "XYZ박물관", "14시 00분", PingStatus.CURRENT),
-            PingItem(3, "00식당", "18시 30분", PingStatus.UPCOMING)
-        )
-        */
+    LaunchedEffect(routeId) {
+        viewModel.loadOngoingPings(routeId)
     }
 
-    val hasOngoingTrip = mockPings.isNotEmpty()
-    val canAddMorePing = mockPings.size < 4 // 핑 개수가 4개 미만일 때만 true
+    // 💡 변경된 뷰모델 상태(currentRoute)를 안전하게 참조하도록 수정
+    val currentRoute = viewModel.currentRoute
+
+    // 서버 응답 데이터를 UI 모델로 변환 (pingTime 안전하게 포맷팅 추가)
+    val pingsFromDb = currentRoute?.pings?.map { dto ->
+        val formattedTime = try {
+            if (dto.pingTime.length >= 16) dto.pingTime.substring(11, 16) else dto.pingTime
+        } catch (e: Exception) {
+            "시간 미정"
+        }
+
+        PingItem(
+            id = dto.pingId, // 👈 toInt() 제거하여 오버플로우 및 타입 에러 방지 (Long 타입 그대로 대입)
+            placeName = dto.placeName,
+            time = formattedTime,
+            status = when (dto.isConfirmed) {
+                true -> PingStatus.DONE
+                else -> PingStatus.CURRENT
+            }
+        )
+    } ?: emptyList()
+
+    val hasOngoingTrip = pingsFromDb.isNotEmpty()
+    val canAddMorePing = pingsFromDb.size < 4
 
     LazyColumn(
-        modifier = modifier // 👈 전달받은 modifier를 적용하여 하단 네비게이션 바와 영역 조율
+        modifier = modifier
             .fillMaxSize()
             .background(Color.White),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 16.dp)
@@ -62,7 +81,7 @@ internal fun PingRecordContent(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // 조건 분기: 진행 중인 여행이 없을 때는 공룡 화면, 있을 때는 타임라인 및 핑 카드 표시
+        // 조건 분기: 진행 중인 여행이 없을 때는 공룡/창문과 함께 안내 텍스트 표시
         if (!hasOngoingTrip) {
             item {
                 EmptyTripView()
@@ -70,17 +89,15 @@ internal fun PingRecordContent(
             }
         } else {
             item {
-                // 핑 개수가 4개 이상이어도 최대 4개까지만 타임라인에 표시
-                TimelineDots(pings = mockPings.take(4))
+                TimelineDots(pings = pingsFromDb.take(4))
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            items(mockPings) { ping ->
+            items(pingsFromDb) { ping ->
                 PingCard(ping = ping, onLinkClick = { onPingLogClick(ping.id) })
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // 여행이 있고, 핑 개수가 4개 미만일 때만 + 버튼 노출
             if (canAddMorePing) {
                 item {
                     AddPingButton(onClick = onAddPingClick)
@@ -89,7 +106,7 @@ internal fun PingRecordContent(
             }
         }
 
-        // 아래 배너와 추천 코스는 항상 같은 자리에 노출
+        // 하단 배너 및 추천 코스 영역
         item {
             HintBanner()
             Spacer(modifier = Modifier.height(28.dp))
@@ -100,21 +117,24 @@ internal fun PingRecordContent(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(text = "기록을 추가하고 싶은 핑로그가 있나요?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text(text = "바로가기", fontSize = 13.sp, color = GrayText, modifier = Modifier.clickable { /* 바로가기 액션 */ })
+                Text(text = "바로가기", fontSize = 13.sp, color = GrayText, modifier = Modifier.clickable { })
             }
             Spacer(modifier = Modifier.height(12.dp))
 
-            RouteCard(
-                title = "쌍문 코스",
-                dateText = "2026년 8월 13일 마지막 수정",
-                pingCount = 4,
-                onClick = { onRouteCardClick(1) }
-            )
+            // 만약 서버에서 불러온 코스 데이터가 있다면 하단 카드 노출
+            if (currentRoute != null) {
+                // RouteCard(
+                //     title = currentRoute.status, // 혹은 코스 이름 필드에 맞게 수정
+                //     dateText = currentRoute.travelDate,
+                //     pingCount = currentRoute.pings.size,
+                //     onClick = { onRouteCardClick(routeId) }
+                // )
+            }
         }
     }
 }
 
-// 🦕 진행 중인 여행이 없을 때 보여주는 빈 화면 컴포저블 (Row를 사용해 잘림 없이 나란히 배치)
+// 🦕 진행 중인 여행이 없을 때 보여주는 빈 화면 컴포저블
 @Composable
 internal fun EmptyTripView() {
     Box(
@@ -123,41 +143,29 @@ internal fun EmptyTripView() {
             .height(300.dp),
         contentAlignment = Alignment.Center
     ) {
-        // 공룡과 창문이 자연스럽게 들어가도록 Row 배치
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // 공룡 이미지 (불투명도 20%)
             Image(
                 painter = painterResource(id = R.drawable.trip_empty_dino),
                 contentDescription = "공룡",
-                modifier = Modifier
-                    .width(120.dp)
-                    .height(180.dp)
-                    .alpha(0.20f)
+                modifier = Modifier.width(120.dp).height(180.dp).alpha(0.20f)
             )
-
             Spacer(modifier = Modifier.width(16.dp))
-
-            // 창문 이미지 (불투명도 15%)
             Image(
                 painter = painterResource(id = R.drawable.trip_empty_window),
                 contentDescription = "창문",
-                modifier = Modifier
-                    .width(150.dp)
-                    .height(210.dp)
-                    .alpha(0.15f)
+                modifier = Modifier.width(150.dp).height(210.dp).alpha(0.15f)
             )
         }
-
-        // "진행중인 여행이 없어요" 텍스트 (중앙 배치)
+        // 요청하신 문구와 색상 적용 (#E6E6E6)
         Text(
-            text = "진행중인 여행이 없어요",
+            text = "아직 만들어진 여행이 없어요",
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
-            color = Color(0xFF818181)
+            color = EmptyTextColor
         )
     }
 }
@@ -173,10 +181,7 @@ internal fun TimelineDots(pings: List<PingItem>) {
             )
             if (index != pings.lastIndex) {
                 Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(2.dp)
-                        .background(BluePrimary)
+                    modifier = Modifier.weight(1f).height(2.dp).background(BluePrimary)
                 )
             }
         }
@@ -245,6 +250,7 @@ internal fun AddPingButton(onClick: () -> Unit) {
     }
 }
 
+
 @Composable
 internal fun HintBanner() {
     Row(
@@ -255,12 +261,12 @@ internal fun HintBanner() {
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(
-            text = "핑을 꾹 눌러 순서를 변경할 수 있어요   잊은 핑을 추가해보세요",
+            text = "핑을 꾹 눌러 순서를 변경할 수 있어요 /  잊은 핑을 추가해보세요",
             fontSize = 11.sp,
             color = GrayText,
             modifier = Modifier.weight(1f)
         )
-        Text(text = "×", fontSize = 13.sp, color = GrayText, modifier = Modifier.clickable { /* 배너 닫기 */ })
+        Text(text = "×", fontSize = 13.sp, color = GrayText, modifier = Modifier.clickable { })
     }
 }
 
@@ -275,10 +281,7 @@ internal fun RouteCard(title: String, dateText: String, pingCount: Int, onClick:
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier
-                .size(56.dp)
-                .clip(RoundedCornerShape(10.dp))
-                .background(GrayBg)
+            modifier = Modifier.size(56.dp).clip(RoundedCornerShape(10.dp)).background(GrayBg)
         )
         Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -289,5 +292,4 @@ internal fun RouteCard(title: String, dateText: String, pingCount: Int, onClick:
     }
 }
 
-// 모든 상태에서 파란색 핑(blueping) → TimelineDots에서 pings 개수만큼 자동으로 그려짐
 internal fun pingDrawable(status: PingStatus): Int = R.drawable.blueping
