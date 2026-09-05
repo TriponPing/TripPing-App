@@ -1,3 +1,4 @@
+// [파일 설명] Ping 탭 > "기록" 화면 UI. 가장 최근 다녀온 여행의 핑 타임라인을 보여주고, 그 여행 요약 카드(RouteCard)로 이동하는 진입점을 제공함.
 package com.tripping.app.ui.screen
 
 import androidx.compose.foundation.Image
@@ -23,33 +24,32 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tripping.app.R
 import com.tripping.app.viewmodel.PingItem
 import com.tripping.app.viewmodel.PingStatus
-import com.tripping.app.ui.viewmodel.PingViewModel
+import com.tripping.app.viewmodel.PingViewModel
 
 // ===== 색상 설정 =====
 private val BluePrimary = Color(0xFF4A72C4)
 private val GrayBg = Color(0xFFF3F3F5)
 private val GrayText = Color(0xFF9A9A9A)
 private val CardBorder = Color(0xFFECECEC)
-private val EmptyTextColor = Color(0xFFE6E6E6) // 👈 요청하신 텍스트 색상
+private val EmptyTextColor = Color(0xFFE6E6E6)
 
 @Composable
 internal fun PingRecordContent(
     modifier: Modifier = Modifier,
     viewModel: PingViewModel = viewModel(),
-    routeId: Int = 1,
     onAddPingClick: () -> Unit,
-    onPingLogClick: (Long) -> Unit, // 👈 핑 ID 타입 불일치 해결을 위해 Long으로 변경
-    onRouteCardClick: (Int) -> Unit
+    onPingLogClick: (Long) -> Unit,
+    onRouteCardClick: (routeId: Long, title: String) -> Unit
 ) {
-    LaunchedEffect(routeId) {
-        viewModel.loadOngoingPings(routeId)
+    LaunchedEffect(Unit) {
+        viewModel.loadRecentTripWithPings()
     }
 
-    // 💡 변경된 뷰모델 상태(currentRoute)를 안전하게 참조하도록 수정
-    val currentRoute = viewModel.currentRoute
+    val recentTrip = viewModel.recentTrip     // 여행 이름/날짜/장소수 (TripSummaryResponse)
+    val pingDtos = viewModel.pings             // 핑 목록 (List<PingDto>) - 이제 바로 참조
 
-    // 서버 응답 데이터를 UI 모델로 변환 (pingTime 안전하게 포맷팅 추가)
-    val pingsFromDb = currentRoute?.pings?.map { dto ->
+    // 서버 응답 데이터를 UI 모델로 변환 (pingTime 안전하게 포맷팅)
+    val pingsFromDb = pingDtos.map { dto ->
         val formattedTime = try {
             if (dto.pingTime.length >= 16) dto.pingTime.substring(11, 16) else dto.pingTime
         } catch (e: Exception) {
@@ -57,7 +57,7 @@ internal fun PingRecordContent(
         }
 
         PingItem(
-            id = dto.pingId, // 👈 toInt() 제거하여 오버플로우 및 타입 에러 방지 (Long 타입 그대로 대입)
+            id = dto.pingId,
             placeName = dto.placeName,
             time = formattedTime,
             status = when (dto.isConfirmed) {
@@ -65,9 +65,9 @@ internal fun PingRecordContent(
                 else -> PingStatus.CURRENT
             }
         )
-    } ?: emptyList()
+    }
 
-    val hasOngoingTrip = pingsFromDb.isNotEmpty()
+    val hasTrip = recentTrip != null
     val canAddMorePing = pingsFromDb.size < 4
 
     LazyColumn(
@@ -81,8 +81,7 @@ internal fun PingRecordContent(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // 조건 분기: 진행 중인 여행이 없을 때는 공룡/창문과 함께 안내 텍스트 표시
-        if (!hasOngoingTrip) {
+        if (!hasTrip) {
             item {
                 EmptyTripView()
                 Spacer(modifier = Modifier.height(16.dp))
@@ -106,7 +105,6 @@ internal fun PingRecordContent(
             }
         }
 
-        // 하단 배너 및 추천 코스 영역
         item {
             HintBanner()
             Spacer(modifier = Modifier.height(28.dp))
@@ -121,20 +119,20 @@ internal fun PingRecordContent(
             }
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 만약 서버에서 불러온 코스 데이터가 있다면 하단 카드 노출
-            if (currentRoute != null) {
-                // RouteCard(
-                //     title = currentRoute.status, // 혹은 코스 이름 필드에 맞게 수정
-                //     dateText = currentRoute.travelDate,
-                //     pingCount = currentRoute.pings.size,
-                //     onClick = { onRouteCardClick(routeId) }
-                // )
+            if (recentTrip != null) {
+                RouteCard(
+                    title = recentTrip.representativeSpotName ?: "여행 기록",
+                    dateText = recentTrip.travelDate,
+                    pingCount = recentTrip.placeCount ?: 0,
+                    onClick = {
+                        onRouteCardClick(recentTrip.tripId, recentTrip.representativeSpotName ?: "여행 기록")
+                    }
+                )
             }
         }
     }
 }
 
-// 🦕 진행 중인 여행이 없을 때 보여주는 빈 화면 컴포저블
 @Composable
 internal fun EmptyTripView() {
     Box(
@@ -160,7 +158,6 @@ internal fun EmptyTripView() {
                 modifier = Modifier.width(150.dp).height(210.dp).alpha(0.15f)
             )
         }
-        // 요청하신 문구와 색상 적용 (#E6E6E6)
         Text(
             text = "아직 만들어진 여행이 없어요",
             fontSize = 15.sp,
@@ -249,7 +246,6 @@ internal fun AddPingButton(onClick: () -> Unit) {
         )
     }
 }
-
 
 @Composable
 internal fun HintBanner() {

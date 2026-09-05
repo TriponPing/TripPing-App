@@ -24,6 +24,8 @@ import com.tripping.app.ui.screen.HomeScreen
 import com.tripping.app.ui.screen.LoginScreen
 import com.tripping.app.ui.screen.MyMapDetailScreen
 import com.tripping.app.ui.screen.MyPageScreen
+import com.tripping.app.ui.screen.PingCourseDetailScreen
+import com.tripping.app.ui.screen.PingPlaceSearchScreen
 import com.tripping.app.ui.screen.PingScreen
 import com.tripping.app.ui.screen.SignUpScreen
 import com.tripping.app.ui.screen.PlaceSearchScreen
@@ -35,6 +37,10 @@ import com.tripping.app.viewmodel.AuthViewModel
 
 private const val COURSE_DETAIL_ROUTE = "course_detail/{tripId}?title={title}"
 private const val TRIP_START_ROUTE = "trip_start/{tripId}?title={title}"
+// 👈 Ping 탭 전용 "코스 상세" 라우트 (마이페이지 쪽 course_detail과는 별개 - Ping 탭 안에서만 이동)
+private const val PING_COURSE_DETAIL_ROUTE = "ping_course_detail/{routeId}?title={title}"
+// 👈 코스 상세 화면 "+" 버튼 -> 이 라우트로 이동해서 장소 검색 후 핑 추가
+private const val PING_ADD_PLACE_ROUTE = "ping_add_place/{routeId}"
 
 // 바텀바를 보여줄 라우트와, 그 라우트가 어떤 탭에 해당하는지 매핑
 // 이 맵에 없는 라우트(로그인/회원가입 등)는 바텀바가 자동으로 안 보임
@@ -47,6 +53,8 @@ private val bottomBarRoutes = mapOf(
     TRIP_START_ROUTE to AppBottomNavTab.MY,
     "settings" to AppBottomNavTab.MY,
     "ping" to AppBottomNavTab.PING,
+    PING_COURSE_DETAIL_ROUTE to AppBottomNavTab.PING, // 👈 Ping 탭 소속이라 눌러도 바텀바 Ping 탭 유지됨
+    PING_ADD_PLACE_ROUTE to AppBottomNavTab.PING,
     "placeSearch" to AppBottomNavTab.SEARCH
 )
 
@@ -58,6 +66,16 @@ private fun navigateToCourseDetail(navController: NavController, tripId: Long, t
 // "여행 바로 시작하기" 클릭 -> 다음 페이지(큰 지도 + 여행 계획 수정하기)로 이동
 private fun navigateToTripStart(navController: NavController, tripId: Long, title: String) {
     navController.navigate("trip_start/$tripId?title=${Uri.encode(title)}")
+}
+
+// 👈 Ping 탭 하단 카드("경복궁" 등) 클릭 -> Ping 전용 코스 상세(PingCourseDetailScreen)로 이동
+private fun navigateToPingCourseDetail(navController: NavController, routeId: Long, title: String) {
+    navController.navigate("ping_course_detail/$routeId?title=${Uri.encode(title)}")
+}
+
+// 👈 코스 상세 화면 "+" 버튼 -> 장소 검색(핑 추가 모드)으로 이동
+private fun navigateToPingAddPlace(navController: NavController, routeId: Long) {
+    navController.navigate("ping_add_place/$routeId")
 }
 
 // 바텀 탭 전환 공통 로직: 이미 떠 있는 화면 재사용 + 백스택 중복 쌓임 방지
@@ -77,9 +95,6 @@ fun AppNavigation() {
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val currentTab = bottomBarRoutes[currentRoute]
 
-    // 하단 네비게이션 바는 여기 한 곳에서만 그림 (화면마다 따로 그리면 콜백 연결 누락되기 쉬워서 통일함)
-    // containerColor 명시 안 하면 Material3 기본 배경(연한 보라)이 쓰여서, 화면 내용이 짧으면
-    // 하단 네비바 위에 그 색이 띠처럼 비쳐 보임 -> 흰색으로 고정
     Scaffold(
         containerColor = Color.White,
         bottomBar = {
@@ -278,8 +293,63 @@ fun AppNavigation() {
                 PingScreen(
                     onAddPingClick = { /* TODO: 핑 추가 로직 */ },
                     onPingLogClick = { pingId -> /* TODO: 핑로그 상세로 이동 */ },
-                    onRouteCardClick = { routeId -> /* TODO: 루트 상세로 이동 */ },
+                    onRouteCardClick = { routeId, title ->
+                        navigateToPingCourseDetail(navController, routeId, title)
+                    },
                     onCourseClick = { courseId -> /* TODO: 코스 상세로 이동 */ }
+                )
+            }
+
+            // 👈 새로 추가: Ping 탭 하단 "경복궁" 카드 눌렀을 때 이동하는 코스 상세 화면
+            composable(
+                PING_COURSE_DETAIL_ROUTE,
+                arguments = listOf(
+                    navArgument("routeId") { type = NavType.LongType },
+                    navArgument("title") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
+            ) { backStackEntry ->
+                val routeId = backStackEntry.arguments?.getLong("routeId") ?: 0L
+                val title = backStackEntry.arguments?.getString("title") ?: "여행 기록"
+                PingCourseDetailScreen(
+                    routeId = routeId,
+                    courseName = title,
+                    onBackClick = {
+                        navController.popBackStack()
+                    },
+                    onAddPingClick = {
+                        navigateToPingAddPlace(navController, routeId)
+                    },
+                    onPingLogClick = { pingId -> /* TODO: 핑로그 상세로 이동 */ }
+                )
+            }
+
+            // 👈 새로 추가: "+" 버튼 눌렀을 때 - 지도에서 장소 골라서 그 코스(routeId)에 핑 등록
+            composable(
+                PING_ADD_PLACE_ROUTE,
+                arguments = listOf(
+                    navArgument("routeId") { type = NavType.LongType }
+                )
+            ) { backStackEntry ->
+                val routeId = backStackEntry.arguments?.getLong("routeId") ?: 0L
+                val pingViewModel: com.tripping.app.viewmodel.PingViewModel = viewModel()
+
+                PingPlaceSearchScreen(
+                    onPlaceSelected = { place ->
+                        pingViewModel.createPing(
+                            routeId = routeId,
+                            spotId = place.spotId,
+                            placeName = place.name,
+                            latitude = place.latitude,
+                            longitude = place.longitude,
+                            onSuccess = {
+                                // 핑 등록 성공 -> 코스 상세 화면으로 돌아감 (돌아가면 LaunchedEffect가 재조회해서 새 핑이 바로 보임)
+                                navController.popBackStack()
+                            }
+                        )
+                    }
                 )
             }
         }
