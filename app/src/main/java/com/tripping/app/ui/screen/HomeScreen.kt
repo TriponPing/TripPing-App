@@ -12,6 +12,9 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,12 +29,14 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tripping.app.R
-import com.tripping.app.ui.model.ActiveTrip
+import com.tripping.app.data.response.CurrentTripSummaryResponse
 import com.tripping.app.ui.model.HomeCourseCard
 import com.tripping.app.ui.model.HomeKeyword
 import com.tripping.app.ui.model.HomePopularPlace
 import com.tripping.app.ui.model.HomePopularRoute
+import com.tripping.app.viewmodel.HomeViewModel
 
 // ===== 색상 (피그마 파일 MRryaRzdtZqvbGJf07TqMk, node 19:2 / 108:793 / 74:3178 / 88:3521 에서 추출) =====
 // 다른 화면 파일들처럼 이 파일에서만 쓰는 색은 로컬로 선언함.
@@ -53,8 +58,6 @@ private val HomeScreenHorizontalPadding = 28.dp
 // 하단 네비게이션 바는 AppNavigation.kt에서 공통으로 관리함 (여기서 직접 안 그림)
 @Composable
 fun HomeScreen(
-    userName: String = "이지호", // TODO: 로그인한 사용자 닉네임(GET /users/me)으로 교체
-    activeTrip: ActiveTrip? = null, // null = 여행 없음 / 값 있으면 "여행 중" 카드로 전환 (진행중인 여행 조회 API 나오면 연결)
     onStartRouteClick: () -> Unit = {},
     onViewRouteClick: () -> Unit = {},
     onPingClick: () -> Unit = {},
@@ -62,8 +65,18 @@ fun HomeScreen(
     onSeeAllPopularPlaces: () -> Unit = {},
     onSeeAllKeywords: () -> Unit = {},
     onSeeAllNearbyCourses: () -> Unit = {},
-    onCourseClick: (Int) -> Unit = {}
+    onCourseClick: (Int) -> Unit = {},
+    viewModel: HomeViewModel = viewModel()
 ) {
+    // [1번 섹션] 진행 중인 여행 - 실제 API(GET /trips/current-summary) 연동됨
+    // [2번 섹션] 인사말 닉네임 - 실제 API(GET /auth/me) 연동됨
+    val currentTrip by viewModel.currentTrip.collectAsState()
+    val nickname by viewModel.nickname.collectAsState()
+    LaunchedEffect(Unit) {
+        viewModel.loadCurrentTrip()
+        viewModel.loadNickname()
+    }
+
     // TODO: 인기 루트/인기 장소/인기 키워드/내 주변 코스 API 나오면 mock 데이터 교체
     val popularRoutes = remember {
         listOf(HomePopularRoute(1, listOf("성수", "서울 숲", "한강", "뚝뚝-"), "2~3시간", "3.2만명 인기"))
@@ -106,13 +119,14 @@ fun HomeScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        item { HomeHeader(userName = userName, hasActiveTrip = activeTrip != null) }
+        item { HomeHeader(userName = nickname ?: "회원", hasActiveTrip = currentTrip != null) }
         item { Spacer(modifier = Modifier.height(31.dp)) }
 
         item {
-            if (activeTrip != null) {
+            val trip = currentTrip
+            if (trip != null) {
                 ActiveTripCard(
-                    trip = activeTrip,
+                    trip = trip,
                     onViewRouteClick = onViewRouteClick,
                     onPingClick = onPingClick
                 )
@@ -141,7 +155,7 @@ fun HomeScreen(
         item {
             KeywordChipsRow(
                 keywords = popularKeywords,
-                outlined = activeTrip != null,
+                outlined = currentTrip != null,
                 onKeywordClick = { onSeeAllKeywords() }
             )
         }
@@ -153,7 +167,7 @@ fun HomeScreen(
             Box(modifier = Modifier.padding(horizontal = HomeScreenHorizontalPadding)) {
                 HomeCourseCardView(
                     course = course,
-                    showArrows = activeTrip != null,
+                    showArrows = currentTrip != null,
                     titleFontSize = 15.sp,
                     onClick = { onCourseClick(course.id) }
                 )
@@ -226,9 +240,12 @@ private fun StartTripCard(onStartRouteClick: () -> Unit) {
 }
 
 // ===== 여행 중일 때 카드 (피그마 node 108:793) =====
+// trip.actualRouteId 등은 실제 API(GET /trips/current-summary) 응답. DB에 "여행 제목" 컬럼
+// 자체가 없어서 제목은 고정 문구 "진행 중인 여행"으로 둠(팀 논의 결과) - tripName처럼 없는 데이터를
+// 지어내지 않음. pingCount/visitedPlaceNames는 실제 WidgetPing 데이터임.
 @Composable
 private fun ActiveTripCard(
-    trip: ActiveTrip,
+    trip: CurrentTripSummaryResponse,
     onViewRouteClick: () -> Unit,
     onPingClick: () -> Unit
 ) {
@@ -242,7 +259,7 @@ private fun ActiveTripCard(
             .padding(horizontal = 18.dp, vertical = 17.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(text = trip.tripName, fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = HomeAccentBlue)
+            Text(text = "진행 중인 여행", fontSize = 20.sp, fontWeight = FontWeight.SemiBold, color = HomeAccentBlue)
             Spacer(modifier = Modifier.weight(1f))
             Row {
                 Text(text = "현재 ", fontSize = 11.sp, fontWeight = FontWeight.SemiBold, color = HomeGrayText)
@@ -258,7 +275,17 @@ private fun ActiveTripCard(
                 modifier = Modifier.size(width = 51.dp, height = 54.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            TripStepper(stops = trip.stops, modifier = Modifier.weight(1f))
+            if (trip.visitedPlaceNames.isNotEmpty()) {
+                TripStepper(stops = trip.visitedPlaceNames, modifier = Modifier.weight(1f))
+            } else {
+                Text(
+                    text = "아직 등록된 Ping이 없어요",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = HomeGrayText,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
         Spacer(modifier = Modifier.height(19.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -574,14 +601,23 @@ private fun HomeScreenNoTripPreview() {
     HomeScreen()
 }
 
-@Preview(showBackground = true, heightDp = 1000)
+// HomeScreen 자체는 이제 ViewModel에서 직접 데이터를 받아오므로, "여행 중" 상태는
+// ActiveTripCard 하나만 따로 프리뷰함 (디자인 확인용 샘플 데이터 - 실제 화면 로직과 무관).
+@Preview(showBackground = true)
 @Composable
-private fun HomeScreenActiveTripPreview() {
-    HomeScreen(
-        activeTrip = ActiveTrip(
-            tripName = "여행 이름",
+private fun ActiveTripCardPreview() {
+    ActiveTripCard(
+        trip = CurrentTripSummaryResponse(
+            actualRouteId = 1,
+            companionType = "FRIEND",
+            transport = "WALK",
+            memberCount = 2,
+            travelDate = "2026-09-04",
+            status = "IN_PROGRESS",
             pingCount = 3,
-            stops = listOf("광안리", "해운대", "청사포")
-        )
+            visitedPlaceNames = listOf("광안리", "해운대", "청사포")
+        ),
+        onViewRouteClick = {},
+        onPingClick = {}
     )
 }

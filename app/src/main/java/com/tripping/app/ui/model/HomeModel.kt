@@ -5,12 +5,6 @@ package com.tripping.app.ui.model
 // 화면 구조를 먼저 잡기 위한 임시 모델. API 나오면 필드 맞춰서 교체하면 됨.
 // 필드/문구는 피그마 목업(node-id 19:2, 108:793, 74:3178, 88:3521) 텍스트를 그대로 사용함.
 
-data class ActiveTrip(
-    val tripName: String,
-    val pingCount: Int,       // "현재 N개의 Ping을 남겼어요"
-    val stops: List<String>   // 예: ["광안리", "해운대", "청사포"]
-)
-
 data class HomePopularRoute(
     val id: Int,
     val stops: List<String>,
