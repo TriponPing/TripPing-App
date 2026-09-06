@@ -6,6 +6,7 @@ import com.tripping.app.data.response.BadgeResponse
 import com.tripping.app.data.response.MapDetailResponse
 import com.tripping.app.data.response.MapPinResponse
 import com.tripping.app.data.response.MapSearchResponse
+import com.tripping.app.data.response.MyMapResponse
 import com.tripping.app.data.response.PageResponse
 import com.tripping.app.data.response.ProfileResponse
 import com.tripping.app.data.response.SavedRouteResponse
@@ -52,7 +53,7 @@ interface MyPageApi {
     suspend fun unsaveRoute(@Path("routeId") routeId: Long): Response<Unit>
 
     @GET("users/me/map")
-    suspend fun getMyMap(): Response<List<MapPinResponse>>
+    suspend fun getMyMap(): Response<MyMapResponse>
 
     // type = "drawn"(다녀온 여행) | "saved"(저장한 루트)
     @GET("users/me/map/detail")
