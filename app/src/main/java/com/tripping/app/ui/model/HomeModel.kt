@@ -5,12 +5,6 @@ package com.tripping.app.ui.model
 // 화면 구조를 먼저 잡기 위한 임시 모델. API 나오면 필드 맞춰서 교체하면 됨.
 // 필드/문구는 피그마 목업(node-id 19:2, 108:793, 74:3178, 88:3521) 텍스트를 그대로 사용함.
 
-data class HomePopularPlace(
-    val id: Int,
-    val name: String,
-    val region: String // 예: "부산"
-)
-
 // 키워드 칩 - selected=true면 피그마상 채워진(#5AA2D9) 스타일, false면 아웃라인 스타일
 data class HomeKeyword(
     val text: String,

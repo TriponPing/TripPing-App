@@ -35,6 +35,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tripping.app.R
 import com.tripping.app.data.response.PopularPlaceResponse
 import com.tripping.app.viewmodel.HomeViewModel
+import com.tripping.app.viewmodel.PlaceCategory
 
 // ===== "떠오르는 인기 장소" 더보기 화면 (홈 > 떠오르는 인기 장소) - 피그마 node 457:736 =====
 // 저장(찜) 수가 많은 순 TOP 30. 동점(저장 수 같음)은 같은 등수로 표시하고(dense rank),
@@ -172,7 +173,7 @@ private fun PopularPlaceCard(rank: Int, place: PopularPlaceResponse, onClick: ()
             Text(text = place.name, fontSize = 22.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
             if (!place.category.isNullOrBlank()) {
                 Spacer(modifier = Modifier.height(2.dp))
-                Text(text = place.category, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HomeGrayText)
+                Text(text = PlaceCategory.labelOf(place.category), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HomeGrayText)
             }
         }
 
