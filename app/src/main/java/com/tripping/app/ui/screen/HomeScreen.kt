@@ -11,6 +11,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -648,12 +649,12 @@ internal fun HomeCourseCardView(
 }
 
 @Composable
-internal fun BookmarkIcon() {
+internal fun BookmarkIcon(filled: Boolean = false, modifier: Modifier = Modifier) {
     Icon(
-        imageVector = Icons.Outlined.BookmarkBorder,
+        imageVector = if (filled) Icons.Filled.Bookmark else Icons.Outlined.BookmarkBorder,
         contentDescription = null,
-        tint = Color(0xFF2E2E2E),
-        modifier = Modifier.size(20.dp)
+        tint = if (filled) HomeAccentBlue else Color(0xFF2E2E2E),
+        modifier = modifier.size(20.dp)
     )
 }
 

@@ -26,6 +26,17 @@ class HomeViewModel : ViewModel() {
     private val _popularTrips = MutableStateFlow<List<PopularTripResponse>>(emptyList())
     val popularTrips: StateFlow<List<PopularTripResponse>> = _popularTrips
 
+    // 내가 저장한 루트 id 집합. "이 루트를 이미 저장했는지" 조회하는 API가 따로 없어서,
+    // 화면 진입 시 GET /users/me/routes/saved 목록을 통째로 불러와 tripId만 뽑아 초기화함.
+    private val _savedRouteIds = MutableStateFlow<Set<Long>>(emptySet())
+    val savedRouteIds: StateFlow<Set<Long>> = _savedRouteIds
+
+    // trips/popular의 savedCount는 화면 진입 시점 스냅샷이라, 이 화면에서 저장/취소한 만큼만
+    // (+1/-1) 보정해서 보여줌. loadSavedRouteIds로 복원된, 원래부터 저장돼있던 루트는 그
+    // 스냅샷에 이미 포함돼 있으므로 델타를 안 건드림.
+    private val _savedCountDeltas = MutableStateFlow<Map<Long, Int>>(emptyMap())
+    val savedCountDeltas: StateFlow<Map<Long, Int>> = _savedCountDeltas
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
@@ -61,6 +72,48 @@ class HomeViewModel : ViewModel() {
                 _popularTrips.value = if (response.isSuccessful) response.body() ?: emptyList() else emptyList()
             } catch (e: Exception) {
                 // 목록형 섹션이라 실패해도 빈 목록으로 두고 에러 배너는 안 띄움
+            }
+        }
+    }
+
+    // 화면 진입 시 한 번 불러와서 북마크 초기 상태(채워짐/빈 상태)를 정확하게 복원함.
+    // size는 넉넉하게 100 - 페이지네이션까지 구현할 정도로 저장 개수가 많은 상황은 아직 아님.
+    fun loadSavedRouteIds() {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.myPageApi.getSavedRoutes(page = 0, size = 100)
+                if (response.isSuccessful) {
+                    _savedRouteIds.value = response.body()?.content
+                        ?.map { it.tripId }
+                        ?.toSet()
+                        ?: emptySet()
+                }
+            } catch (e: Exception) {
+                // 초기 상태 복원용이라 실패해도 빈 집합(전부 안 채워진 상태)으로 두고 넘어감
+            }
+        }
+    }
+
+    // 북마크 탭: 저장 안 된 상태면 POST로 저장, 저장된 상태면 DELETE로 저장 취소.
+    // 마이페이지 "저장한 여행"은 이 API가 실제로 저장하는 대상이라 바로 반영됨.
+    fun toggleSaveRoute(routeId: Long) {
+        viewModelScope.launch {
+            try {
+                if (_savedRouteIds.value.contains(routeId)) {
+                    val response = RetrofitClient.myPageApi.unsaveRoute(routeId)
+                    if (response.isSuccessful) {
+                        _savedRouteIds.value = _savedRouteIds.value - routeId
+                        _savedCountDeltas.value = _savedCountDeltas.value + (routeId to -1)
+                    }
+                } else {
+                    val response = RetrofitClient.myPageApi.saveRoute(routeId)
+                    if (response.isSuccessful) {
+                        _savedRouteIds.value = _savedRouteIds.value + routeId
+                        _savedCountDeltas.value = _savedCountDeltas.value + (routeId to 1)
+                    }
+                }
+            } catch (e: Exception) {
+                // 실패하면 상태를 안 바꿔서 아이콘/카운트가 실제 서버 상태와 어긋나지 않게 함
             }
         }
     }

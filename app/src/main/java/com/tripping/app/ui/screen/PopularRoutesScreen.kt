@@ -55,7 +55,12 @@ fun PopularRoutesScreen(
     viewModel: HomeViewModel = viewModel()
 ) {
     val popularTrips by viewModel.popularTrips.collectAsState()
-    LaunchedEffect(Unit) { viewModel.loadPopularTrips(limit = 20) }
+    val savedRouteIds by viewModel.savedRouteIds.collectAsState()
+    val savedCountDeltas by viewModel.savedCountDeltas.collectAsState()
+    LaunchedEffect(Unit) {
+        viewModel.loadPopularTrips(limit = 20)
+        viewModel.loadSavedRouteIds()
+    }
 
     Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
         PageHeader(title = "이번주 인기 루트", onBackClick = onBackClick)
@@ -93,7 +98,13 @@ fun PopularRoutesScreen(
             }
 
             items(popularTrips) { trip ->
-                PopularRouteListCard(trip = trip, onClick = { onCourseClick(trip.routeId) })
+                PopularRouteListCard(
+                    trip = trip,
+                    isSaved = trip.routeId in savedRouteIds,
+                    countDelta = savedCountDeltas[trip.routeId] ?: 0,
+                    onClick = { onCourseClick(trip.routeId) },
+                    onBookmarkClick = { viewModel.toggleSaveRoute(trip.routeId) }
+                )
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
@@ -101,7 +112,13 @@ fun PopularRoutesScreen(
 }
 
 @Composable
-private fun PopularRouteListCard(trip: PopularTripResponse, onClick: () -> Unit) {
+private fun PopularRouteListCard(
+    trip: PopularTripResponse,
+    isSaved: Boolean,
+    countDelta: Int,
+    onClick: () -> Unit,
+    onBookmarkClick: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -121,9 +138,12 @@ private fun PopularRouteListCard(trip: PopularTripResponse, onClick: () -> Unit)
                 color = HomeTextPrimary,
                 modifier = Modifier.weight(1f)
             )
-            BookmarkIcon()
+            BookmarkIcon(filled = isSaved, modifier = Modifier.clickable { onBookmarkClick() })
             Spacer(modifier = Modifier.width(4.dp))
-            Text(text = trip.savedCount.toString(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = HomeTextPrimary)
+            // 서버가 준 총 저장 수는 화면 진입 시점 스냅샷이라, 이 화면에서 내가 저장/취소한
+            // 만큼만(+1/-1) 보정해서 바로 반영함(낙관적 업데이트)
+            val displayedCount = trip.savedCount + countDelta
+            Text(text = displayedCount.toString(), fontSize = 12.sp, fontWeight = FontWeight.SemiBold, color = HomeTextPrimary)
         }
         Spacer(modifier = Modifier.height(16.dp))
 
