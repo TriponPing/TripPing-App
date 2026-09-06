@@ -135,9 +135,11 @@ class MyPageViewModel : ViewModel() {
             try {
                 val response = RetrofitClient.myPageApi.getMyMap()
                 if (response.isSuccessful) {
-                    val pins = response.body() ?: emptyList()
-                    _mapPins.value = pins
-                    _visitedPlaceCount.value = pins.size
+                    val body = response.body()
+                    _mapPins.value = body?.pins ?: emptyList()
+                    // "다녀온 장소" 배지 - 다녀온 여행(저장한 루트 제외)에 포함된 장소 개수(중복 제거),
+                    // 백엔드가 계산해서 내려줌 (핀 개수 = 여행 개수라 예전엔 서로 다른 값이었음)
+                    _visitedPlaceCount.value = body?.visitedPlaceCount ?: 0
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "네트워크 오류가 발생했습니다."

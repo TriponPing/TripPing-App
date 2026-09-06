@@ -18,7 +18,9 @@ interface PlaceApi {
     @GET("places")
     suspend fun getPlaces(
         @Query("category") category: String,
-        @Query("regionId") regionId: String?
+        @Query("regionId") regionId: String?,
+        @Query("timeSlot") timeSlot: String?,
+        @Query("minPingCount") minPingCount: Int?
     ): List<PlaceSearchResponse>
 
     // 👈 새로 추가: 네이버맵에서 발견한(우리 DB에 없는) 장소를 새로 등록 - 백엔드팀 구현 예정
