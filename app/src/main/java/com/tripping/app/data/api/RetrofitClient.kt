@@ -43,6 +43,7 @@ object RetrofitClient {
     }
 
     val authApi: AuthApi by lazy { retrofit.create(AuthApi::class.java) }
+    val homeApi: HomeApi by lazy { retrofit.create(HomeApi::class.java) }
     val myPageApi: MyPageApi by lazy { retrofit.create(MyPageApi::class.java) }
     val pingApi: PingApi by lazy { retrofit.create(PingApi::class.java) }
     val placeApi: PlaceApi by lazy { retrofit.create(PlaceApi::class.java) }

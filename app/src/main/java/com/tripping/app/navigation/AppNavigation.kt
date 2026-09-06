@@ -26,10 +26,14 @@ import com.tripping.app.ui.screen.HomeScreen
 import com.tripping.app.ui.screen.LoginScreen
 import com.tripping.app.ui.screen.MyMapDetailScreen
 import com.tripping.app.ui.screen.MyPageScreen
+import com.tripping.app.ui.screen.NearbyCoursesScreen
 import com.tripping.app.ui.screen.PingCourseDetailScreen
 import com.tripping.app.ui.screen.PingHistoryScreen // 👈 1. 임포트 추가됨
 import com.tripping.app.ui.screen.PingPlaceSearchScreen
 import com.tripping.app.ui.screen.PingScreen
+import com.tripping.app.ui.screen.PopularKeywordsScreen
+import com.tripping.app.ui.screen.PopularPlacesScreen
+import com.tripping.app.ui.screen.PopularRoutesScreen
 import com.tripping.app.ui.screen.SignUpScreen
 import com.tripping.app.ui.screen.PlaceSearchScreen
 import com.tripping.app.ui.screen.SettingsScreen
@@ -58,10 +62,14 @@ private val bottomBarRoutes = mapOf(
     TRIP_START_ROUTE to AppBottomNavTab.MY,
     "settings" to AppBottomNavTab.MY,
     "ping" to AppBottomNavTab.PING,
+    "placeSearch" to AppBottomNavTab.SEARCH,
+    "popular_keywords" to AppBottomNavTab.HOME,
+    "nearby_courses" to AppBottomNavTab.HOME,
+    "popular_routes" to AppBottomNavTab.HOME,
+    "popular_places" to AppBottomNavTab.HOME,
     PING_COURSE_DETAIL_ROUTE to AppBottomNavTab.PING, // 👈 Ping 탭 소속이라 눌러도 바텀바 Ping 탭 유지됨
     PING_ADD_PLACE_ROUTE to AppBottomNavTab.PING,
-    PING_HISTORY_ROUTE to AppBottomNavTab.PING, // 👈 3. 다녀온 여행 목록도 Ping 탭 소속으로 지정
-    "placeSearch" to AppBottomNavTab.SEARCH
+    PING_HISTORY_ROUTE to AppBottomNavTab.PING // 👈 3. 다녀온 여행 목록도 Ping 탭 소속으로 지정
 )
 
 // "다녀온 여행" 카드 클릭 -> 코스 상세보기 화면으로 이동 (마이페이지/다녀온 여행 자세히보기 둘 다 공용)
@@ -174,12 +182,42 @@ fun AppNavigation() {
 
             composable("home") {
                 HomeScreen(
-                    onGoToMyPageClick = {
-                        navigateToTab(navController, "mypage")
-                    },
-                    onNavigateToPlaceSearch = {
-                        navigateToTab(navController, "placeSearch")
-                    }
+                    onStartRouteClick = { /* TODO: 루트 생성 - 1) 정보 입력 화면 아직 없음 */ },
+                    onViewRouteClick = { /* TODO: 진행 중인 여행의 루트 상세 화면 아직 없음 */ },
+                    onPingClick = { navigateToTab(navController, "ping") },
+                    onSeeAllPopularRoutes = { navController.navigate("popular_routes") },
+                    onSeeAllPopularPlaces = { navController.navigate("popular_places") },
+                    onSeeAllKeywords = { navController.navigate("popular_keywords") },
+                    onSeeAllNearbyCourses = { navController.navigate("nearby_courses") },
+                    onCourseClick = { /* TODO: 코스 상세 화면 아직 없음 */ }
+                )
+            }
+
+            composable("popular_keywords") {
+                PopularKeywordsScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onCourseClick = { /* TODO: 코스 상세 화면 아직 없음 */ }
+                )
+            }
+
+            composable("nearby_courses") {
+                NearbyCoursesScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onCourseClick = { /* TODO: 코스 상세 화면 아직 없음 */ }
+                )
+            }
+
+            composable("popular_routes") {
+                PopularRoutesScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onCourseClick = { /* TODO: 코스 상세 화면 아직 없음 */ }
+                )
+            }
+
+            composable("popular_places") {
+                PopularPlacesScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onPlaceClick = { /* TODO: 장소 상세조회 화면 만들면 여기서 이동 처리 */ }
                 )
             }
 
