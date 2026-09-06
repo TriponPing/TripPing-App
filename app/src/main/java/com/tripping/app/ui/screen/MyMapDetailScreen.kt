@@ -32,20 +32,24 @@ import kotlinx.coroutines.delay
 
 // ===== 나의 여행 지도 자세히보기 화면 (마이페이지 "나의 여행 지도 > 자세히 보기") =====
 // 실제 API 연동:
-//   GET /users/me/map               -> 지도에 찍을 핀 전체 목록 (DRAWN=다녀온 여행 / SAVED=저장한 루트)
-//   GET /users/me/map/detail?type=  -> 타입별(drawn|saved) 전체 경로 - "내가 그린 루트 보기" 토글용
+//   GET /users/me/map               -> 검색 결과 클릭 시 좌표 찾는 용도로만 사용
+//   GET /users/me/map/detail?type=  -> 탭별(drawn|saved|planned) 전체 경로
 //   GET /users/me/map/search        -> 코스 이름 검색
 // 지도는 네이버 지도 SDK(NCP Dynamic Map, Client ID는 AndroidManifest.xml에 등록) 사용.
-// Figma대로 상단 헤더 블록 없이 지도를 화면 꽉 채우고, 뒤로가기+검색창은 지도 위에 떠있게 배치함.
+// 상단 헤더 블록 없이 지도를 화면 꽉 채우고, 뒤로가기+검색창은 지도 위에 떠있게 배치함.
 //
-// 버튼 2개:
-//   "여행 보기"          -> 지도 위 핀(다녀온 여행 + 저장한 루트) 전체를 껐다 켰다
-//   "내가 그린 루트 보기" -> 내가 다녀온 여행(DRAWN)의 경로 연결선을 껐다 켰다
-//                          ("내가 그린" = 남한테 저장(북마크)한 루트가 아니라 내가 직접 다닌 내 루트)
+// 검색창 아래 탭 3개(스위치처럼 하나만 선택됨):
+//   "내 계획"    -> 아직 시작 안 한 계획(PLANNED) - 여행으로 전환하면 여기서 빠짐
+//   "저장한 루트" -> 남의 공개 루트를 북마크한 것(SAVED)
+//   "여행보기"    -> 내가 실제로 다녀온 여행(DRAWN)
 
 private val ColorAccentBlue = Color(0xFF0074CE)
-private const val TYPE_DRAWN = "drawn"
-private const val TYPE_SAVED = "saved"
+
+private enum class MapTab(val apiType: String, val label: String, val lineColorHex: String) {
+    PLANNED("planned", "내 계획", "#34C759"),
+    SAVED("saved", "저장한 루트", "#FF7A3D"),
+    VISITED("drawn", "여행보기", "#0074CE")
+}
 
 @Composable
 fun MyMapDetailScreen(
@@ -53,11 +57,7 @@ fun MyMapDetailScreen(
     viewModel: MyPageViewModel = viewModel()
 ) {
     LaunchedEffect(Unit) {
-        viewModel.loadMyMap()
-        // "여행 보기"가 여행 하나당 대표 장소 1개짜리 요약 핀이 아니라 실제 방문 장소를
-        // 전부 보여주도록, 다녀온 여행/저장한 루트 둘 다 상세(전체 스팟)를 미리 불러옴
-        viewModel.loadMapDetail(TYPE_DRAWN)
-        viewModel.loadMapDetail(TYPE_SAVED)
+        viewModel.loadMyMap() // 검색 결과 클릭 시 좌표 찾는 용도
     }
 
     val pins by viewModel.mapPins.collectAsState()
@@ -65,84 +65,42 @@ fun MyMapDetailScreen(
     val searchResults by viewModel.mapSearchResults.collectAsState()
 
     var naverMap by remember { mutableStateOf<NaverMap?>(null) }
-    var showPins by remember { mutableStateOf(true) } // "여행 보기" - 핀 전체 표시 여부
-    var showDrawnRouteLines by remember { mutableStateOf(false) } // "내가 그린 루트 보기" - 내 다녀온 여행 경로선 표시 여부
+    var selectedTab by remember { mutableStateOf(MapTab.PLANNED) }
     var searchQuery by remember { mutableStateOf("") }
     var clickedName by remember { mutableStateOf<String?>(null) }
 
-    // "여행 보기"에 실제로 찍을 방문 장소 전체 - 다녀온 여행 + 저장한 루트 안의 모든 스팟을 펼침
-    // (GET /users/me/map은 여행 하나당 대표 장소 1개짜리 요약 핀이라, 여러 장소를 들른 여행은
-    //  대표 장소 하나만 보이는 문제가 있었음 -> 상세(map/detail) 데이터를 스팟 단위로 다 풀어서 사용)
-    val allVisitedSpots = remember(detailByType) {
-        val drawn = detailByType[TYPE_DRAWN].orEmpty()
-        val saved = detailByType[TYPE_SAVED].orEmpty()
-        (drawn + saved).flatMap { it.spots }
+    // 선택된 탭이 바뀔 때마다 해당 타입 데이터를 불러옴 (한 번 불러온 타입은 재요청 안 함 - ViewModel 캐시)
+    LaunchedEffect(selectedTab) {
+        viewModel.loadMapDetail(selectedTab.apiType)
     }
 
-    // 핀이 새로 로드되면 전부 보이도록 카메라 위치 맞춤 (핀을 껐다 켜는 것과 무관하게 최초 1회성 성격)
-    LaunchedEffect(naverMap, allVisitedSpots, pins) {
-        val map = naverMap ?: return@LaunchedEffect
-        val detailPoints = allVisitedSpots.mapNotNull { s -> s.latitude?.let { la -> s.longitude?.let { lo -> LatLng(la, lo) } } }
-        val points = detailPoints.ifEmpty {
-            pins.mapNotNull { p -> p.latitude?.let { la -> p.longitude?.let { lo -> LatLng(la, lo) } } }
-        }
-        cameraUpdateToShowAll(points)?.let { map.moveCamera(it) }
-    }
-
-    // ── 지도에 찍을 핀 전체(방문 장소 하나하나) - "여행 보기" 토글로 껐다 켰다. 탭하면 이름만 안내 ──
-    val pinMarkers = remember { mutableListOf<Marker>() }
-    LaunchedEffect(naverMap, allVisitedSpots, showPins) {
+    // 선택된 탭의 루트 전체(경로선 + 마커)를 그림. 탭 바뀌면 이전 탭 오버레이는 지우고 새로 그림.
+    val overlayObjects = remember { mutableListOf<Any>() } // Marker | PathOverlay
+    LaunchedEffect(naverMap, selectedTab, detailByType) {
         val map = naverMap
-        pinMarkers.forEach { it.map = null }
-        pinMarkers.clear()
-
-        if (map == null || !showPins) return@LaunchedEffect
-
-        allVisitedSpots.forEach { spot ->
-            val lat = spot.latitude ?: return@forEach
-            val lng = spot.longitude ?: return@forEach
-            val marker = Marker().apply {
-                position = LatLng(lat, lng)
-                captionText = spot.spotName ?: ""
-                applyPingIcon()
-                setOnClickListener {
-                    clickedName = spot.spotName
-                    true
-                }
-                this.map = map
-            }
-            pinMarkers.add(marker)
-        }
-    }
-
-    // ── "내가 그린 루트 보기" - 내가 다녀온 여행(DRAWN) 전체를 라인으로 표시, 각 루트 클릭 가능 ──
-    val drawnRouteOverlayObjects = remember { mutableListOf<Any>() } // Marker | PathOverlay
-    LaunchedEffect(naverMap, showDrawnRouteLines, detailByType) {
-        val map = naverMap
-        drawnRouteOverlayObjects.forEach {
+        overlayObjects.forEach {
             when (it) {
                 is Marker -> it.map = null
                 is PathOverlay -> it.map = null
             }
         }
-        drawnRouteOverlayObjects.clear()
+        overlayObjects.clear()
 
-        if (map == null || !showDrawnRouteLines) return@LaunchedEffect
+        if (map == null) return@LaunchedEffect
+        val list = detailByType[selectedTab.apiType] ?: return@LaunchedEffect
 
-        val list = detailByType[TYPE_DRAWN] ?: run {
-            viewModel.loadMapDetail(TYPE_DRAWN)
-            return@LaunchedEffect
-        }
+        val allCoords = mutableListOf<LatLng>()
 
-        list.forEach { trip ->
-            val sortedSpots = trip.spots.sortedBy { it.visitOrder ?: 0 }
+        list.forEach { route ->
+            val sortedSpots = route.spots.sortedBy { it.visitOrder ?: 0 }
             val coords = sortedSpots.mapNotNull { s -> s.latitude?.let { la -> s.longitude?.let { lo -> LatLng(la, lo) } } }
             if (coords.isEmpty()) return@forEach
+            allCoords.addAll(coords)
 
             if (coords.size >= 2) {
                 val path = PathOverlay().apply {
                     this.coords = coords
-                    color = AndroidColor.parseColor("#0074CE")
+                    color = AndroidColor.parseColor(selectedTab.lineColorHex)
                     width = 7
                     setOnClickListener {
                         clickedName = sortedSpots.firstOrNull()?.spotName
@@ -150,7 +108,7 @@ fun MyMapDetailScreen(
                     }
                     this.map = map
                 }
-                drawnRouteOverlayObjects.add(path)
+                overlayObjects.add(path)
             }
 
             sortedSpots.forEach { spot ->
@@ -158,6 +116,7 @@ fun MyMapDetailScreen(
                 val lo = spot.longitude ?: return@forEach
                 val marker = Marker().apply {
                     position = LatLng(la, lo)
+                    captionText = spot.spotName ?: ""
                     applyPingIcon()
                     setOnClickListener {
                         clickedName = spot.spotName
@@ -165,9 +124,11 @@ fun MyMapDetailScreen(
                     }
                     this.map = map
                 }
-                drawnRouteOverlayObjects.add(marker)
+                overlayObjects.add(marker)
             }
         }
+
+        cameraUpdateToShowAll(allCoords)?.let { map.moveCamera(it) }
     }
 
     // 검색 디바운스 (300ms)
@@ -186,7 +147,7 @@ fun MyMapDetailScreen(
             onMapReady = { naverMap = it }
         )
 
-        // 뒤로가기 + 검색창 - 헤더 블록 없이 지도 위에 공중에 떠있게 배치
+        // 뒤로가기 + 검색창 + 탭 3개 - 헤더 블록 없이 지도 위에 공중에 떠있게 배치
         Column(
             modifier = Modifier
                 .align(Alignment.TopCenter)
@@ -256,6 +217,22 @@ fun MyMapDetailScreen(
                     }
                 }
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // 탭 3개 - 스위치처럼 하나만 선택됨
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                MapTab.entries.forEach { tab ->
+                    MapTabButton(
+                        label = tab.label,
+                        active = selectedTab == tab,
+                        onClick = {
+                            selectedTab = tab
+                            clickedName = null
+                        }
+                    )
+                }
+            }
         }
 
         // 지도 위 핀/루트를 클릭했을 때 이름 안내
@@ -263,7 +240,7 @@ fun MyMapDetailScreen(
             Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
-                    .padding(top = 92.dp)
+                    .padding(top = 150.dp)
                     .clip(RoundedCornerShape(8.dp))
                     .background(Color(0xCC000000))
                     .padding(horizontal = 12.dp, vertical = 6.dp)
@@ -271,31 +248,11 @@ fun MyMapDetailScreen(
                 Text(text = name, fontSize = 12.sp, color = Color.White)
             }
         }
-
-        // 우측 하단 토글 버튼 2개 - 둘 다 그냥 온/오프 토글(문구는 안 바뀌고 색깔만 바뀜)
-        Column(
-            modifier = Modifier
-                .align(Alignment.BottomEnd)
-                .padding(16.dp),
-            horizontalAlignment = Alignment.End
-        ) {
-            MapToggleButton(
-                label = "여행 보기",
-                active = showPins,
-                onClick = { showPins = !showPins }
-            )
-            Spacer(modifier = Modifier.height(8.dp))
-            MapToggleButton(
-                label = "내가 그린 루트 보기",
-                active = showDrawnRouteLines,
-                onClick = { showDrawnRouteLines = !showDrawnRouteLines }
-            )
-        }
     }
 }
 
 @Composable
-private fun MapToggleButton(
+private fun MapTabButton(
     label: String,
     active: Boolean,
     onClick: () -> Unit
