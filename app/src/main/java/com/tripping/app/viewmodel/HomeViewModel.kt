@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.tripping.app.data.api.RetrofitClient
 import com.tripping.app.data.response.CurrentTripSummaryResponse
 import com.tripping.app.data.response.PopularKeywordResponse
+import com.tripping.app.data.response.PopularPlaceResponse
 import com.tripping.app.data.response.PopularTripResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch
  *   [2번 섹션] GET /auth/me -> 인사말 닉네임 (AuthApi는 기존 파일 그대로, 호출만 함)
  *   [3번 섹션] GET /trips/popular -> 이번 주 인기 루트
  *   [4번 섹션] GET /keyword/popular -> 이번 주 인기 키워드
+ *   [더보기] GET /places/popular -> 떠오르는 인기 장소 (저장 수 기준 TOP N)
  */
 class HomeViewModel : ViewModel() {
 
@@ -41,6 +43,9 @@ class HomeViewModel : ViewModel() {
 
     private val _popularKeywords = MutableStateFlow<List<PopularKeywordResponse>>(emptyList())
     val popularKeywords: StateFlow<List<PopularKeywordResponse>> = _popularKeywords
+
+    private val _popularPlaces = MutableStateFlow<List<PopularPlaceResponse>>(emptyList())
+    val popularPlaces: StateFlow<List<PopularPlaceResponse>> = _popularPlaces
 
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
@@ -86,6 +91,17 @@ class HomeViewModel : ViewModel() {
             try {
                 val response = RetrofitClient.homeApi.getPopularKeywords(limit = limit)
                 _popularKeywords.value = if (response.isSuccessful) response.body() ?: emptyList() else emptyList()
+            } catch (e: Exception) {
+                // 목록형 섹션이라 실패해도 빈 목록으로 두고 에러 배너는 안 띄움
+            }
+        }
+    }
+
+    fun loadPopularPlaces(limit: Int = 30) {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.homeApi.getPopularPlaces(limit = limit)
+                _popularPlaces.value = if (response.isSuccessful) response.body() ?: emptyList() else emptyList()
             } catch (e: Exception) {
                 // 목록형 섹션이라 실패해도 빈 목록으로 두고 에러 배너는 안 띄움
             }

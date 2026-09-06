@@ -32,6 +32,7 @@ import com.tripping.app.ui.screen.PingHistoryScreen // 👈 1. 임포트 추가�
 import com.tripping.app.ui.screen.PingPlaceSearchScreen
 import com.tripping.app.ui.screen.PingScreen
 import com.tripping.app.ui.screen.PopularKeywordsScreen
+import com.tripping.app.ui.screen.PopularPlacesScreen
 import com.tripping.app.ui.screen.PopularRoutesScreen
 import com.tripping.app.ui.screen.SignUpScreen
 import com.tripping.app.ui.screen.PlaceSearchScreen
@@ -65,6 +66,7 @@ private val bottomBarRoutes = mapOf(
     "popular_keywords" to AppBottomNavTab.HOME,
     "nearby_courses" to AppBottomNavTab.HOME,
     "popular_routes" to AppBottomNavTab.HOME,
+    "popular_places" to AppBottomNavTab.HOME,
     PING_COURSE_DETAIL_ROUTE to AppBottomNavTab.PING, // 👈 Ping 탭 소속이라 눌러도 바텀바 Ping 탭 유지됨
     PING_ADD_PLACE_ROUTE to AppBottomNavTab.PING,
     PING_HISTORY_ROUTE to AppBottomNavTab.PING // 👈 3. 다녀온 여행 목록도 Ping 탭 소속으로 지정
@@ -184,7 +186,7 @@ fun AppNavigation() {
                     onViewRouteClick = { /* TODO: 진행 중인 여행의 루트 상세 화면 아직 없음 */ },
                     onPingClick = { navigateToTab(navController, "ping") },
                     onSeeAllPopularRoutes = { navController.navigate("popular_routes") },
-                    onSeeAllPopularPlaces = { /* TODO: 지금 떠오르는 인기 장소 더보기 화면 아직 없음 */ },
+                    onSeeAllPopularPlaces = { navController.navigate("popular_places") },
                     onSeeAllKeywords = { navController.navigate("popular_keywords") },
                     onSeeAllNearbyCourses = { navController.navigate("nearby_courses") },
                     onCourseClick = { /* TODO: 코스 상세 화면 아직 없음 */ }
@@ -209,6 +211,13 @@ fun AppNavigation() {
                 PopularRoutesScreen(
                     onBackClick = { navController.popBackStack() },
                     onCourseClick = { /* TODO: 코스 상세 화면 아직 없음 */ }
+                )
+            }
+
+            composable("popular_places") {
+                PopularPlacesScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onPlaceClick = { /* TODO: 장소 상세조회 화면 만들면 여기서 이동 처리 */ }
                 )
             }
 

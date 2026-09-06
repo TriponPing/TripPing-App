@@ -2,6 +2,7 @@ package com.tripping.app.data.api
 
 import com.tripping.app.data.response.CurrentTripSummaryResponse
 import com.tripping.app.data.response.PopularKeywordResponse
+import com.tripping.app.data.response.PopularPlaceResponse
 import com.tripping.app.data.response.PopularTripResponse
 import retrofit2.Response
 import retrofit2.http.GET
@@ -23,4 +24,9 @@ interface HomeApi {
     suspend fun getPopularKeywords(
         @Query("limit") limit: Int = 10
     ): Response<List<PopularKeywordResponse>>
+
+    @GET("places/popular")
+    suspend fun getPopularPlaces(
+        @Query("limit") limit: Int = 30
+    ): Response<List<PopularPlaceResponse>>
 }
