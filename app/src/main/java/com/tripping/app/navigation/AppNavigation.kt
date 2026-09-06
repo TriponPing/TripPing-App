@@ -27,6 +27,7 @@ import com.tripping.app.ui.screen.MyPageScreen
 import com.tripping.app.ui.screen.NearbyCoursesScreen
 import com.tripping.app.ui.screen.PingScreen
 import com.tripping.app.ui.screen.PopularKeywordsScreen
+import com.tripping.app.ui.screen.PopularRoutesScreen
 import com.tripping.app.ui.screen.SignUpScreen
 import com.tripping.app.ui.screen.PlaceSearchScreen
 import com.tripping.app.ui.screen.TripHistoryScreen
@@ -49,7 +50,8 @@ private val bottomBarRoutes = mapOf(
     "ping" to AppBottomNavTab.PING,
     "placeSearch" to AppBottomNavTab.SEARCH,
     "popular_keywords" to AppBottomNavTab.HOME,
-    "nearby_courses" to AppBottomNavTab.HOME
+    "nearby_courses" to AppBottomNavTab.HOME,
+    "popular_routes" to AppBottomNavTab.HOME
 )
 
 // "다녀온 여행" 카드 클릭 -> 코스 상세보기 화면으로 이동 (마이페이지/다녀온 여행 자세히보기 둘 다 공용)
@@ -153,7 +155,7 @@ fun AppNavigation() {
                     onStartRouteClick = { /* TODO: 루트 생성 - 1) 정보 입력 화면 아직 없음 */ },
                     onViewRouteClick = { /* TODO: 진행 중인 여행의 루트 상세 화면 아직 없음 */ },
                     onPingClick = { navigateToTab(navController, "ping") },
-                    onSeeAllPopularRoutes = { /* TODO: 이번주 인기 루트 더보기 화면 아직 없음 */ },
+                    onSeeAllPopularRoutes = { navController.navigate("popular_routes") },
                     onSeeAllPopularPlaces = { /* TODO: 지금 떠오르는 인기 장소 더보기 화면 아직 없음 */ },
                     onSeeAllKeywords = { navController.navigate("popular_keywords") },
                     onSeeAllNearbyCourses = { navController.navigate("nearby_courses") },
@@ -170,6 +172,13 @@ fun AppNavigation() {
 
             composable("nearby_courses") {
                 NearbyCoursesScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onCourseClick = { /* TODO: 코스 상세 화면 아직 없음 */ }
+                )
+            }
+
+            composable("popular_routes") {
+                PopularRoutesScreen(
                     onBackClick = { navController.popBackStack() },
                     onCourseClick = { /* TODO: 코스 상세 화면 아직 없음 */ }
                 )

@@ -10,6 +10,9 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BookmarkBorder
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -645,9 +648,13 @@ internal fun HomeCourseCardView(
 }
 
 @Composable
-private fun BookmarkIcon() {
-    // TODO: 실제 bookmark 아이콘 벡터로 교체 (피그마 node 'bookmark' 참고) - 지금은 이모지로 근사
-    Text(text = "🔖", fontSize = 12.sp)
+internal fun BookmarkIcon() {
+    Icon(
+        imageVector = Icons.Outlined.BookmarkBorder,
+        contentDescription = null,
+        tint = Color(0xFF2E2E2E),
+        modifier = Modifier.size(20.dp)
+    )
 }
 
 @Preview(showBackground = true, heightDp = 1000)

@@ -54,10 +54,10 @@ class HomeViewModel : ViewModel() {
         }
     }
 
-    fun loadPopularTrips() {
+    fun loadPopularTrips(limit: Int = 10) {
         viewModelScope.launch {
             try {
-                val response = RetrofitClient.homeApi.getPopularTrips()
+                val response = RetrofitClient.homeApi.getPopularTrips(limit = limit)
                 _popularTrips.value = if (response.isSuccessful) response.body() ?: emptyList() else emptyList()
             } catch (e: Exception) {
                 // 목록형 섹션이라 실패해도 빈 목록으로 두고 에러 배너는 안 띄움

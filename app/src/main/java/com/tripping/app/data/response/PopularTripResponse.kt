@@ -10,5 +10,12 @@ data class PopularTripResponse(
     val status: String?,
     val savedCount: Long,
     val stopNames: List<String>,
-    val photoUrl: String?
+    val photoUrl: String?,
+    val pingCount: Long,
+    val coordinates: List<RouteCoordinate>
+)
+
+data class RouteCoordinate(
+    val latitude: Double,
+    val longitude: Double
 )
