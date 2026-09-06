@@ -15,6 +15,8 @@ interface PlaceApi {
     @GET("places")
     suspend fun getPlaces(
         @Query("category") category: String,
-        @Query("regionId") regionId: String?
+        @Query("regionId") regionId: String?,
+        @Query("timeSlot") timeSlot: String?,
+        @Query("minPingCount") minPingCount: Int?
     ): List<PlaceSearchResponse>
 }

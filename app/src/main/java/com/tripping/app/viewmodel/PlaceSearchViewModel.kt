@@ -35,41 +35,83 @@ class PlaceSearchViewModel : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
-    private val _selectedCategory = MutableStateFlow(PlaceCategory.ATTRACTION)
-    val selectedCategory: StateFlow<PlaceCategory> = _selectedCategory
+    // 처음엔 선택된 카테고리 없음 (null = 아무것도 선택 안 됨 -> 전체 루트/핑 표시)
+    private val _selectedCategory = MutableStateFlow<PlaceCategory?>(null)
+    val selectedCategory: StateFlow<PlaceCategory?> = _selectedCategory
 
-    private val _selectedRegionId = MutableStateFlow<String?>(null) // null = 전체
+    private val _selectedRegionId = MutableStateFlow<String?>(null)
     val selectedRegionId: StateFlow<String?> = _selectedRegionId
 
+    private val _selectedTimeSlot = MutableStateFlow<String?>(null)
+    val selectedTimeSlot: StateFlow<String?> = _selectedTimeSlot
+
+    private val _selectedMinPingCount = MutableStateFlow<Int?>(null)
+    val selectedMinPingCount: StateFlow<Int?> = _selectedMinPingCount
+
+    // 같은 카테고리를 다시 누르면 선택 해제 -> 전체 루트/장소 다시 로드
     fun onCategorySelected(category: PlaceCategory) {
-        _selectedCategory.value = category
-        loadPlaces()
+        if (_selectedCategory.value == category) {
+            _selectedCategory.value = null
+            _places.value = emptyList()
+            loadAllRoutes()
+        } else {
+            _selectedCategory.value = category
+            loadPlaces()
+        }
     }
 
     fun onRegionSelected(regionId: String?) {
         _selectedRegionId.value = regionId
-        loadPlaces()
+        if (_selectedCategory.value != null) loadPlaces() else loadAllRoutes()
     }
 
+    fun onTimeSlotSelected(timeSlot: String?) {
+        _selectedTimeSlot.value = timeSlot
+        if (_selectedCategory.value != null) loadPlaces()
+    }
+
+    fun onMinPingCountSelected(minPingCount: Int?) {
+        _selectedMinPingCount.value = minPingCount
+        if (_selectedCategory.value != null) loadPlaces()
+    }
+
+    // 카테고리 선택 상태: 해당 카테고리로 장소 검색 + 루트 표시
     fun loadPlaces() {
+        val category = _selectedCategory.value ?: return
+
         viewModelScope.launch {
             _isLoading.value = true
             _errorMessage.value = null
             try {
                 val placeResult = RetrofitClient.placeApi.getPlaces(
-                    category = _selectedCategory.value.serverValue,
-                    regionId = _selectedRegionId.value
+                    category = category.serverValue,
+                    regionId = _selectedRegionId.value,
+                    timeSlot = _selectedTimeSlot.value,
+                    minPingCount = _selectedMinPingCount.value
                 )
                 _places.value = placeResult
+                _routes.value = emptyList() // 카테고리 선택 시 루트는 표시 안 함
+            } catch (e: Exception) {
+                _errorMessage.value = "장소를 불러오지 못했어요: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
 
-                // 지도에 표시할 루트(경로)도 같이 불러오기
+    // 카테고리 미선택 상태: 전체 공개 루트(및 거기 포함된 장소들) 로드
+    fun loadAllRoutes() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _errorMessage.value = null
+            try {
                 val routeResult = RetrofitClient.routeApi.searchRoutesForMap(
                     regionId = _selectedRegionId.value,
-                    category = _selectedCategory.value.serverValue
+                    category = null
                 )
                 _routes.value = routeResult
             } catch (e: Exception) {
-                _errorMessage.value = "장소를 불러오지 못했어요: ${e.message}"
+                _errorMessage.value = "루트를 불러오지 못했어요: ${e.message}"
             } finally {
                 _isLoading.value = false
             }

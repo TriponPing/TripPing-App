@@ -26,14 +26,24 @@ import com.tripping.app.ui.screen.MyMapDetailScreen
 import com.tripping.app.ui.screen.MyPageScreen
 import com.tripping.app.ui.screen.PingScreen
 import com.tripping.app.ui.screen.SignUpScreen
+import com.tripping.app.ui.screen.RouteCreateScreen
 import com.tripping.app.ui.screen.PlaceSearchScreen
 import com.tripping.app.ui.screen.TripHistoryScreen
 import com.tripping.app.ui.screen.TripStartScreen
 import com.tripping.app.viewmodel.AuthState
 import com.tripping.app.viewmodel.AuthViewModel
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import com.tripping.app.ui.component.RouteMenuSheet
+
 
 private const val COURSE_DETAIL_ROUTE = "course_detail/{tripId}?title={title}"
 private const val TRIP_START_ROUTE = "trip_start/{tripId}?title={title}"
+
+private const val ROUTE_CREATE_ROUTE = "route_create"
 
 // 바텀바를 보여줄 라우트와, 그 라우트가 어떤 탭에 해당하는지 매핑
 // 이 맵에 없는 라우트(로그인/회원가입 등)는 바텀바가 자동으로 안 보임
@@ -45,7 +55,8 @@ private val bottomBarRoutes = mapOf(
     COURSE_DETAIL_ROUTE to AppBottomNavTab.MY,
     TRIP_START_ROUTE to AppBottomNavTab.MY,
     "ping" to AppBottomNavTab.PING,
-    "placeSearch" to AppBottomNavTab.SEARCH
+    "placeSearch" to AppBottomNavTab.SEARCH,
+    "route_create" to AppBottomNavTab.ROUTE
 )
 
 // "다녀온 여행" 카드 클릭 -> 코스 상세보기 화면으로 이동 (마이페이지/다녀온 여행 자세히보기 둘 다 공용)
@@ -75,6 +86,10 @@ fun AppNavigation() {
     val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
     val currentTab = bottomBarRoutes[currentRoute]
 
+    var showRouteMenu by remember {
+        mutableStateOf(false)
+    }
+
     // 하단 네비게이션 바는 여기 한 곳에서만 그림 (화면마다 따로 그리면 콜백 연결 누락되기 쉬워서 통일함)
     // containerColor 명시 안 하면 Material3 기본 배경(연한 보라)이 쓰여서, 화면 내용이 짧으면
     // 하단 네비바 위에 그 색이 띠처럼 비쳐 보임 -> 흰색으로 고정
@@ -86,175 +101,217 @@ fun AppNavigation() {
                     selectedTab = currentTab,
                     onHomeClick = { navigateToTab(navController, "home") },
                     onSearchClick = { navigateToTab(navController, "placeSearch") },
-                    onRouteClick = { /* TODO: 루트 화면 아직 없음 */ },
+                    onRouteClick = { showRouteMenu = true },
                     onPingClick = { navigateToTab(navController, "ping") },
                     onMyClick = { navigateToTab(navController, "mypage") }
                 )
             }
         }
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = "login",
-            modifier = Modifier.padding(innerPadding)
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
         ) {
-            composable("login") {
-                val authViewModel: AuthViewModel = viewModel()
-                val loginState by authViewModel.loginState.collectAsState()
 
-                LaunchedEffect(loginState) {
-                    if (loginState is AuthState.Success) {
-                        navController.navigate("home") {
-                            popUpTo("login") { inclusive = true }
+            NavHost(
+                navController = navController,
+                startDestination = "login",
+                modifier = Modifier.padding(innerPadding)
+            ) {
+
+                composable("login") {
+                    val authViewModel: AuthViewModel = viewModel()
+                    val loginState by authViewModel.loginState.collectAsState()
+
+                    LaunchedEffect(loginState) {
+                        if (loginState is AuthState.Success) {
+                            navController.navigate("home") {
+                                popUpTo("login") { inclusive = true }
+                            }
                         }
                     }
+
+                    LoginScreen(
+                        onLoginClick = { email, password ->
+                            authViewModel.login(email, password)
+                        },
+                        onSignUpLinkClick = {
+                            navController.navigate("signup")
+                        },
+                        isLoading = loginState is AuthState.Loading,
+                        errorMessage = (loginState as? AuthState.Error)?.message
+                    )
                 }
 
-                LoginScreen(
-                    onLoginClick = { email, password ->
-                        authViewModel.login(email, password)
-                    },
-                    onSignUpLinkClick = {
-                        navController.navigate("signup")
-                    },
-                    isLoading = loginState is AuthState.Loading,
-                    errorMessage = (loginState as? AuthState.Error)?.message
-                )
-            }
+                composable("signup") {
+                    val authViewModel: AuthViewModel = viewModel()
+                    val signUpState by authViewModel.signUpState.collectAsState()
 
-            composable("signup") {
-                val authViewModel: AuthViewModel = viewModel()
-                val signUpState by authViewModel.signUpState.collectAsState()
-
-                LaunchedEffect(signUpState) {
-                    if (signUpState is AuthState.Success) {
-                        navController.popBackStack()
+                    LaunchedEffect(signUpState) {
+                        if (signUpState is AuthState.Success) {
+                            navController.popBackStack()
+                        }
                     }
+
+                    SignUpScreen(
+                        onSignUpClick = { nickname, email, password ->
+                            authViewModel.signUp(nickname, email, password)
+                        },
+                        onLoginLinkClick = {
+                            navController.popBackStack()
+                        },
+                        isLoading = signUpState is AuthState.Loading,
+                        errorMessage = (signUpState as? AuthState.Error)?.message
+                    )
                 }
 
-                SignUpScreen(
-                    onSignUpClick = { nickname, email, password ->
-                        authViewModel.signUp(nickname, email, password)
-                    },
-                    onLoginLinkClick = {
-                        navController.popBackStack()
-                    },
-                    isLoading = signUpState is AuthState.Loading,
-                    errorMessage = (signUpState as? AuthState.Error)?.message
-                )
+                composable("home") {
+                    HomeScreen(
+                        onGoToMyPageClick = {
+                            navigateToTab(navController, "mypage")
+                        },
+                        onNavigateToPlaceSearch = {
+                            navigateToTab(navController, "placeSearch")
+                        }
+                    )
+                }
+
+                composable("placeSearch") {
+                    PlaceSearchScreen(
+                        onPlaceClick = { spotId ->
+                            // TODO: 장소 상세조회 화면 만들면 여기서 이동 처리
+                        }
+                    )
+                }
+
+                composable("mypage") {
+                    MyPageScreen(
+                        onOpenTripHistory = {
+                            navController.navigate("trip_history")
+                        },
+                        onOpenMyMap = {
+                            navController.navigate("my_map_detail")
+                        },
+                        onOpenTripDetail = { tripId, title ->
+                            navigateToCourseDetail(navController, tripId, title)
+                        }
+                    )
+                }
+
+                composable("trip_history") {
+                    TripHistoryScreen(
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+                        onOpenTripDetail = { tripId, title ->
+                            navigateToCourseDetail(navController, tripId, title)
+                        }
+                    )
+                }
+
+                composable(
+                    COURSE_DETAIL_ROUTE,
+                    arguments = listOf(
+                        navArgument("tripId") { type = NavType.LongType },
+                        navArgument("title") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        }
+                    )
+                ) { backStackEntry ->
+                    val tripId = backStackEntry.arguments?.getLong("tripId") ?: 0L
+                    val title = backStackEntry.arguments?.getString("title")
+                    CourseDetailScreen(
+                        tripId = tripId,
+                        fallbackTitle = title?.ifBlank { null },
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+                        onStartTrip = { id, t ->
+                            navigateToTripStart(navController, id, t)
+                        },
+                        onGoToPing = {
+                            navigateToTab(navController, "ping")
+                        }
+                    )
+                }
+
+                composable(
+                    TRIP_START_ROUTE,
+                    arguments = listOf(
+                        navArgument("tripId") { type = NavType.LongType },
+                        navArgument("title") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        }
+                    )
+                ) { backStackEntry ->
+                    val tripId = backStackEntry.arguments?.getLong("tripId") ?: 0L
+                    val title = backStackEntry.arguments?.getString("title")
+                    TripStartScreen(
+                        tripId = tripId,
+                        fallbackTitle = title?.ifBlank { null },
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+                        onGoToPing = {
+                            navigateToTab(navController, "ping")
+                        }
+                    )
+                }
+
+                composable("my_map_detail") {
+                    MyMapDetailScreen(
+                        onBackClick = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+
+                composable("ping") {
+                    PingScreen(
+                        onAddPingClick = { /* TODO: 핑 추가 로직 */ },
+                        onPingLogClick = { pingId -> /* TODO: 핑로그 상세로 이동 */ },
+                        onRouteCardClick = { routeId -> /* TODO: 루트 상세로 이동 */ },
+                        onCourseClick = { courseId -> /* TODO: 코스 상세로 이동 */ }
+                    )
+                }
+
+                composable("route_create") {
+
+                    RouteCreateScreen()
+
+                }
+
+
             }
 
-            composable("home") {
-                HomeScreen(
-                    onGoToMyPageClick = {
-                        navigateToTab(navController, "mypage")
-                    },
-                    onNavigateToPlaceSearch = {
-                        navigateToTab(navController, "placeSearch")
-                    }
-                )
-            }
 
-            composable("placeSearch") {
-                PlaceSearchScreen(
-                    onPlaceClick = { spotId ->
-                        // TODO: 장소 상세조회 화면 만들면 여기서 이동 처리
-                    }
-                )
-            }
+            // ⭐ 루트 버튼 클릭 시 표시되는 메뉴
+            if (showRouteMenu) {
 
-            composable("mypage") {
-                MyPageScreen(
-                    onOpenTripHistory = {
-                        navController.navigate("trip_history")
-                    },
-                    onOpenMyMap = {
-                        navController.navigate("my_map_detail")
-                    },
-                    onOpenTripDetail = { tripId, title ->
-                        navigateToCourseDetail(navController, tripId, title)
-                    }
-                )
-            }
+                RouteMenuSheet(
 
-            composable("trip_history") {
-                TripHistoryScreen(
-                    onBackClick = {
-                        navController.popBackStack()
+                    onDismiss = {
+                        showRouteMenu = false
                     },
-                    onOpenTripDetail = { tripId, title ->
-                        navigateToCourseDetail(navController, tripId, title)
-                    }
-                )
-            }
 
-            composable(
-                COURSE_DETAIL_ROUTE,
-                arguments = listOf(
-                    navArgument("tripId") { type = NavType.LongType },
-                    navArgument("title") {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    }
-                )
-            ) { backStackEntry ->
-                val tripId = backStackEntry.arguments?.getLong("tripId") ?: 0L
-                val title = backStackEntry.arguments?.getString("title")
-                CourseDetailScreen(
-                    tripId = tripId,
-                    fallbackTitle = title?.ifBlank { null },
-                    onBackClick = {
-                        navController.popBackStack()
+                    onCreateRoute = {
+
+                        showRouteMenu = false
+
+                        navController.navigate("route_create")
                     },
-                    onStartTrip = { id, t ->
-                        navigateToTripStart(navController, id, t)
-                    },
-                    onGoToPing = {
-                        navigateToTab(navController, "ping")
-                    }
-                )
-            }
 
-            composable(
-                TRIP_START_ROUTE,
-                arguments = listOf(
-                    navArgument("tripId") { type = NavType.LongType },
-                    navArgument("title") {
-                        type = NavType.StringType
-                        defaultValue = ""
-                    }
-                )
-            ) { backStackEntry ->
-                val tripId = backStackEntry.arguments?.getLong("tripId") ?: 0L
-                val title = backStackEntry.arguments?.getString("title")
-                TripStartScreen(
-                    tripId = tripId,
-                    fallbackTitle = title?.ifBlank { null },
-                    onBackClick = {
-                        navController.popBackStack()
-                    },
-                    onGoToPing = {
-                        navigateToTab(navController, "ping")
-                    }
-                )
-            }
+                    onViewRoute = {
 
-            composable("my_map_detail") {
-                MyMapDetailScreen(
-                    onBackClick = {
-                        navController.popBackStack()
-                    }
-                )
-            }
+                        showRouteMenu = false
 
-            composable("ping") {
-                PingScreen(
-                    onAddPingClick = { /* TODO: 핑 추가 로직 */ },
-                    onPingLogClick = { pingId -> /* TODO: 핑로그 상세로 이동 */ },
-                    onRouteCardClick = { routeId -> /* TODO: 루트 상세로 이동 */ },
-                    onCourseClick = { courseId -> /* TODO: 코스 상세로 이동 */ }
+                        // 아직 루트 보기 화면 없으므로 비워둠
+                    }
                 )
             }
         }
+
     }
 }
