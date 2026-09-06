@@ -7,9 +7,6 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.BookmarkBorder
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -51,8 +48,11 @@ fun PopularPlacesScreen(
     viewModel: HomeViewModel = viewModel()
 ) {
     val popularPlaces by viewModel.popularPlaces.collectAsState()
+    val savedPlaceIds by viewModel.savedPlaceIds.collectAsState()
+    val savedPlaceCountDeltas by viewModel.savedPlaceCountDeltas.collectAsState()
     LaunchedEffect(Unit) {
         viewModel.loadPopularPlaces(limit = 30)
+        viewModel.loadSavedPlaceIds()
     }
 
     var page by remember { mutableStateOf(0) }
@@ -111,7 +111,14 @@ fun PopularPlacesScreen(
             }
 
             items(pageItems) { (rank, place) ->
-                PopularPlaceCard(rank = rank, place = place, onClick = { onPlaceClick(place.spotId) })
+                PopularPlaceCard(
+                    rank = rank,
+                    place = place,
+                    isSaved = place.spotId in savedPlaceIds,
+                    countDelta = savedPlaceCountDeltas[place.spotId] ?: 0,
+                    onClick = { onPlaceClick(place.spotId) },
+                    onBookmarkClick = { viewModel.toggleSavePlace(place.spotId) }
+                )
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
@@ -145,7 +152,14 @@ private fun computeDenseRanks(places: List<PopularPlaceResponse>): List<Pair<Int
 }
 
 @Composable
-private fun PopularPlaceCard(rank: Int, place: PopularPlaceResponse, onClick: () -> Unit) {
+private fun PopularPlaceCard(
+    rank: Int,
+    place: PopularPlaceResponse,
+    isSaved: Boolean,
+    countDelta: Int,
+    onClick: () -> Unit,
+    onBookmarkClick: () -> Unit
+) {
     val shadowColor = if (rank == 1) Color(0xFFFFBF00) else Color.Black.copy(alpha = 0.25f)
 
     Row(
@@ -178,9 +192,11 @@ private fun PopularPlaceCard(rank: Int, place: PopularPlaceResponse, onClick: ()
         }
 
         Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(imageVector = Icons.Outlined.BookmarkBorder, contentDescription = null, tint = HomeGrayText, modifier = Modifier.size(18.dp))
+            BookmarkIcon(filled = isSaved, modifier = Modifier.clickable { onBookmarkClick() })
             Spacer(modifier = Modifier.width(4.dp))
-            Text(text = place.savedCount.toString(), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = HomeTextPrimary)
+            // 서버가 준 저장 수는 화면 진입 시점 스냅샷이라, 이 화면에서 저장/취소한 만큼만(+1/-1) 보정
+            val displayedCount = place.savedCount + countDelta
+            Text(text = displayedCount.toString(), fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = HomeTextPrimary)
         }
     }
 }

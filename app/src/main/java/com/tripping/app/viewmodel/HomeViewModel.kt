@@ -47,6 +47,16 @@ class HomeViewModel : ViewModel() {
     private val _popularPlaces = MutableStateFlow<List<PopularPlaceResponse>>(emptyList())
     val popularPlaces: StateFlow<List<PopularPlaceResponse>> = _popularPlaces
 
+    // 내가 저장한 장소 spotId 집합. savedRouteIds와 동일한 이유로, 화면 진입 시
+    // GET /places/saved/me 목록을 통째로 불러와 초기화함.
+    private val _savedPlaceIds = MutableStateFlow<Set<Long>>(emptySet())
+    val savedPlaceIds: StateFlow<Set<Long>> = _savedPlaceIds
+
+    // places/popular의 savedCount도 화면 진입 시점 스냅샷이라, savedCountDeltas와 동일하게
+    // 이 화면에서 저장/취소한 만큼만(+1/-1) 보정해서 보여줌.
+    private val _savedPlaceCountDeltas = MutableStateFlow<Map<Long, Int>>(emptyMap())
+    val savedPlaceCountDeltas: StateFlow<Map<Long, Int>> = _savedPlaceCountDeltas
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
@@ -142,6 +152,42 @@ class HomeViewModel : ViewModel() {
                     if (response.isSuccessful) {
                         _savedRouteIds.value = _savedRouteIds.value + routeId
                         _savedCountDeltas.value = _savedCountDeltas.value + (routeId to 1)
+                    }
+                }
+            } catch (e: Exception) {
+                // 실패하면 상태를 안 바꿔서 아이콘/카운트가 실제 서버 상태와 어긋나지 않게 함
+            }
+        }
+    }
+
+    fun loadSavedPlaceIds() {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.homeApi.getSavedPlaceIds()
+                if (response.isSuccessful) {
+                    _savedPlaceIds.value = response.body()?.toSet() ?: emptySet()
+                }
+            } catch (e: Exception) {
+                // 초기 상태 복원용이라 실패해도 빈 집합(전부 안 채워진 상태)으로 두고 넘어감
+            }
+        }
+    }
+
+    // 북마크 탭: 저장 안 된 상태면 POST로 저장, 저장된 상태면 DELETE로 저장 취소. toggleSaveRoute와 동일한 패턴.
+    fun toggleSavePlace(spotId: Long) {
+        viewModelScope.launch {
+            try {
+                if (_savedPlaceIds.value.contains(spotId)) {
+                    val response = RetrofitClient.homeApi.unsavePlace(spotId)
+                    if (response.isSuccessful) {
+                        _savedPlaceIds.value = _savedPlaceIds.value - spotId
+                        _savedPlaceCountDeltas.value = _savedPlaceCountDeltas.value + (spotId to -1)
+                    }
+                } else {
+                    val response = RetrofitClient.homeApi.savePlace(spotId)
+                    if (response.isSuccessful) {
+                        _savedPlaceIds.value = _savedPlaceIds.value + spotId
+                        _savedPlaceCountDeltas.value = _savedPlaceCountDeltas.value + (spotId to 1)
                     }
                 }
             } catch (e: Exception) {
