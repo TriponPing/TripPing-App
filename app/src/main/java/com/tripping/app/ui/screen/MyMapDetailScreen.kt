@@ -46,7 +46,7 @@ import kotlinx.coroutines.delay
 private val ColorAccentBlue = Color(0xFF0074CE)
 
 private enum class MapTab(val apiType: String, val label: String, val lineColorHex: String) {
-    PLANNED("planned", "내 계획", "#34C759"),
+    PLANNED("planned", "내 계획", "#405AC8FA"), // 하늘색, 투명도 25% (CourseDetailScreen 등이랑 동일)
     SAVED("saved", "저장한 루트", "#FF7A3D"),
     VISITED("drawn", "여행보기", "#0074CE")
 }
@@ -65,16 +65,21 @@ fun MyMapDetailScreen(
     val searchResults by viewModel.mapSearchResults.collectAsState()
 
     var naverMap by remember { mutableStateOf<NaverMap?>(null) }
-    var selectedTab by remember { mutableStateOf(MapTab.PLANNED) }
+    // null = 세 탭 다 꺼진 상태(오버레이 없음). 탭을 눌러서 껐다 켰다 가능 - 같은 탭 다시 누르면 꺼짐.
+    var selectedTab by remember { mutableStateOf<MapTab?>(MapTab.PLANNED) }
     var searchQuery by remember { mutableStateOf("") }
     var clickedName by remember { mutableStateOf<String?>(null) }
+    // 카메라는 화면 진입 후 데이터가 처음 뜰 때 딱 한 번만 맞추고, 그 뒤로는 탭을 바꿔도
+    // 지도를 움직이지 않음 (탭 전환할 때마다 지도가 튀는 게 불편하다는 피드백 반영)
+    var hasFittedCamera by remember { mutableStateOf(false) }
 
     // 선택된 탭이 바뀔 때마다 해당 타입 데이터를 불러옴 (한 번 불러온 타입은 재요청 안 함 - ViewModel 캐시)
     LaunchedEffect(selectedTab) {
-        viewModel.loadMapDetail(selectedTab.apiType)
+        selectedTab?.let { viewModel.loadMapDetail(it.apiType) }
     }
 
     // 선택된 탭의 루트 전체(경로선 + 마커)를 그림. 탭 바뀌면 이전 탭 오버레이는 지우고 새로 그림.
+    // 탭이 null이면(다 꺼짐) 아무것도 안 그림.
     val overlayObjects = remember { mutableListOf<Any>() } // Marker | PathOverlay
     LaunchedEffect(naverMap, selectedTab, detailByType) {
         val map = naverMap
@@ -86,8 +91,9 @@ fun MyMapDetailScreen(
         }
         overlayObjects.clear()
 
-        if (map == null) return@LaunchedEffect
-        val list = detailByType[selectedTab.apiType] ?: return@LaunchedEffect
+        val tab = selectedTab
+        if (map == null || tab == null) return@LaunchedEffect
+        val list = detailByType[tab.apiType] ?: return@LaunchedEffect
 
         val allCoords = mutableListOf<LatLng>()
 
@@ -100,7 +106,7 @@ fun MyMapDetailScreen(
             if (coords.size >= 2) {
                 val path = PathOverlay().apply {
                     this.coords = coords
-                    color = AndroidColor.parseColor(selectedTab.lineColorHex)
+                    color = AndroidColor.parseColor(tab.lineColorHex)
                     width = 7
                     setOnClickListener {
                         clickedName = sortedSpots.firstOrNull()?.spotName
@@ -128,7 +134,10 @@ fun MyMapDetailScreen(
             }
         }
 
-        cameraUpdateToShowAll(allCoords)?.let { map.moveCamera(it) }
+        if (!hasFittedCamera && allCoords.isNotEmpty()) {
+            cameraUpdateToShowAll(allCoords)?.let { map.moveCamera(it) }
+            hasFittedCamera = true
+        }
     }
 
     // 검색 디바운스 (300ms)
@@ -220,14 +229,14 @@ fun MyMapDetailScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 탭 3개 - 스위치처럼 하나만 선택됨
+            // 탭 3개 - 최대 하나만 선택되지만, 켜진 탭을 다시 누르면 꺼져서 셋 다 비활성화 가능
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 MapTab.entries.forEach { tab ->
                     MapTabButton(
                         label = tab.label,
                         active = selectedTab == tab,
                         onClick = {
-                            selectedTab = tab
+                            selectedTab = if (selectedTab == tab) null else tab
                             clickedName = null
                         }
                     )
