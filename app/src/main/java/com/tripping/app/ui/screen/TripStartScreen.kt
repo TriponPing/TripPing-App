@@ -11,6 +11,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -60,16 +61,31 @@ fun TripStartScreen(
             .background(ColorBackground)
     ) {
         // 상단바 - 배경 따로 안 줌, 화면 전체(ColorBackground)랑 같은 톤으로 이어지게
-        Row(
+        // 화살표는 단독으로, 코스명은 가운데 정렬 (CourseDetailScreen이랑 같은 스타일)
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { onBackClick() }
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
-            Text(text = "‹", fontSize = 20.sp, color = ColorTextPrimary)
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(text = title, fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
+            Text(
+                text = "‹",
+                fontSize = 20.sp,
+                color = ColorTextPrimary,
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .clickable { onBackClick() }
+                    .padding(end = 8.dp, top = 2.dp, bottom = 2.dp)
+            )
+            Text(
+                text = title,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = ColorTextPrimary,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .align(Alignment.Center)
+                    .fillMaxWidth(0.7f)
+            )
         }
 
         Box(modifier = Modifier.weight(1f)) {
@@ -142,7 +158,7 @@ private fun RouteMap(
         if (spotLatLngs.size >= 2) {
             val path = PathOverlay().apply {
                 coords = spotLatLngs
-                color = android.graphics.Color.parseColor("#0074CE")
+                color = android.graphics.Color.parseColor("#405AC8FA") // 하늘색, 투명도 25%
                 width = if (interactive) 10 else 6
                 this.map = map
             }
