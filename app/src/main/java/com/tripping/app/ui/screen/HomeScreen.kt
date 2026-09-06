@@ -77,32 +77,27 @@ fun HomeScreen(
     // [1번 섹션] 진행 중인 여행 - 실제 API(GET /trips/current-summary) 연동됨
     // [2번 섹션] 인사말 닉네임 - 실제 API(GET /auth/me) 연동됨
     // [3번 섹션] 이번 주 인기 루트 - 실제 API(GET /trips/popular) 연동됨
+    // [4번 섹션] 이번 주 인기 키워드 - 실제 API(GET /keyword/popular) 연동됨.
+    //   백엔드에 keyword(RouteCondition.theme)를 만드는 API가 아직 없어서 지금은 항상 빈 목록임 -
+    //   데이터 생기면 별도 작업 없이 바로 채워짐.
     val currentTrip by viewModel.currentTrip.collectAsState()
     val nickname by viewModel.nickname.collectAsState()
     val popularTrips by viewModel.popularTrips.collectAsState()
+    val popularKeywords by viewModel.popularKeywords.collectAsState()
     LaunchedEffect(Unit) {
         viewModel.loadCurrentTrip()
         viewModel.loadNickname()
         viewModel.loadPopularTrips()
+        viewModel.loadPopularKeywords()
     }
 
-    // TODO: 인기 장소/인기 키워드/내 주변 코스 API 나오면 mock 데이터 교체
+    // TODO: 인기 장소/내 주변 코스 API 나오면 mock 데이터 교체
     val popularPlaces = remember {
         listOf(
             HomePopularPlace(1, "해운대", "부산"),
             HomePopularPlace(2, "카페거리", "부산"),
             HomePopularPlace(3, "여의도 한강-", "서울"),
             HomePopularPlace(4, "남산타워", "서울")
-        )
-    }
-    // 홈 화면 키워드 칩은 4개 전부 같은 스타일(여행 없을 때=채움 / 여행 중일 때=아웃라인)이라 selected는 안 씀.
-    // "선택된(진하게 채워진)" 칩 스타일은 인기 키워드 더보기 화면에서만 씀 (PopularKeywordsScreen 참고).
-    val popularKeywords = remember {
-        listOf(
-            HomeKeyword("# 바다"),
-            HomeKeyword("# 여름 휴가"),
-            HomeKeyword("# 야경"),
-            HomeKeyword("#데이트")
         )
     }
     val nearbyCourses = remember {
@@ -170,11 +165,21 @@ fun HomeScreen(
         item { SectionHeader(title = "이번 주 인기 키워드", showSeeAll = false, onSeeAllClick = onSeeAllKeywords) }
         item { Spacer(modifier = Modifier.height(9.dp)) }
         item {
-            KeywordChipsRow(
-                keywords = popularKeywords,
-                outlined = currentTrip != null,
-                onKeywordClick = { onSeeAllKeywords() }
-            )
+            if (popularKeywords.isNotEmpty()) {
+                KeywordChipsRow(
+                    keywords = popularKeywords.map { HomeKeyword(text = "#${it.keyword}") },
+                    outlined = currentTrip != null,
+                    onKeywordClick = { onSeeAllKeywords() }
+                )
+            } else {
+                Text(
+                    text = "아직 이번 주 인기 키워드가 없어요",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = HomeGrayText,
+                    modifier = Modifier.padding(horizontal = HomeScreenHorizontalPadding)
+                )
+            }
         }
         item { Spacer(modifier = Modifier.height(23.dp)) }
 

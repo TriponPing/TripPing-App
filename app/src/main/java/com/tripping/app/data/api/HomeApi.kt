@@ -1,6 +1,7 @@
 package com.tripping.app.data.api
 
 import com.tripping.app.data.response.CurrentTripSummaryResponse
+import com.tripping.app.data.response.PopularKeywordResponse
 import com.tripping.app.data.response.PopularTripResponse
 import retrofit2.Response
 import retrofit2.http.GET
@@ -17,4 +18,9 @@ interface HomeApi {
         @Query("period") period: String = "week",
         @Query("limit") limit: Int = 10
     ): Response<List<PopularTripResponse>>
+
+    @GET("keyword/popular")
+    suspend fun getPopularKeywords(
+        @Query("limit") limit: Int = 10
+    ): Response<List<PopularKeywordResponse>>
 }
