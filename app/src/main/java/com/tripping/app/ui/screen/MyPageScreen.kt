@@ -10,6 +10,8 @@ import androidx.compose.foundation.lazy.LazyItemScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +28,7 @@ import com.naver.maps.geometry.LatLng
 import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 import com.tripping.app.R
+import com.tripping.app.data.response.BadgeResponse
 import com.tripping.app.data.response.MapPinResponse
 import com.tripping.app.data.response.SavedRouteResponse
 import com.tripping.app.data.response.TripSummaryResponse
@@ -35,8 +38,7 @@ import com.tripping.app.ui.component.cameraUpdateToShowAll
 import com.tripping.app.viewmodel.MyPageViewModel
 
 // ===== 마이페이지 화면 - Figma 디자인 기준 =====
-// 실제 API(GET /users/me, /users/me/trips/recent, /users/me/routes/saved, /users/me/map) 연동됨.
-// TODO: 뱃지(여행 작성자/연속 출석)는 백엔드에 아직 관련 API가 없어서 임시 고정값으로 둠.
+// 실제 API(GET /users/me, /users/me/trips/recent, /users/me/routes/saved, /users/me/map, /users/me/badges) 연동됨.
 
 private val ColorBackground = Color(0xFFF8F8FC)
 private val ColorAccentBlue = Color(0xFF0074CE)
@@ -54,6 +56,7 @@ private fun TripSummaryResponse.toCardModel(): MyPageTripCard = MyPageTripCard(
 private fun SavedRouteResponse.toCardModel(): MyPageTripCard = MyPageTripCard(
     title = representativeSpotName ?: "여행 기록",
     dateRange = travelDate,
+    pingCount = placeCount,
     isSaved = true,
     routeId = tripId
 )
@@ -78,6 +81,7 @@ fun MyPageScreen(
     val savedRoutesTotal by viewModel.savedRoutesTotal.collectAsState()
     val visitedPlaceCount by viewModel.visitedPlaceCount.collectAsState()
     val mapPins by viewModel.mapPins.collectAsState()
+    val badges by viewModel.badges.collectAsState()
 
     Column(
         modifier = Modifier
@@ -85,7 +89,11 @@ fun MyPageScreen(
             .background(ColorBackground)
     ) {
         MyPageTopBar(onOpenSettings = onOpenSettings)
-        MyPageProfileSection(nickname = profile?.nickname, level = profile?.level)
+        MyPageProfileSection(
+            nickname = profile?.nickname,
+            level = profile?.level,
+            featuredBadges = badges.filter { it.featured }
+        )
         MyPageTabRow(selectedTab = selectedTab, onTabSelected = { selectedTab = it })
 
         Box(modifier = Modifier.weight(1f)) {
@@ -101,7 +109,8 @@ fun MyPageScreen(
                 else -> SavedTripTab(
                     savedTrips = savedRoutes.map { it.toCardModel() },
                     total = savedRoutesTotal,
-                    onCancelSave = { routeId -> viewModel.unsaveRoute(routeId) }
+                    onCancelSave = { routeId -> viewModel.unsaveRoute(routeId) },
+                    onOpenTripDetail = onOpenTripDetail
                 )
             }
         }
@@ -138,7 +147,7 @@ private fun MyPageTopBar(onOpenSettings: () -> Unit) {
 
 // ===== 프로필 영역 (아바타 + 이름 + 레벨 + 뱃지) =====
 @Composable
-private fun MyPageProfileSection(nickname: String?, level: String?) {
+private fun MyPageProfileSection(nickname: String?, level: String?, featuredBadges: List<BadgeResponse>) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -177,10 +186,11 @@ private fun MyPageProfileSection(nickname: String?, level: String?) {
             }
         }
 
-        // 뱃지 2개 (TODO: 실제 뱃지 아이콘/데이터로 교체 - 백엔드에 아직 관련 API 없음)
-        BadgeCircle(emoji = "📷", label = "여행 작성자")
-        Spacer(modifier = Modifier.width(8.dp))
-        BadgeCircle(emoji = "📅", label = "연속 출석")
+        // 설정 화면 "꺼낼 뱃지"에서 고른 뱃지만 표시 (없으면 아무것도 안 뜸)
+        featuredBadges.forEachIndexed { index, badge ->
+            if (index > 0) Spacer(modifier = Modifier.width(8.dp))
+            BadgeCircle(emoji = badge.emoji, label = badge.label)
+        }
     }
 }
 
@@ -256,7 +266,7 @@ private fun TripRecordTab(
                 SectionHeader(title = "다녀온 여행", actionLabel = "자세히 보기", onActionClick = onOpenTripHistory)
                 Spacer(modifier = Modifier.height(12.dp))
                 if (trips.isEmpty()) {
-                    EmptyStateText("아직 다녀온 여행이 없어요")
+                    EmptyTripView()
                 } else {
                     trips.forEach { trip ->
                         TripCard(
@@ -274,12 +284,16 @@ private fun TripRecordTab(
             Column(modifier = Modifier.fillParentMaxHeight(0.55f)) {
                 SectionHeader(title = "나의 여행 지도", actionLabel = "자세히 보기", onActionClick = onOpenMyMap)
                 Spacer(modifier = Modifier.height(12.dp))
-                MyMapPreviewCard(
-                    pins = mapPins,
-                    visitedPlaceCount = visitedPlaceCount,
-                    onClick = onOpenMyMap,
-                    modifier = Modifier.weight(1f)
-                )
+                if (mapPins.isEmpty()) {
+                    EmptyTripView()
+                } else {
+                    MyMapPreviewCard(
+                        pins = mapPins,
+                        visitedPlaceCount = visitedPlaceCount,
+                        onClick = onOpenMyMap,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
     }
@@ -290,7 +304,8 @@ private fun TripRecordTab(
 private fun SavedTripTab(
     savedTrips: List<MyPageTripCard>,
     total: Int,
-    onCancelSave: (Long) -> Unit
+    onCancelSave: (Long) -> Unit,
+    onOpenTripDetail: (Long, String) -> Unit
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -305,7 +320,12 @@ private fun SavedTripTab(
                 color = ColorTextSecondary,
                 modifier = Modifier.weight(1f)
             )
-            Text(text = "🔖", fontSize = 14.sp)
+            Icon(
+                imageVector = Icons.Outlined.BookmarkBorder,
+                contentDescription = null,
+                tint = ColorTextPrimary,
+                modifier = Modifier.size(16.dp)
+            )
             Spacer(modifier = Modifier.width(4.dp))
             Text(
                 text = total.toString(),
@@ -326,6 +346,7 @@ private fun SavedTripTab(
                 items(savedTrips) { trip ->
                     SavedTripCard(
                         trip = trip,
+                        onClick = { trip.routeId?.let { onOpenTripDetail(it, trip.title) } },
                         onCancelSave = {
                             trip.routeId?.let(onCancelSave)
                         }
@@ -359,29 +380,47 @@ private fun SectionHeader(title: String, actionLabel: String, onActionClick: () 
 }
 
 @Composable
-private fun SavedTripCard(trip: MyPageTripCard, onCancelSave: () -> Unit) {
-    Row(
+private fun SavedTripCard(trip: MyPageTripCard, onClick: () -> Unit, onCancelSave: () -> Unit) {
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
             .border(1.dp, ColorCardBorder, RoundedCornerShape(16.dp))
-            .padding(16.dp),
-        verticalAlignment = Alignment.Top
+            .clickable { onClick() }
+            .padding(16.dp)
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = trip.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(text = trip.dateRange, fontSize = 12.sp, color = ColorTextSecondary)
-            Spacer(modifier = Modifier.height(12.dp))
-            RoutePreviewDots()
+        Row(verticalAlignment = Alignment.Top) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(text = trip.title, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(text = trip.dateRange, fontSize = 12.sp, color = ColorTextSecondary)
+            }
+            Icon(
+                imageVector = Icons.Outlined.BookmarkBorder,
+                contentDescription = "저장 취소",
+                tint = ColorTextPrimary,
+                modifier = Modifier
+                    .size(20.dp)
+                    .clickable { onCancelSave() }
+            )
         }
-        Spacer(modifier = Modifier.width(8.dp))
-        Text(
-            text = "🔖",
-            fontSize = 18.sp,
-            modifier = Modifier.clickable { onCancelSave() }
-        )
+        Spacer(modifier = Modifier.height(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            RoutePreviewDots(modifier = Modifier.weight(1f), count = trip.pingCount ?: 4)
+            if (trip.pingCount != null || trip.duration != null) {
+                Spacer(modifier = Modifier.width(12.dp))
+                Column(horizontalAlignment = Alignment.End) {
+                    trip.pingCount?.let {
+                        Text(text = "핑 ${it}개", fontSize = 12.sp, color = ColorTextSecondary)
+                        Spacer(modifier = Modifier.height(4.dp))
+                    }
+                    trip.duration?.let {
+                        Text(text = it, fontSize = 12.sp, color = ColorTextSecondary)
+                    }
+                }
+            }
+        }
     }
 }
 

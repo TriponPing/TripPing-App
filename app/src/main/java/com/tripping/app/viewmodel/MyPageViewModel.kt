@@ -3,6 +3,9 @@ package com.tripping.app.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.tripping.app.data.api.RetrofitClient
+import com.tripping.app.data.request.ProfileUpdateRequest
+import com.tripping.app.data.request.UpdateFeaturedBadgesRequest
+import com.tripping.app.data.response.BadgeResponse
 import com.tripping.app.data.response.MapDetailResponse
 import com.tripping.app.data.response.MapPinResponse
 import com.tripping.app.data.response.MapSearchResponse
@@ -15,6 +18,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class MyPageViewModel : ViewModel() {
+
+    companion object {
+        // 꺼낼 뱃지(마이페이지 프로필에 노출) 최대 개수 - 백엔드 MyPageBadgeService.MAX_FEATURED_BADGES와 동일하게 유지
+        const val MAX_FEATURED_BADGES = 4
+    }
 
     private val _profile = MutableStateFlow<ProfileResponse?>(null)
     val profile: StateFlow<ProfileResponse?> = _profile
@@ -49,6 +57,10 @@ class MyPageViewModel : ViewModel() {
     private val _tripDetailById = MutableStateFlow<Map<Long, TripDetailResponse>>(emptyMap())
     val tripDetailById: StateFlow<Map<Long, TripDetailResponse>> = _tripDetailById
 
+    // 설정 화면 "뱃지" / "꺼낼 뱃지"용
+    private val _badges = MutableStateFlow<List<BadgeResponse>>(emptyList())
+    val badges: StateFlow<List<BadgeResponse>> = _badges
+
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
@@ -58,6 +70,7 @@ class MyPageViewModel : ViewModel() {
         loadRecentTrips()
         loadSavedRoutes()
         loadMyMap()
+        loadBadges()
     }
 
     fun loadProfile() {
@@ -203,6 +216,71 @@ class MyPageViewModel : ViewModel() {
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "네트워크 오류가 발생했습니다."
+            }
+        }
+    }
+
+    /** 닉네임 수정 - 설정 화면 "수정". 성공하면 profile 상태에 바로 반영(마이페이지도 같은 상태를 씀). */
+    fun updateNickname(nickname: String) {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.myPageApi.updateProfile(ProfileUpdateRequest(nickname = nickname))
+                if (response.isSuccessful) {
+                    _profile.value = response.body()
+                } else {
+                    _errorMessage.value = "닉네임 수정에 실패했습니다. (${response.code()})"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "네트워크 오류가 발생했습니다."
+            }
+        }
+    }
+
+    /** 설정 화면 진입 시 뱃지 목록 조회 */
+    fun loadBadges() {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.myPageApi.getBadges()
+                if (response.isSuccessful) {
+                    _badges.value = response.body() ?: emptyList()
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "네트워크 오류가 발생했습니다."
+            }
+        }
+    }
+
+    /** 뱃지 <-> 꺼낼 뱃지 토글 - 현재 featured 목록에서 해당 code만 껐다 켰다 해서 통째로 교체 요청 */
+    fun toggleFeaturedBadge(code: String) {
+        val current = _badges.value
+        val currentlyFeatured = current.filter { it.featured }.map { it.code }.toSet()
+        val isCurrentlyFeatured = code in currentlyFeatured
+
+        // 꺼낼 뱃지는 최대 4개까지만 - 이미 4개 찬 상태에서 새로 켜려는 시도는 막음
+        if (!isCurrentlyFeatured && currentlyFeatured.size >= MAX_FEATURED_BADGES) {
+            _errorMessage.value = "꺼낼 뱃지는 최대 ${MAX_FEATURED_BADGES}개까지 선택할 수 있어요."
+            return
+        }
+
+        val nextFeatured = if (isCurrentlyFeatured) currentlyFeatured - code else currentlyFeatured + code
+
+        // 낙관적 업데이트 - 서버 응답 기다리지 않고 화면 먼저 갱신
+        _badges.value = current.map { it.copy(featured = it.code in nextFeatured) }
+
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.myPageApi.updateFeaturedBadges(
+                    UpdateFeaturedBadgesRequest(nextFeatured.toList())
+                )
+                if (response.isSuccessful) {
+                    _badges.value = response.body() ?: _badges.value
+                } else {
+                    _errorMessage.value = "뱃지 수정에 실패했습니다. (${response.code()})"
+                    loadBadges() // 실패하면 서버 상태로 다시 동기화
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "네트워크 오류가 발생했습니다."
+                loadBadges()
             }
         }
     }

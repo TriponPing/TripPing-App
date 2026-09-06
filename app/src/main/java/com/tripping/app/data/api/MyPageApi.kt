@@ -1,12 +1,15 @@
 package com.tripping.app.data.api
 
 import com.tripping.app.data.request.ProfileUpdateRequest
+import com.tripping.app.data.request.UpdateFeaturedBadgesRequest
+import com.tripping.app.data.response.BadgeResponse
 import com.tripping.app.data.response.MapDetailResponse
 import com.tripping.app.data.response.MapPinResponse
 import com.tripping.app.data.response.MapSearchResponse
 import com.tripping.app.data.response.PageResponse
 import com.tripping.app.data.response.ProfileResponse
 import com.tripping.app.data.response.SavedRouteResponse
+import com.tripping.app.data.response.SavedRouteSaveResponse
 import com.tripping.app.data.response.TripDetailResponse
 import com.tripping.app.data.response.TripSummaryResponse
 import retrofit2.Response
@@ -14,6 +17,8 @@ import retrofit2.http.Body
 import retrofit2.http.DELETE
 import retrofit2.http.GET
 import retrofit2.http.PATCH
+import retrofit2.http.POST
+import retrofit2.http.PUT
 import retrofit2.http.Path
 import retrofit2.http.Query
 
@@ -44,6 +49,10 @@ interface MyPageApi {
         @Query("size") size: Int = 10
     ): Response<PageResponse<SavedRouteResponse>>
 
+    // 다른 사람이 공개해둔 루트를 저장(북마크). 이미 저장돼있으면 saved=true만 그대로 반환(멱등)
+    @POST("routes/{routeId}/saved")
+    suspend fun saveRoute(@Path("routeId") routeId: Long): Response<SavedRouteSaveResponse>
+
     // routeId = SavedRouteResponse.tripId (원본 actualRouteId)
     @DELETE("routes/{routeId}/saved")
     suspend fun unsaveRoute(@Path("routeId") routeId: Long): Response<Unit>
@@ -57,4 +66,10 @@ interface MyPageApi {
 
     @GET("users/me/map/search")
     suspend fun searchMyMap(@Query("keyword") keyword: String): Response<List<MapSearchResponse>>
+
+    @GET("users/me/badges")
+    suspend fun getBadges(): Response<List<BadgeResponse>>
+
+    @PUT("users/me/badges/featured")
+    suspend fun updateFeaturedBadges(@Body request: UpdateFeaturedBadgesRequest): Response<List<BadgeResponse>>
 }

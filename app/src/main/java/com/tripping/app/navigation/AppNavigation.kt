@@ -1,14 +1,21 @@
 package com.tripping.app.navigation
 
 import android.net.Uri
+import android.widget.Toast
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.graphics.Color
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavController
 import androidx.navigation.NavType
@@ -17,101 +24,229 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+
 import com.tripping.app.ui.component.AppBottomNavBar
 import com.tripping.app.ui.component.AppBottomNavTab
+import com.tripping.app.ui.component.RouteMenuSheet
+
 import com.tripping.app.ui.screen.CourseDetailScreen
 import com.tripping.app.ui.screen.HomeScreen
 import com.tripping.app.ui.screen.LoginScreen
 import com.tripping.app.ui.screen.MyMapDetailScreen
 import com.tripping.app.ui.screen.MyPageScreen
+import com.tripping.app.ui.screen.NearbyCoursesScreen
+import com.tripping.app.ui.screen.PingCourseDetailScreen
+import com.tripping.app.ui.screen.PingHistoryScreen
+import com.tripping.app.ui.screen.PingPlaceSearchScreen
 import com.tripping.app.ui.screen.PingScreen
-import com.tripping.app.ui.screen.SignUpScreen
-import com.tripping.app.ui.screen.RouteCreateScreen
 import com.tripping.app.ui.screen.PlaceSearchScreen
+import com.tripping.app.ui.screen.PopularKeywordsScreen
+import com.tripping.app.ui.screen.PopularPlacesScreen
+import com.tripping.app.ui.screen.PopularRoutesScreen
+import com.tripping.app.ui.screen.RouteCreateScreen
+import com.tripping.app.ui.screen.SettingsScreen
+import com.tripping.app.ui.screen.SignUpScreen
 import com.tripping.app.ui.screen.TripHistoryScreen
 import com.tripping.app.ui.screen.TripStartScreen
+
 import com.tripping.app.viewmodel.AuthState
 import com.tripping.app.viewmodel.AuthViewModel
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import com.tripping.app.ui.component.RouteMenuSheet
 
 
 private const val COURSE_DETAIL_ROUTE = "course_detail/{tripId}?title={title}"
 private const val TRIP_START_ROUTE = "trip_start/{tripId}?title={title}"
 
-private const val ROUTE_CREATE_ROUTE = "route_create"
+private const val PING_COURSE_DETAIL_ROUTE =
+    "ping_course_detail/{routeId}?title={title}"
 
-// 바텀바를 보여줄 라우트와, 그 라우트가 어떤 탭에 해당하는지 매핑
-// 이 맵에 없는 라우트(로그인/회원가입 등)는 바텀바가 자동으로 안 보임
+private const val PING_ADD_PLACE_ROUTE =
+    "ping_add_place/{routeId}"
+
+private const val PING_HISTORY_ROUTE =
+    "ping_history"
+
+private const val ROUTE_CREATE_ROUTE =
+    "route_create"
+
+
+// 바텀바를 보여줄 라우트와 현재 선택된 탭을 연결
 private val bottomBarRoutes = mapOf(
     "home" to AppBottomNavTab.HOME,
+
+    "placeSearch" to AppBottomNavTab.SEARCH,
+
+    ROUTE_CREATE_ROUTE to AppBottomNavTab.ROUTE,
+
+    "ping" to AppBottomNavTab.PING,
+    PING_COURSE_DETAIL_ROUTE to AppBottomNavTab.PING,
+    PING_ADD_PLACE_ROUTE to AppBottomNavTab.PING,
+    PING_HISTORY_ROUTE to AppBottomNavTab.PING,
+
     "mypage" to AppBottomNavTab.MY,
     "trip_history" to AppBottomNavTab.MY,
     "my_map_detail" to AppBottomNavTab.MY,
     COURSE_DETAIL_ROUTE to AppBottomNavTab.MY,
     TRIP_START_ROUTE to AppBottomNavTab.MY,
-    "ping" to AppBottomNavTab.PING,
-    "placeSearch" to AppBottomNavTab.SEARCH,
-    "route_create" to AppBottomNavTab.ROUTE
+    "settings" to AppBottomNavTab.MY,
+
+    "popular_keywords" to AppBottomNavTab.HOME,
+    "nearby_courses" to AppBottomNavTab.HOME,
+    "popular_routes" to AppBottomNavTab.HOME,
+    "popular_places" to AppBottomNavTab.HOME
 )
 
-// "다녀온 여행" 카드 클릭 -> 코스 상세보기 화면으로 이동 (마이페이지/다녀온 여행 자세히보기 둘 다 공용)
-private fun navigateToCourseDetail(navController: NavController, tripId: Long, title: String) {
-    navController.navigate("course_detail/$tripId?title=${Uri.encode(title)}")
+
+// "다녀온 여행" → 코스 상세
+private fun navigateToCourseDetail(
+    navController: NavController,
+    tripId: Long,
+    title: String
+) {
+    navController.navigate(
+        "course_detail/$tripId?title=${Uri.encode(title)}"
+    )
 }
 
-// "여행 바로 시작하기" 클릭 -> 다음 페이지(큰 지도 + 여행 계획 수정하기)로 이동
-private fun navigateToTripStart(navController: NavController, tripId: Long, title: String) {
-    navController.navigate("trip_start/$tripId?title=${Uri.encode(title)}")
+
+// "여행 바로 시작하기"
+private fun navigateToTripStart(
+    navController: NavController,
+    tripId: Long,
+    title: String
+) {
+    navController.navigate(
+        "trip_start/$tripId?title=${Uri.encode(title)}"
+    )
 }
 
-// 바텀 탭 전환 공통 로직: 이미 떠 있는 화면 재사용 + 백스택 중복 쌓임 방지
-private fun navigateToTab(navController: NavController, route: String) {
+
+// Ping 탭 → 코스 상세
+private fun navigateToPingCourseDetail(
+    navController: NavController,
+    routeId: Long,
+    title: String
+) {
+    navController.navigate(
+        "ping_course_detail/$routeId?title=${Uri.encode(title)}"
+    )
+}
+
+
+// Ping 코스 상세 → 장소 추가
+private fun navigateToPingAddPlace(
+    navController: NavController,
+    routeId: Long
+) {
+    navController.navigate(
+        "ping_add_place/$routeId"
+    )
+}
+
+
+// Ping → 다녀온 여행
+private fun navigateToPingHistory(
+    navController: NavController
+) {
+    navController.navigate(PING_HISTORY_ROUTE)
+}
+
+
+// 하단바 탭 이동
+private fun navigateToTab(
+    navController: NavController,
+    route: String
+) {
     navController.navigate(route) {
         popUpTo(navController.graph.startDestinationId) {
             saveState = true
         }
+
         launchSingleTop = true
         restoreState = true
     }
 }
 
+
 @Composable
 fun AppNavigation() {
-    val navController = rememberNavController()
-    val currentRoute = navController.currentBackStackEntryAsState().value?.destination?.route
-    val currentTab = bottomBarRoutes[currentRoute]
 
+    val navController = rememberNavController()
+
+    val currentRoute =
+        navController.currentBackStackEntryAsState()
+            .value
+            ?.destination
+            ?.route
+
+    val currentTab =
+        bottomBarRoutes[currentRoute]
+
+
+    // ⭐ 루트 메뉴 표시 여부
     var showRouteMenu by remember {
         mutableStateOf(false)
     }
 
-    // 하단 네비게이션 바는 여기 한 곳에서만 그림 (화면마다 따로 그리면 콜백 연결 누락되기 쉬워서 통일함)
-    // containerColor 명시 안 하면 Material3 기본 배경(연한 보라)이 쓰여서, 화면 내용이 짧으면
-    // 하단 네비바 위에 그 색이 띠처럼 비쳐 보임 -> 흰색으로 고정
+
     Scaffold(
         containerColor = Color.White,
+
         bottomBar = {
+
             if (currentTab != null) {
+
                 AppBottomNavBar(
+
                     selectedTab = currentTab,
-                    onHomeClick = { navigateToTab(navController, "home") },
-                    onSearchClick = { navigateToTab(navController, "placeSearch") },
-                    onRouteClick = { showRouteMenu = true },
-                    onPingClick = { navigateToTab(navController, "ping") },
-                    onMyClick = { navigateToTab(navController, "mypage") }
+
+                    onHomeClick = {
+                        navigateToTab(
+                            navController,
+                            "home"
+                        )
+                    },
+
+                    onSearchClick = {
+                        navigateToTab(
+                            navController,
+                            "placeSearch"
+                        )
+                    },
+
+                    // ⭐ 루트 버튼
+                    onRouteClick = {
+                        showRouteMenu = true
+                    },
+
+                    onPingClick = {
+                        navigateToTab(
+                            navController,
+                            "ping"
+                        )
+                    },
+
+                    onMyClick = {
+                        navigateToTab(
+                            navController,
+                            "mypage"
+                        )
+                    }
                 )
             }
         }
+
     ) { innerPadding ->
+
+
         Box(
             modifier = Modifier
                 .fillMaxSize()
         ) {
+
+
+            // ============================================================
+            // 화면 이동
+            // ============================================================
 
             NavHost(
                 navController = navController,
@@ -119,180 +254,737 @@ fun AppNavigation() {
                 modifier = Modifier.padding(innerPadding)
             ) {
 
+
+                // ========================================================
+                // 로그인
+                // ========================================================
+
                 composable("login") {
-                    val authViewModel: AuthViewModel = viewModel()
-                    val loginState by authViewModel.loginState.collectAsState()
+
+                    val authViewModel: AuthViewModel =
+                        viewModel()
+
+                    val loginState by
+                    authViewModel.loginState.collectAsState()
+
 
                     LaunchedEffect(loginState) {
+
                         if (loginState is AuthState.Success) {
+
                             navController.navigate("home") {
-                                popUpTo("login") { inclusive = true }
+
+                                popUpTo("login") {
+                                    inclusive = true
+                                }
                             }
                         }
                     }
 
+
                     LoginScreen(
+
                         onLoginClick = { email, password ->
-                            authViewModel.login(email, password)
+
+                            authViewModel.login(
+                                email,
+                                password
+                            )
                         },
+
                         onSignUpLinkClick = {
-                            navController.navigate("signup")
+
+                            navController.navigate(
+                                "signup"
+                            )
                         },
-                        isLoading = loginState is AuthState.Loading,
-                        errorMessage = (loginState as? AuthState.Error)?.message
+
+                        isLoading =
+                            loginState is AuthState.Loading,
+
+                        errorMessage =
+                            (loginState as? AuthState.Error)
+                                ?.message
                     )
                 }
 
+
+                // ========================================================
+                // 회원가입
+                // ========================================================
+
                 composable("signup") {
-                    val authViewModel: AuthViewModel = viewModel()
-                    val signUpState by authViewModel.signUpState.collectAsState()
+
+                    val authViewModel: AuthViewModel =
+                        viewModel()
+
+                    val signUpState by
+                    authViewModel.signUpState.collectAsState()
+
 
                     LaunchedEffect(signUpState) {
+
                         if (signUpState is AuthState.Success) {
+
                             navController.popBackStack()
                         }
                     }
 
+
                     SignUpScreen(
-                        onSignUpClick = { nickname, email, password ->
-                            authViewModel.signUp(nickname, email, password)
+
+                        onSignUpClick = {
+                                nickname,
+                                email,
+                                password ->
+
+                            authViewModel.signUp(
+                                nickname,
+                                email,
+                                password
+                            )
                         },
+
                         onLoginLinkClick = {
+
                             navController.popBackStack()
                         },
-                        isLoading = signUpState is AuthState.Loading,
-                        errorMessage = (signUpState as? AuthState.Error)?.message
+
+                        isLoading =
+                            signUpState is AuthState.Loading,
+
+                        errorMessage =
+                            (signUpState as? AuthState.Error)
+                                ?.message
                     )
                 }
+
+
+                // ========================================================
+                // 홈
+                // ========================================================
 
                 composable("home") {
+
                     HomeScreen(
-                        onGoToMyPageClick = {
-                            navigateToTab(navController, "mypage")
+
+                        onStartRouteClick = {
+                            showRouteMenu = true
                         },
-                        onNavigateToPlaceSearch = {
-                            navigateToTab(navController, "placeSearch")
+
+                        onViewRouteClick = {
+                            // TODO: 진행 중인 여행 루트 상세
+                        },
+
+                        onPingClick = {
+
+                            navigateToTab(
+                                navController,
+                                "ping"
+                            )
+                        },
+
+                        onSeeAllPopularRoutes = {
+
+                            navController.navigate(
+                                "popular_routes"
+                            )
+                        },
+
+                        onSeeAllPopularPlaces = {
+
+                            navController.navigate(
+                                "popular_places"
+                            )
+                        },
+
+                        onSeeAllKeywords = {
+
+                            navController.navigate(
+                                "popular_keywords"
+                            )
+                        },
+
+                        onSeeAllNearbyCourses = {
+
+                            navController.navigate(
+                                "nearby_courses"
+                            )
+                        },
+
+                        onCourseClick = {
+                            // TODO: 코스 상세
                         }
                     )
                 }
+
+
+                // ========================================================
+                // 탐색
+                // ========================================================
 
                 composable("placeSearch") {
+
                     PlaceSearchScreen(
+
                         onPlaceClick = { spotId ->
-                            // TODO: 장소 상세조회 화면 만들면 여기서 이동 처리
+
+                            // TODO: 장소 상세조회
                         }
                     )
                 }
 
-                composable("mypage") {
-                    MyPageScreen(
-                        onOpenTripHistory = {
-                            navController.navigate("trip_history")
-                        },
-                        onOpenMyMap = {
-                            navController.navigate("my_map_detail")
-                        },
-                        onOpenTripDetail = { tripId, title ->
-                            navigateToCourseDetail(navController, tripId, title)
-                        }
-                    )
-                }
 
-                composable("trip_history") {
-                    TripHistoryScreen(
+                // ========================================================
+                // 인기 키워드
+                // ========================================================
+
+                composable("popular_keywords") {
+
+                    PopularKeywordsScreen(
+
                         onBackClick = {
                             navController.popBackStack()
                         },
-                        onOpenTripDetail = { tripId, title ->
-                            navigateToCourseDetail(navController, tripId, title)
+
+                        onCourseClick = {
+                            // TODO
                         }
                     )
                 }
+
+
+                // ========================================================
+                // 주변 코스
+                // ========================================================
+
+                composable("nearby_courses") {
+
+                    NearbyCoursesScreen(
+
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+
+                        onCourseClick = {
+                            // TODO
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 인기 루트
+                // ========================================================
+
+                composable("popular_routes") {
+
+                    PopularRoutesScreen(
+
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+
+                        onCourseClick = {
+                            // TODO
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 인기 장소
+                // ========================================================
+
+                composable("popular_places") {
+
+                    PopularPlacesScreen(
+
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+
+                        onPlaceClick = {
+                            // TODO
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 마이페이지
+                // ========================================================
+
+                composable("mypage") {
+
+                    MyPageScreen(
+
+                        onOpenSettings = {
+
+                            navController.navigate(
+                                "settings"
+                            )
+                        },
+
+                        onOpenTripHistory = {
+
+                            navController.navigate(
+                                "trip_history"
+                            )
+                        },
+
+                        onOpenMyMap = {
+
+                            navController.navigate(
+                                "my_map_detail"
+                            )
+                        },
+
+                        onOpenTripDetail = {
+                                tripId,
+                                title ->
+
+                            navigateToCourseDetail(
+                                navController,
+                                tripId,
+                                title
+                            )
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 설정
+                // ========================================================
+
+                composable("settings") {
+
+                    val authViewModel: AuthViewModel =
+                        viewModel()
+
+                    val logoutState by
+                    authViewModel.logoutState.collectAsState()
+
+
+                    LaunchedEffect(logoutState) {
+
+                        if (logoutState is AuthState.Success) {
+
+                            navController.navigate("login") {
+
+                                popUpTo(0) {
+                                    inclusive = true
+                                }
+                            }
+                        }
+                    }
+
+
+                    SettingsScreen(
+
+                        onBackClick = {
+
+                            navController.popBackStack()
+                        },
+
+                        onLogoutConfirmed = {
+
+                            authViewModel.logout()
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 다녀온 여행
+                // ========================================================
+
+                composable("trip_history") {
+
+                    TripHistoryScreen(
+
+                        onBackClick = {
+
+                            navController.popBackStack()
+                        },
+
+                        onOpenTripDetail = {
+                                tripId,
+                                title ->
+
+                            navigateToCourseDetail(
+                                navController,
+                                tripId,
+                                title
+                            )
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 코스 상세
+                // ========================================================
 
                 composable(
                     COURSE_DETAIL_ROUTE,
+
                     arguments = listOf(
-                        navArgument("tripId") { type = NavType.LongType },
+
+                        navArgument("tripId") {
+                            type = NavType.LongType
+                        },
+
                         navArgument("title") {
+
                             type = NavType.StringType
+
                             defaultValue = ""
                         }
                     )
+
                 ) { backStackEntry ->
-                    val tripId = backStackEntry.arguments?.getLong("tripId") ?: 0L
-                    val title = backStackEntry.arguments?.getString("title")
+
+
+                    val tripId =
+                        backStackEntry.arguments
+                            ?.getLong("tripId")
+                            ?: 0L
+
+                    val title =
+                        backStackEntry.arguments
+                            ?.getString("title")
+
+
                     CourseDetailScreen(
+
                         tripId = tripId,
-                        fallbackTitle = title?.ifBlank { null },
+
+                        fallbackTitle =
+                            title?.ifBlank {
+                                null
+                            },
+
                         onBackClick = {
+
                             navController.popBackStack()
                         },
-                        onStartTrip = { id, t ->
-                            navigateToTripStart(navController, id, t)
+
+                        onStartTrip = {
+                                id,
+                                tripTitle ->
+
+                            navigateToTripStart(
+                                navController,
+                                id,
+                                tripTitle
+                            )
                         },
+
                         onGoToPing = {
-                            navigateToTab(navController, "ping")
+
+                            navigateToTab(
+                                navController,
+                                "ping"
+                            )
                         }
                     )
                 }
+
+
+                // ========================================================
+                // 여행 시작
+                // ========================================================
 
                 composable(
                     TRIP_START_ROUTE,
+
                     arguments = listOf(
-                        navArgument("tripId") { type = NavType.LongType },
+
+                        navArgument("tripId") {
+                            type = NavType.LongType
+                        },
+
                         navArgument("title") {
+
                             type = NavType.StringType
+
                             defaultValue = ""
                         }
                     )
+
                 ) { backStackEntry ->
-                    val tripId = backStackEntry.arguments?.getLong("tripId") ?: 0L
-                    val title = backStackEntry.arguments?.getString("title")
+
+
+                    val tripId =
+                        backStackEntry.arguments
+                            ?.getLong("tripId")
+                            ?: 0L
+
+                    val title =
+                        backStackEntry.arguments
+                            ?.getString("title")
+
+
                     TripStartScreen(
+
                         tripId = tripId,
-                        fallbackTitle = title?.ifBlank { null },
+
+                        fallbackTitle =
+                            title?.ifBlank {
+                                null
+                            },
+
                         onBackClick = {
+
                             navController.popBackStack()
                         },
+
                         onGoToPing = {
-                            navigateToTab(navController, "ping")
+
+                            navigateToTab(
+                                navController,
+                                "ping"
+                            )
                         }
                     )
                 }
 
+
+                // ========================================================
+                // 내 지도
+                // ========================================================
+
                 composable("my_map_detail") {
+
                     MyMapDetailScreen(
+
                         onBackClick = {
+
                             navController.popBackStack()
                         }
                     )
                 }
 
+
+                // ========================================================
+                // Ping
+                // ========================================================
+
                 composable("ping") {
+
                     PingScreen(
-                        onAddPingClick = { /* TODO: 핑 추가 로직 */ },
-                        onPingLogClick = { pingId -> /* TODO: 핑로그 상세로 이동 */ },
-                        onRouteCardClick = { routeId -> /* TODO: 루트 상세로 이동 */ },
-                        onCourseClick = { courseId -> /* TODO: 코스 상세로 이동 */ }
+
+                        onAddPingClick = {
+                            // TODO
+                        },
+
+                        onPingLogClick = { pingId ->
+                            // TODO
+                        },
+
+                        onRouteCardClick = {
+                                routeId,
+                                title ->
+
+                            navigateToPingCourseDetail(
+                                navController,
+                                routeId,
+                                title
+                            )
+                        },
+
+                        onCourseClick = {
+                            // TODO
+                        },
+
+                        onMoreClick = {
+
+                            navigateToPingHistory(
+                                navController
+                            )
+                        }
                     )
                 }
 
-                composable("route_create") {
 
-                    RouteCreateScreen()
+                // ========================================================
+                // Ping 다녀온 여행
+                // ========================================================
 
+                composable(
+                    PING_HISTORY_ROUTE
+                ) {
+
+                    PingHistoryScreen(
+
+                        onBackClick = {
+
+                            navController.popBackStack()
+                        },
+
+                        onTripClick = {
+                                tripId,
+                                title ->
+
+                            navigateToPingCourseDetail(
+                                navController,
+                                tripId,
+                                title
+                            )
+                        }
+                    )
                 }
 
 
+                // ========================================================
+                // Ping 코스 상세
+                // ========================================================
+
+                composable(
+                    PING_COURSE_DETAIL_ROUTE,
+
+                    arguments = listOf(
+
+                        navArgument("routeId") {
+                            type = NavType.LongType
+                        },
+
+                        navArgument("title") {
+
+                            type = NavType.StringType
+
+                            defaultValue = ""
+                        }
+                    )
+
+                ) { backStackEntry ->
+
+
+                    val routeId =
+                        backStackEntry.arguments
+                            ?.getLong("routeId")
+                            ?: 0L
+
+                    val title =
+                        backStackEntry.arguments
+                            ?.getString("title")
+                            ?: "여행 기록"
+
+
+                    PingCourseDetailScreen(
+
+                        routeId = routeId,
+
+                        courseName = title,
+
+                        onBackClick = {
+
+                            navController.popBackStack()
+                        },
+
+                        onAddPingClick = {
+
+                            navigateToPingAddPlace(
+                                navController,
+                                routeId
+                            )
+                        },
+
+                        onPingLogClick = {
+                            // TODO
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // Ping 장소 추가
+                // ========================================================
+
+                composable(
+                    PING_ADD_PLACE_ROUTE,
+
+                    arguments = listOf(
+
+                        navArgument("routeId") {
+                            type = NavType.LongType
+                        }
+                    )
+
+                ) { backStackEntry ->
+
+
+                    val routeId =
+                        backStackEntry.arguments
+                            ?.getLong("routeId")
+                            ?: 0L
+
+                    val pingViewModel:
+                            com.tripping.app.viewmodel.PingViewModel =
+                        viewModel()
+
+                    val context =
+                        LocalContext.current
+
+
+                    PingPlaceSearchScreen(
+
+                        onPlaceSelected = { place ->
+
+                            pingViewModel.addSpotToTrip(
+
+                                routeId = routeId,
+
+                                spotId = place.spotId,
+
+                                latitude = place.latitude,
+
+                                longitude = place.longitude,
+
+                                onSuccess = {
+
+                                    Toast.makeText(
+                                        context,
+                                        "과거 여행에 추가되었습니다!",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+
+                                    navController.popBackStack()
+                                }
+                            )
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // ⭐ 루트 생성 화면
+                // ========================================================
+
+                composable(
+                    ROUTE_CREATE_ROUTE
+                ) {
+
+                    RouteCreateScreen()
+                }
             }
 
 
-            // ⭐ 루트 버튼 클릭 시 표시되는 메뉴
+            // ============================================================
+            // ⭐ 루트 버튼 메뉴
+            //
+            // NavHost 위에 표시되므로 현재 화면 위에 메뉴가 뜸.
+            // 실제 하단 위치는 RouteMenuSheet 내부 padding으로 조절.
+            // ============================================================
+
             if (showRouteMenu) {
 
                 RouteMenuSheet(
 
                     onDismiss = {
+
                         showRouteMenu = false
                     },
 
@@ -300,18 +992,20 @@ fun AppNavigation() {
 
                         showRouteMenu = false
 
-                        navController.navigate("route_create")
+                        navController.navigate(
+                            ROUTE_CREATE_ROUTE
+                        )
                     },
 
                     onViewRoute = {
 
                         showRouteMenu = false
 
-                        // 아직 루트 보기 화면 없으므로 비워둠
+                        // TODO:
+                        // 루트 보기 화면 연결 예정
                     }
                 )
             }
         }
-
     }
 }

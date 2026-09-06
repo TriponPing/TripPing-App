@@ -23,9 +23,10 @@ private enum class PingTab { RECORD, LOG }
 @Composable
 fun PingScreen(
     onAddPingClick: () -> Unit = {},
-    onPingLogClick: (Int) -> Unit = {},
-    onRouteCardClick: (Int) -> Unit = {},
-    onCourseClick: (Int) -> Unit = {}
+    onPingLogClick: (Long) -> Unit = {},
+    onRouteCardClick: (routeId: Long, title: String) -> Unit = { _, _ -> },
+    onCourseClick: (Long) -> Unit = {},
+    onMoreClick: () -> Unit = {} // 👈 추가된 부분: 바로가기 클릭 시 실행될 콜백
 ) {
     var selectedTab by remember { mutableStateOf(PingTab.RECORD) }
 
@@ -48,7 +49,8 @@ fun PingScreen(
                 PingTab.RECORD -> PingRecordContent(
                     onAddPingClick = onAddPingClick,
                     onPingLogClick = onPingLogClick,
-                    onRouteCardClick = onRouteCardClick
+                    onRouteCardClick = onRouteCardClick,
+                    onMoreClick = onMoreClick // 다녀온 여행 더보기 부분
                 )
                 // 로그 탭 컴포저블은 PingLogContent.kt 걸 사용
                 PingTab.LOG -> PingLogContent(
