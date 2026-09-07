@@ -10,9 +10,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.DirectionsCar
-import androidx.compose.material.icons.filled.Image
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
@@ -20,11 +17,11 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
 
 private val AccentBlue = Color(0xFF0074CE)
 private val GrayText = Color(0xFF818181)
@@ -37,16 +34,13 @@ private val TagChipBg = Color(0xFFE3F2FD)
 data class RoutePlaceItem(
     val order: Int,
     val name: String,
-    val tags: List<String>,
-    val imageUrl: String? = null
+    val tags: List<String>
 )
 
 data class RecommendedRoute(
     val id: String,
     val label: String,           // "추천1"
-    val places: List<RoutePlaceItem>,
-    val totalTimeLabel: String,  // "총 6시간 20분"
-    val moveTimeLabel: String    // "이동 00분"
+    val places: List<RoutePlaceItem>
 )
 
 /**
@@ -64,8 +58,7 @@ fun RouteRecommendScreen(
     onBackClick: () -> Unit = {},
     onApplyClick: (RecommendedRoute) -> Unit = {},
     onSkipClick: () -> Unit = {},
-    onPlaceClick: (RecommendedRoute, RoutePlaceItem) -> Unit = { _, _ -> },
-    imageContent: (@Composable (String?) -> Unit)? = null
+    onPlaceClick: (RecommendedRoute, RoutePlaceItem) -> Unit = { _, _ -> }
 ) {
     var selectedIndex by remember { mutableStateOf(0) }
     val selectedRoute = routes.getOrNull(selectedIndex)
@@ -82,45 +75,34 @@ fun RouteRecommendScreen(
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = Color.Black,
-            modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 16.dp)
+            modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 12.dp)
         )
+
+        // ===== 뒤로가기 =====
+        BackButtonRow(onClick = onBackClick)
+        HorizontalDivider(color = LightGrayBorder, thickness = 1.dp)
 
         // ===== 단계 표시기 (2단계 활성) =====
         RecommendStepIndicator(currentStep = 2)
 
         Spacer(modifier = Modifier.height(24.dp))
 
-        // ===== "추천루트" 타이틀 + 뒤로가기 =====
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 20.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(
-                text = "추천루트",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                modifier = Modifier.weight(1f)
-            )
-            Box(
-                modifier = Modifier
-                    .background(LightGrayBg, RoundedCornerShape(20.dp))
-                    .clickable { onBackClick() }
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
-            ) {
-                Text(text = "뒤로가기", fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
-            }
-        }
+        // ===== "추천루트" 타이틀 =====
+        Text(
+            text = "추천루트",
+            fontSize = 20.sp,
+            fontWeight = FontWeight.Bold,
+            color = Color.Black,
+            modifier = Modifier.padding(horizontal = 20.dp)
+        )
 
         Spacer(modifier = Modifier.height(16.dp))
 
         // ===== 추천 탭 (추천1, 추천2, ...) =====
+        // ===== 추천 탭 (추천1~4, 화면 너비에 맞춰 균등 분할) =====
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .horizontalScroll(rememberScrollState())
                 .padding(horizontal = 20.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
@@ -128,6 +110,7 @@ fun RouteRecommendScreen(
                 RecommendTab(
                     text = route.label,
                     selected = index == selectedIndex,
+                    modifier = Modifier.weight(1f),
                     onClick = { selectedIndex = index }
                 )
             }
@@ -147,8 +130,7 @@ fun RouteRecommendScreen(
                 selectedRoute.places.forEachIndexed { index, place ->
                     PlaceRow(
                         place = place,
-                        onClick = { onPlaceClick(selectedRoute, place) },
-                        imageContent = imageContent
+                        onClick = { onPlaceClick(selectedRoute, place) }
                     )
                     if (index < selectedRoute.places.size - 1) {
                         HorizontalDivider(color = LightGrayBorder, thickness = 1.dp)
@@ -158,37 +140,23 @@ fun RouteRecommendScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // ===== 하단 요약 통계 =====
+            // ===== 장소 개수 요약 =====
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 20.dp)
                     .border(1.dp, LightGrayBorder, RoundedCornerShape(12.dp))
                     .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.SpaceEvenly
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                StatItem(
-                    icon = Icons.Filled.AccessTime,
-                    label = selectedRoute.totalTimeLabel,
-                    modifier = Modifier.weight(1f)
-                )
-                VerticalDivider(
-                    modifier = Modifier.height(28.dp),
-                    color = LightGrayBorder
-                )
-                StatItem(
-                    icon = Icons.Filled.DirectionsCar,
-                    label = selectedRoute.moveTimeLabel,
-                    modifier = Modifier.weight(1f)
-                )
-                VerticalDivider(
-                    modifier = Modifier.height(28.dp),
-                    color = LightGrayBorder
-                )
-                StatItem(
-                    icon = Icons.Filled.LocationOn,
-                    label = "장소 ${selectedRoute.places.size}개",
-                    modifier = Modifier.weight(1f)
+                Icon(Icons.Filled.LocationOn, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(20.dp))
+                Spacer(modifier = Modifier.width(6.dp))
+                Text(
+                    text = "장소 ${selectedRoute.places.size}개",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.Black
                 )
             }
 
@@ -241,14 +209,13 @@ fun RouteRecommendScreen(
 @Composable
 private fun PlaceRow(
     place: RoutePlaceItem,
-    onClick: () -> Unit,
-    imageContent: (@Composable (String?) -> Unit)?
+    onClick: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() }
-            .padding(vertical = 12.dp),
+            .padding(vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // 순번 원형 배지
@@ -264,27 +231,6 @@ private fun PlaceRow(
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Bold
             )
-        }
-
-        Spacer(modifier = Modifier.width(12.dp))
-
-        // 썸네일 (실제 프로젝트에서는 Coil AsyncImage(model = place.imageUrl)로 교체)
-        Box(
-            modifier = Modifier
-                .size(56.dp)
-                .background(LightGrayBg, RoundedCornerShape(10.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            if (imageContent != null) {
-                imageContent(place.imageUrl)
-            } else {
-                Icon(
-                    imageVector = Icons.Filled.Image,
-                    contentDescription = null,
-                    tint = GrayText,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
         }
 
         Spacer(modifier = Modifier.width(14.dp))
@@ -317,29 +263,14 @@ private fun PlaceRow(
 }
 
 @Composable
-private fun StatItem(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    label: String,
-    modifier: Modifier = Modifier
-) {
-    Column(
-        modifier = modifier,
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Icon(icon, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(20.dp))
-        Spacer(modifier = Modifier.height(6.dp))
-        Text(text = label, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
-    }
-}
-
-@Composable
 private fun RecommendTab(
     text: String,
     selected: Boolean,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit
 ) {
     Box(
-        modifier = Modifier
+        modifier = modifier
             .border(
                 width = if (selected) 2.dp else 1.dp,
                 color = if (selected) AccentBlue else LightGrayBorder,
@@ -347,13 +278,15 @@ private fun RecommendTab(
             )
             .background(Color.White, RoundedCornerShape(24.dp))
             .clickable { onClick() }
-            .padding(horizontal = 20.dp, vertical = 12.dp)
+            .padding(vertical = 8.dp),
+        contentAlignment = Alignment.Center
     ) {
         Text(
             text = text,
             fontSize = 14.sp,
-            fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal,
-            color = if (selected) AccentBlue else Color.Black
+            fontWeight = if (selected) FontWeight.ExtraBold else FontWeight.SemiBold,
+            color = if (selected) AccentBlue else Color.Black,
+            maxLines = 1
         )
     }
 }
@@ -411,14 +344,14 @@ private fun RecommendStepIndicator(currentStep: Int) {
     }
 }
 
+
+
 // ===== 프리뷰용 샘플 데이터 =====
 
 private fun sampleRoutes(): List<RecommendedRoute> = listOf(
     RecommendedRoute(
         id = "1",
         label = "추천1",
-        totalTimeLabel = "총 6시간 20분",
-        moveTimeLabel = "이동 00분",
         places = listOf(
             RoutePlaceItem(1, "한강 힐링 산책 루트", listOf("한강공원", "산책", "자연")),
             RoutePlaceItem(2, "암사동 역사 탐방 루트", listOf("역사", "문화", "전통")),
@@ -429,8 +362,6 @@ private fun sampleRoutes(): List<RecommendedRoute> = listOf(
     RecommendedRoute(
         id = "2",
         label = "추천2",
-        totalTimeLabel = "총 5시간 40분",
-        moveTimeLabel = "이동 15분",
         places = listOf(
             RoutePlaceItem(1, "성수동 카페 투어", listOf("카페", "감성")),
             RoutePlaceItem(2, "서울숲 산책", listOf("자연", "산책"))
@@ -444,4 +375,24 @@ private fun RouteRecommendScreenPreview() {
     MaterialTheme {
         RouteRecommendScreen(routes = sampleRoutes())
     }
+}
+
+ @Composable
+ private fun BackButtonRow(onClick: () -> Unit) {
+      Row(
+          modifier = Modifier
+              .fillMaxWidth()
+              .clickable { onClick() }
+              .padding(horizontal = 20.dp, vertical = 12.dp),
+          verticalAlignment = Alignment.CenterVertically
+      ) {
+          Icon(
+              imageVector = Icons.Filled.KeyboardArrowLeft,
+              contentDescription = "뒤로가기",
+              tint = Color.Black,
+              modifier = Modifier.size(22.dp)
+          )
+          Spacer(modifier = Modifier.width(2.dp))
+          Text(text = "뒤로가기", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+      }
 }

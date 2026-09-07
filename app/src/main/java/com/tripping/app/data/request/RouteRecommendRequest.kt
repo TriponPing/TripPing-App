@@ -1,12 +1,5 @@
 package com.tripping.app.data.request
 
-data class RouteTimeRequest(
-    val hour: Int,
-    val minute: Int,
-    val second: Int = 0,
-    val nano: Int = 0
-)
-
 data class RouteRecommendRequest(
     val regionId: String?,
     val memberCount: Int? = null,
@@ -18,8 +11,8 @@ data class RouteRecommendRequest(
     val totalTime: Int? = null,
     val startPlace: String?,
     val endPlace: String? = null,
-    val startTime: RouteTimeRequest?,
-    val endTime: RouteTimeRequest?,
+    val startTime: String?,   // "HH:mm:ss" 형식 문자열
+    val endTime: String?,     // "HH:mm:ss" 형식 문자열
     val mealIncluded: Boolean? = null,
     val maxSpotCount: Int? = null,
     val walkTimeLimit: Int? = null,

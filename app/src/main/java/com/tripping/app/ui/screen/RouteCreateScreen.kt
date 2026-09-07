@@ -10,14 +10,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
-import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.filled.CalendarMonth
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.filled.Park
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,8 +23,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.foundation.Image
+import androidx.compose.ui.res.painterResource
+import com.tripping.app.R
 import com.tripping.app.data.request.RouteRecommendRequest
-import com.tripping.app.data.request.RouteTimeRequest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -36,6 +39,7 @@ private val AccentBlue = Color(0xFF0074CE)
 private val GrayText = Color(0xFF818181)
 private val LightGrayBorder = Color(0xFFE0E0E0)
 
+private val regionOptions = listOf("서울", "강원", "부산", "제주")
 private val companionOptions = listOf("혼자", "친구", "가족", "연인")
 private val transportOptions = listOf("도보", "대중교통", "자동차")
 private val timeOptions = (0..23).map { "%02d:00".format(it) }
@@ -43,13 +47,24 @@ private val timeOptions = (0..23).map { "%02d:00".format(it) }
 private val dateFormatter = SimpleDateFormat("yyyy.MM.dd (E)", Locale.KOREAN)
 private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
+private val regionNameToId = mapOf(
+    "서울" to "R01",
+    "부산" to "R02",
+    "강원" to "R03",
+    "제주" to "R04"
+
+    // TODO: 강원, 제주 코드는 Supabase region 테이블에 데이터 추가되면 채워넣기
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun RouteCreateScreen(
     onBackClick: () -> Unit = {},
     onNextClick: (RouteRecommendRequest) -> Unit = {}
 ) {
-    var region by remember { mutableStateOf("") }
+    var region by remember { mutableStateOf<String?>(null) }
+    var regionMenuExpanded by remember { mutableStateOf(false) }
+
     var startDateMillis by remember { mutableStateOf<Long?>(null) }
     var endDateMillis by remember { mutableStateOf<Long?>(null) }
     val startDateDisplay = startDateMillis?.let { dateFormatter.format(Date(it)) } ?: "2024.06.01 (토)"
@@ -62,16 +77,11 @@ fun RouteCreateScreen(
     var startTimeMenuExpanded by remember { mutableStateOf(false) }
     var endTimeMenuExpanded by remember { mutableStateOf(false) }
     var startPlace by remember { mutableStateOf("") }
-    var mustVisitPlaces by remember { mutableStateOf(listOf<String>()) }
-    var avoidPlaces by remember { mutableStateOf(listOf<String>()) }
 
-    // ===== 다이얼로그 표시 상태 =====
-    var showRegionDialog by remember { mutableStateOf(false) }
     var showStartPlaceDialog by remember { mutableStateOf(false) }
-    var showMustVisitDialog by remember { mutableStateOf(false) }
-    var showAvoidDialog by remember { mutableStateOf(false) }
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
+    var validationError by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -85,13 +95,17 @@ fun RouteCreateScreen(
             fontSize = 22.sp,
             fontWeight = FontWeight.Bold,
             color = Color.Black,
-            modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 16.dp)
+            modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 12.dp)
         )
+
+        // ===== 뒤로가기 =====
+        BackButtonRow(onClick = onBackClick)
+        HorizontalDivider(color = LightGrayBorder, thickness = 1.dp)
 
         // ===== 단계 표시기 =====
         StepIndicator(currentStep = 1)
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(15.dp))
 
         // ===== 타이틀 =====
         Row(
@@ -107,24 +121,59 @@ fun RouteCreateScreen(
                 color = Color.Black,
                 modifier = Modifier.weight(1f)
             )
-            Icon(
-                imageVector = Icons.Filled.Park,
+            Image(
+                painter = painterResource(id = R.drawable.route_create_tap_sidebar),
                 contentDescription = null,
-                tint = Color(0xFF4CAF50),
-                modifier = Modifier.size(48.dp)
+                contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                modifier = Modifier.height(55.dp)
             )
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(15.dp))
 
-        // ===== 지역 입력 =====
-        InputRow(
-            icon = Icons.Filled.LocationOn,
-            label = "지역",
-            value = region.ifBlank { "예: 서울 강동구" },
-            valueColor = if (region.isBlank()) GrayText else Color.Black,
-            onClick = { showRegionDialog = true }
-        )
+        // ===== 지역 드롭다운 선택 =====
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp)
+        ) {
+            Text(text = "지역", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+            Spacer(modifier = Modifier.height(8.dp))
+            Box {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, LightGrayBorder, RoundedCornerShape(12.dp))
+                        .clickable { regionMenuExpanded = true }
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Filled.LocationOn, contentDescription = null, tint = GrayText, modifier = Modifier.size(18.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = region ?: "지역을 선택해주세요",
+                        fontSize = 15.sp,
+                        color = if (region == null) GrayText else Color.Black,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(Icons.Filled.KeyboardArrowDown, contentDescription = null, tint = GrayText)
+                }
+                DropdownMenu(
+                    expanded = regionMenuExpanded,
+                    onDismissRequest = { regionMenuExpanded = false }
+                ) {
+                    regionOptions.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(option) },
+                            onClick = {
+                                region = option
+                                regionMenuExpanded = false
+                            }
+                        )
+                    }
+                }
+            }
+        }
 
         Spacer(modifier = Modifier.height(12.dp))
 
@@ -222,10 +271,10 @@ fun RouteCreateScreen(
         HorizontalDivider(color = LightGrayBorder, thickness = 6.dp)
         Spacer(modifier = Modifier.height(20.dp))
 
-        // ===== 추가 여행 정보 =====
+        // ===== 추가 여행 정보 (선택 사항) =====
         Column(modifier = Modifier.padding(horizontal = 20.dp)) {
             Text(text = "추가 여행 정보", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
-            Text(text = "더 정확한 루트를 추천해드려요", fontSize = 13.sp, color = GrayText)
+            Text(text = "더 정확한 루트를 추천해드려요 (선택 입력)", fontSize = 13.sp, color = GrayText)
         }
 
         Spacer(modifier = Modifier.height(16.dp))
@@ -284,51 +333,43 @@ fun RouteCreateScreen(
             onClick = { showStartPlaceDialog = true }
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // 꼭 가고 싶은 장소
-        PlaceChipSection(
-            icon = Icons.Filled.Star,
-            iconTint = Color(0xFFFFC107),
-            title = "꼭 가고 싶은 장소",
-            places = mustVisitPlaces,
-            chipBackground = Color(0xFFE3F2FD),
-            chipTextColor = AccentBlue,
-            onAddClick = { showMustVisitDialog = true },
-            onRemoveClick = { place -> mustVisitPlaces = mustVisitPlaces - place }
-        )
-
-        Spacer(modifier = Modifier.height(20.dp))
-
-        // 피하고 싶은 장소
-        PlaceChipSection(
-            icon = Icons.Filled.Block,
-            iconTint = Color(0xFFE57373),
-            title = "피하고 싶은 장소",
-            places = avoidPlaces,
-            chipBackground = Color(0xFFFFEBEE),
-            chipTextColor = Color(0xFFD32F2F),
-            onAddClick = { showAvoidDialog = true },
-            onRemoveClick = { place -> avoidPlaces = avoidPlaces - place }
-        )
-
         Spacer(modifier = Modifier.height(28.dp))
+
+        // 필수 입력값 안내 메시지
+        if (validationError != null) {
+            Text(
+                text = validationError ?: "",
+                color = Color(0xFFD32F2F),
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 6.dp)
+            )
+        }
 
         // ===== 다음 버튼 =====
         Button(
             onClick = {
-                android.util.Log.e("ROUTE_DEBUG", "다음 버튼 눌림!")
+                validationError = when {
+                    region == null -> "지역을 선택해주세요"
+                    startDateMillis == null || endDateMillis == null -> "여행 날짜를 선택해주세요"
+                    selectedCompanions.isEmpty() -> "동행 유형을 선택해주세요"
+                    selectedTransports.isEmpty() -> "이동 수단을 선택해주세요"
+                    else -> null
+                }
+
+                if (validationError != null) return@Button
 
                 val startDateStr = startDateMillis?.let { apiDateFormat.format(Date(it)) } ?: apiDateFormat.format(Date())
                 val endDateStr = endDateMillis?.let { apiDateFormat.format(Date(it)) } ?: startDateStr
 
-                fun parseTime(text: String): RouteTimeRequest {
-                    val parts = text.split(":")
-                    return RouteTimeRequest(hour = parts[0].toInt(), minute = parts.getOrElse(1) { "0" }.toInt())
+                fun parseTime(text: String): String {
+                    return if (text.count { it == ':' } == 1) "$text:00" else text
                 }
 
                 val request = RouteRecommendRequest(
-                    regionId = region.ifBlank { null }, // TODO: 실제 regionId 코드로 변환 필요 (지금은 지역명 텍스트 그대로)
+                    regionId = region?.let { regionNameToId[it] },
                     startDate = startDateStr,
                     endDate = endDateStr,
                     companionType = selectedCompanions.joinToString(",").ifBlank { null },
@@ -336,7 +377,6 @@ fun RouteCreateScreen(
                     startPlace = startPlace.ifBlank { null },
                     startTime = parseTime(startTime),
                     endTime = parseTime(endTime)
-                    // mustVisitSpotIds, excludeSpotIds: 아직 장소 검색 연동 전이라 미포함 (TODO)
                 )
                 onNextClick(request)
             },
@@ -353,17 +393,7 @@ fun RouteCreateScreen(
         Spacer(modifier = Modifier.height(24.dp))
     }
 
-    // ===== 텍스트 입력 다이얼로그들 =====
-    if (showRegionDialog) {
-        TextInputDialog(
-            title = "지역 입력",
-            placeholder = "예: 서울 강동구",
-            initialValue = region,
-            onConfirm = { region = it },
-            onDismiss = { showRegionDialog = false }
-        )
-    }
-
+    // ===== 출발 장소 텍스트 입력 다이얼로그 =====
     if (showStartPlaceDialog) {
         TextInputDialog(
             title = "출발 장소 입력",
@@ -374,64 +404,48 @@ fun RouteCreateScreen(
         )
     }
 
-    if (showMustVisitDialog) {
-        TextInputDialog(
-            title = "꼭 가고 싶은 장소 추가",
-            placeholder = "장소명을 입력해주세요",
-            initialValue = "",
-            onConfirm = { if (it.isNotBlank()) mustVisitPlaces = mustVisitPlaces + it },
-            onDismiss = { showMustVisitDialog = false }
-        )
-    }
-
-    if (showAvoidDialog) {
-        TextInputDialog(
-            title = "피하고 싶은 장소 추가",
-            placeholder = "장소명을 입력해주세요",
-            initialValue = "",
-            onConfirm = { if (it.isNotBlank()) avoidPlaces = avoidPlaces + it },
-            onDismiss = { showAvoidDialog = false }
-        )
-    }
-
     // ===== 날짜 선택 다이얼로그들 =====
     if (showStartDatePicker) {
-        val datePickerState = rememberDatePickerState()
-        DatePickerDialog(
-            onDismissRequest = { showStartDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        startDateMillis = millis
-                    }
-                    showStartDatePicker = false
-                }) { Text("확인") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showStartDatePicker = false }) { Text("취소") }
+        KoreanLocaleProvider {
+            val datePickerState = rememberDatePickerState()
+            DatePickerDialog(
+                onDismissRequest = { showStartDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            startDateMillis = millis
+                        }
+                        showStartDatePicker = false
+                    }) { Text("확인") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showStartDatePicker = false }) { Text("취소") }
+                }
+            ) {
+                DatePicker(state = datePickerState)
             }
-        ) {
-            DatePicker(state = datePickerState)
         }
     }
 
     if (showEndDatePicker) {
-        val datePickerState = rememberDatePickerState()
-        DatePickerDialog(
-            onDismissRequest = { showEndDatePicker = false },
-            confirmButton = {
-                TextButton(onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        endDateMillis = millis
-                    }
-                    showEndDatePicker = false
-                }) { Text("확인") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showEndDatePicker = false }) { Text("취소") }
+        KoreanLocaleProvider {
+            val datePickerState = rememberDatePickerState()
+            DatePickerDialog(
+                onDismissRequest = { showEndDatePicker = false },
+                confirmButton = {
+                    TextButton(onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            endDateMillis = millis
+                        }
+                        showEndDatePicker = false
+                    }) { Text("확인") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showEndDatePicker = false }) { Text("취소") }
+                }
+            ) {
+                DatePicker(state = datePickerState)
             }
-        ) {
-            DatePicker(state = datePickerState)
         }
     }
 }
@@ -594,52 +608,38 @@ private fun TimePill(text: String, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PlaceChipSection(
-    icon: androidx.compose.ui.graphics.vector.ImageVector,
-    iconTint: Color,
-    title: String,
-    places: List<String>,
-    chipBackground: Color,
-    chipTextColor: Color,
-    onAddClick: () -> Unit,
-    onRemoveClick: (String) -> Unit
-) {
-    Column(modifier = Modifier.padding(horizontal = 20.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(18.dp))
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black, modifier = Modifier.weight(1f))
-            Text(
-                text = "+ 장소 추가",
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                color = AccentBlue,
-                modifier = Modifier.clickable { onAddClick() }
-            )
-        }
-        if (places.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(10.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                places.forEach { place ->
-                    Row(
-                        modifier = Modifier
-                            .background(chipBackground, RoundedCornerShape(20.dp))
-                            .padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = place, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, color = chipTextColor)
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Icon(
-                            Icons.Filled.Close,
-                            contentDescription = "삭제",
-                            tint = chipTextColor,
-                            modifier = Modifier
-                                .size(14.dp)
-                                .clickable { onRemoveClick(place) }
-                        )
-                    }
-                }
-            }
-        }
+private fun KoreanLocaleProvider(content: @Composable () -> Unit) {
+    val context = LocalContext.current
+    val currentConfiguration = LocalConfiguration.current
+    val koreanConfiguration = android.content.res.Configuration(currentConfiguration).apply {
+        setLocale(Locale.KOREAN)
+    }
+    val koreanContext = context.createConfigurationContext(koreanConfiguration)
+
+    CompositionLocalProvider(
+        LocalContext provides koreanContext,
+        LocalConfiguration provides koreanConfiguration
+    ) {
+        content()
+    }
+}
+
+@Composable
+private fun BackButtonRow(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Filled.KeyboardArrowLeft,
+            contentDescription = "뒤로가기",
+            tint = Color.Black,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(2.dp))
+        Text(text = "뒤로가기", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
     }
 }
