@@ -10,7 +10,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,7 +21,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
 
 private val AccentBlue = Color(0xFF0074CE)
 private val GrayText = Color(0xFF818181)
@@ -34,7 +33,9 @@ private val TagChipBg = Color(0xFFE3F2FD)
 data class RoutePlaceItem(
     val order: Int,
     val name: String,
-    val tags: List<String>
+    val tags: List<String>,
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )
 
 data class RecommendedRoute(
@@ -98,7 +99,6 @@ fun RouteRecommendScreen(
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // ===== 추천 탭 (추천1, 추천2, ...) =====
         // ===== 추천 탭 (추천1~4, 화면 너비에 맞춰 균등 분할) =====
         Row(
             modifier = Modifier
@@ -199,7 +199,7 @@ fun RouteRecommendScreen(
             shape = RoundedCornerShape(12.dp),
             colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
         ) {
-            Text(text = "추천 안받고 다음으로", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Text(text = "추천 안 받고 다음으로", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
 
         Spacer(modifier = Modifier.height(24.dp))
@@ -233,7 +233,7 @@ private fun PlaceRow(
             )
         }
 
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(24.dp)) // 14.dp -> 24.dp로 간격 확대
 
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -258,7 +258,7 @@ private fun PlaceRow(
             }
         }
 
-        Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = GrayText)
+        // KeyboardArrowRight 아이콘 제거됨
     }
 }
 
@@ -344,8 +344,6 @@ private fun RecommendStepIndicator(currentStep: Int) {
     }
 }
 
-
-
 // ===== 프리뷰용 샘플 데이터 =====
 
 private fun sampleRoutes(): List<RecommendedRoute> = listOf(
@@ -377,22 +375,22 @@ private fun RouteRecommendScreenPreview() {
     }
 }
 
- @Composable
- private fun BackButtonRow(onClick: () -> Unit) {
-      Row(
-          modifier = Modifier
-              .fillMaxWidth()
-              .clickable { onClick() }
-              .padding(horizontal = 20.dp, vertical = 12.dp),
-          verticalAlignment = Alignment.CenterVertically
-      ) {
-          Icon(
-              imageVector = Icons.Filled.KeyboardArrowLeft,
-              contentDescription = "뒤로가기",
-              tint = Color.Black,
-              modifier = Modifier.size(22.dp)
-          )
-          Spacer(modifier = Modifier.width(2.dp))
-          Text(text = "뒤로가기", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
-      }
+@Composable
+private fun BackButtonRow(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Filled.KeyboardArrowLeft,
+            contentDescription = "뒤로가기",
+            tint = Color.Black,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(2.dp))
+        Text(text = "뒤로가기", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+    }
 }

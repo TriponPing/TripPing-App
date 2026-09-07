@@ -53,6 +53,8 @@ import com.tripping.app.ui.screen.SettingsScreen
 import com.tripping.app.ui.screen.SignUpScreen
 import com.tripping.app.ui.screen.TripHistoryScreen
 import com.tripping.app.ui.screen.TripStartScreen
+import com.tripping.app.ui.screen.RouteMapAppliedScreen
+import com.tripping.app.ui.screen.RouteMapEditScreen
 
 import com.tripping.app.viewmodel.AuthState
 import com.tripping.app.viewmodel.AuthViewModel
@@ -999,10 +1001,66 @@ fun AppNavigation() {
                             navController.popBackStack()
                         },
                         onApplyClick = { selectedRoute ->
-                            // TODO: 선택된 추천 루트를 최종 PlannedRoute로 저장하는 API 연동
+                            routeCreateViewModel.selectRoute(selectedRoute)
+                            navController.navigate("route_map_applied")
                         },
                         onSkipClick = {
-                            // TODO: 추천 없이 다음 단계(빈 루트에 직접 장소 추가)로 이동
+                            routeCreateViewModel.startEmptyRoute()
+                            navController.navigate("route_map_edit")
+                        }
+                    )
+                }
+
+                // ========================================================
+                // ⭐ 적용된 루트 지도 화면
+                // ========================================================
+
+                composable("route_map_applied") {
+
+                    val selectedRoute by routeCreateViewModel.selectedRoute.collectAsState()
+
+                    selectedRoute?.let { route ->
+                        RouteMapAppliedScreen(
+                            route = route,
+                            onBackClick = {
+                                navController.popBackStack()
+                            },
+                            onRegisterClick = {
+                                // TODO: 루트 저장 API 호출
+                            },
+                            onStartTripClick = {
+                                // TODO: 저장 + 여행 시작(trip_start 화면 등으로 이동)
+                            }
+                        )
+                    }
+                }
+
+                // ========================================================
+                // ⭐ 추천 없이 직접 만드는 루트 지도 화면
+                // ========================================================
+
+                composable("route_map_edit") {
+
+                    val places by routeCreateViewModel.editablePlaces.collectAsState()
+                    val query by routeCreateViewModel.searchQuery.collectAsState()
+                    val results by routeCreateViewModel.searchResults.collectAsState()
+                    val saved by routeCreateViewModel.savedPlaces.collectAsState()
+                    val regionId by routeCreateViewModel.lastRegionId.collectAsState()
+
+                    RouteMapEditScreen(
+                        initialRegionText = regionId,
+                        routePlaces = places,
+                        onRoutePlacesChange = { routeCreateViewModel.updateEditablePlaces(it) },
+                        searchQuery = query,
+                        onSearchQueryChange = { routeCreateViewModel.onSearchQueryChange(it) },
+                        searchResults = results,
+                        onAddPlace = { routeCreateViewModel.addPlaceToRoute(it) },
+                        savedPlaces = saved,
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+                        onNextClick = {
+                            // TODO: 3단계(완료) 화면으로 이동
                         }
                     )
                 }
