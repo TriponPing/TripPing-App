@@ -24,10 +24,15 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import androidx.compose.ui.Alignment
+import androidx.compose.foundation.clickable
+import androidx.compose.runtime.remember
 
 import com.tripping.app.ui.component.AppBottomNavBar
 import com.tripping.app.ui.component.AppBottomNavTab
 import com.tripping.app.ui.component.RouteMenuSheet
+import com.tripping.app.ui.screen.RouteRecommendScreen
+import com.tripping.app.viewmodel.RouteCreateViewModel
 
 import com.tripping.app.ui.screen.CourseDetailScreen
 import com.tripping.app.ui.screen.HomeScreen
@@ -187,6 +192,7 @@ fun AppNavigation() {
         mutableStateOf(false)
     }
 
+    val routeCreateViewModel: RouteCreateViewModel = viewModel()
 
     Scaffold(
         containerColor = Color.White,
@@ -200,6 +206,7 @@ fun AppNavigation() {
                     selectedTab = currentTab,
 
                     onHomeClick = {
+                        showRouteMenu = false
                         navigateToTab(
                             navController,
                             "home"
@@ -207,18 +214,20 @@ fun AppNavigation() {
                     },
 
                     onSearchClick = {
+                        showRouteMenu = false
                         navigateToTab(
                             navController,
                             "placeSearch"
                         )
                     },
 
-                    // ⭐ 루트 버튼
+                    // ⭐ 루트 버튼: 이미 열려있으면 닫고, 닫혀있으면 염 (토글)
                     onRouteClick = {
-                        showRouteMenu = true
+                        showRouteMenu = !showRouteMenu
                     },
 
                     onPingClick = {
+                        showRouteMenu = false
                         navigateToTab(
                             navController,
                             "ping"
@@ -226,6 +235,7 @@ fun AppNavigation() {
                     },
 
                     onMyClick = {
+                        showRouteMenu = false
                         navigateToTab(
                             navController,
                             "mypage"
@@ -967,7 +977,34 @@ fun AppNavigation() {
                     ROUTE_CREATE_ROUTE
                 ) {
 
-                    RouteCreateScreen()
+                    RouteCreateScreen(
+                        onBackClick = {
+                            navigateToTab(navController, "home")
+                        },
+                        onNextClick = { request ->
+                            routeCreateViewModel.requestRecommend(request) {
+                                navController.navigate("route_recommend")
+                            }
+                        }
+                    )
+                }
+
+                composable("route_recommend") {
+
+                    val routes by routeCreateViewModel.recommendedRoutes.collectAsState()
+
+                    RouteRecommendScreen(
+                        routes = routes,
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+                        onApplyClick = { selectedRoute ->
+                            // TODO: 선택된 추천 루트를 최종 PlannedRoute로 저장하는 API 연동
+                        },
+                        onSkipClick = {
+                            // TODO: 추천 없이 다음 단계(빈 루트에 직접 장소 추가)로 이동
+                        }
+                    )
                 }
             }
 
@@ -981,7 +1018,21 @@ fun AppNavigation() {
 
             if (showRouteMenu) {
 
+                // 화면 전체를 덮는 투명 오버레이: 이걸 누르면 메뉴 닫힘
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .clickable(
+                            indication = null,
+                            interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() }
+                        ) {
+                            showRouteMenu = false
+                        }
+                )
+
                 RouteMenuSheet(
+
+                    modifier = Modifier.align(Alignment.BottomCenter),
 
                     onDismiss = {
 

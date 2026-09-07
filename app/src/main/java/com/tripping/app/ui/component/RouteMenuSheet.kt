@@ -15,27 +15,32 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.border
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.ui.text.font.FontWeight
 
 
 @Composable
 fun RouteMenuSheet(
     onDismiss: () -> Unit,
     onCreateRoute: () -> Unit,
-    onViewRoute: () -> Unit
+    onViewRoute: () -> Unit,
+    modifier: Modifier = Modifier
 ){
-
     Column(
-        modifier = Modifier
-            .fillMaxWidth()
+        modifier = modifier
             .padding(
-                start = 10.dp,
-                end = 10.dp,
-                bottom = 90.dp
+                start = 70.dp,
+                end = 70.dp,
+                bottom = 120.dp
             )
+            .shadow(8.dp, RoundedCornerShape(16.dp))
             .background(
                 Color.White,
-                RoundedCornerShape(8.dp)
+                RoundedCornerShape(16.dp)
             )
+            .border(1.dp, Color(0xFFE0E0E0), RoundedCornerShape(16.dp))
     ){
 
         Row(
@@ -55,11 +60,12 @@ fun RouteMenuSheet(
             )
 
             Spacer(
-                Modifier.width(12.dp)
+                Modifier.width(15.dp)
             )
 
             Text(
                 "루트 보기",
+                fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f)
             )
 
@@ -69,6 +75,7 @@ fun RouteMenuSheet(
             )
         }
 
+        HorizontalDivider(color = Color(0xFFE0E0E0), thickness = 1.dp)
 
         Row(
             modifier = Modifier
@@ -87,11 +94,12 @@ fun RouteMenuSheet(
             )
 
             Spacer(
-                Modifier.width(12.dp)
+                Modifier.width(15.dp)
             )
 
             Text(
                 "루트 생성",
+                fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f)
             )
 
