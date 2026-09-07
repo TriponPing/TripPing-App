@@ -978,6 +978,9 @@ fun AppNavigation() {
                 ) {
 
                     RouteCreateScreen(
+                        onBackClick = {
+                            navigateToTab(navController, "home")
+                        },
                         onNextClick = { request ->
                             routeCreateViewModel.requestRecommend(request) {
                                 navController.navigate("route_recommend")
