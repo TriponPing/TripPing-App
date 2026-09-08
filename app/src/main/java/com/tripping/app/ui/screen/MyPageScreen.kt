@@ -11,7 +11,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.LocationOn
 import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -69,7 +68,6 @@ fun MyPageScreen(
     onOpenTripHistory: () -> Unit = {},
     onOpenMyMap: () -> Unit = {},
     onOpenTripDetail: (Long, String) -> Unit = { _, _ -> },
-    onOpenSavedPlacesMap: () -> Unit = {},
     viewModel: MyPageViewModel = viewModel()
 ) {
     var selectedTab by remember { mutableStateOf(0) } // 0 = 여행기록, 1 = 저장한 장소, 2 = 저장한 여행
@@ -113,7 +111,7 @@ fun MyPageScreen(
                 1 -> SavedPlaceTab(
                     places = savedPlaces,
                     onCancelSave = { spotId -> viewModel.unsavePlace(spotId) },
-                    onOpenMap = onOpenSavedPlacesMap
+                    onOpenMap = onOpenMyMap // "지도 바로가기" -> 나의 여행 지도(자세히보기)로 이동, 다녀온 여행 탭과 같은 목적지
                 )
                 else -> SavedTripTab(
                     savedTrips = savedRoutes.map { it.toCardModel() },
@@ -315,6 +313,9 @@ private fun SavedPlaceTab(
     onCancelSave: (Long) -> Unit,
     onOpenMap: () -> Unit
 ) {
+    // 실수로 누를 수 있어서(로그아웃 버튼과 동일하게) 바로 취소하지 않고 확인 팝업을 한 번 거침
+    var pendingCancelPlace by remember { mutableStateOf<SavedPlaceCardResponse?>(null) }
+
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
             modifier = Modifier
@@ -341,56 +342,68 @@ private fun SavedPlaceTab(
                 items(places) { place ->
                     SavedPlaceCard(
                         place = place,
-                        onCancelSave = { onCancelSave(place.spotId) }
+                        onCancelSave = { pendingCancelPlace = place }
                     )
                 }
             }
         }
     }
+
+    val target = pendingCancelPlace
+    if (target != null) {
+        AlertDialog(
+            onDismissRequest = { pendingCancelPlace = null },
+            text = {
+                Text(text = "저장을 취소하시겠습니까?", fontSize = 15.sp, color = ColorTextPrimary)
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onCancelSave(target.spotId)
+                    pendingCancelPlace = null
+                }) {
+                    Text(text = "확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingCancelPlace = null }) {
+                    Text(text = "취소")
+                }
+            }
+        )
+    }
 }
 
 @Composable
 private fun SavedPlaceCard(place: SavedPlaceCardResponse, onCancelSave: () -> Unit) {
-    Column(
+    Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .background(Color.White)
             .border(1.dp, ColorCardBorder, RoundedCornerShape(16.dp))
-            .padding(16.dp)
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = place.name ?: "이름 없는 장소",
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
-                color = ColorTextPrimary,
-                modifier = Modifier.weight(1f)
+                color = ColorTextPrimary
             )
-            Icon(
-                imageVector = Icons.Filled.LocationOn,
-                contentDescription = null,
-                tint = ColorTextSecondary,
-                modifier = Modifier.size(16.dp)
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(text = place.pingCount.toString(), fontSize = 13.sp, color = ColorTextPrimary)
-            Spacer(modifier = Modifier.width(12.dp))
-            Icon(
-                imageVector = Icons.Outlined.BookmarkBorder,
-                contentDescription = "저장 취소",
-                tint = ColorTextPrimary,
-                modifier = Modifier
-                    .size(18.dp)
-                    .clickable { onCancelSave() }
-            )
-            Spacer(modifier = Modifier.width(4.dp))
-            Text(text = place.savedCount.toString(), fontSize = 13.sp, color = ColorTextPrimary)
+            if (!place.category.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(text = place.category, fontSize = 12.sp, color = ColorTextSecondary)
+            }
         }
-        if (!place.category.isNullOrBlank()) {
-            Spacer(modifier = Modifier.height(6.dp))
-            Text(text = place.category, fontSize = 12.sp, color = ColorTextSecondary)
-        }
+        Icon(
+            imageVector = Icons.Outlined.BookmarkBorder,
+            contentDescription = "저장 취소",
+            tint = ColorTextPrimary,
+            modifier = Modifier
+                .size(20.dp)
+                .clickable { onCancelSave() }
+        )
     }
 }
 

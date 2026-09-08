@@ -3,7 +3,9 @@ package com.tripping.app.ui.screen
 import android.graphics.Color as AndroidColor
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.OutlinedTextField
@@ -33,22 +35,24 @@ import kotlinx.coroutines.delay
 // ===== 나의 여행 지도 자세히보기 화면 (마이페이지 "나의 여행 지도 > 자세히 보기") =====
 // 실제 API 연동:
 //   GET /users/me/map               -> 검색 결과 클릭 시 좌표 찾는 용도로만 사용
-//   GET /users/me/map/detail?type=  -> 탭별(drawn|saved|planned) 전체 경로
+//   GET /users/me/map/detail?type=  -> 탭별(drawn|saved|planned|places) 전체 경로
 //   GET /users/me/map/search        -> 코스 이름 검색
 // 지도는 네이버 지도 SDK(NCP Dynamic Map, Client ID는 AndroidManifest.xml에 등록) 사용.
 // 상단 헤더 블록 없이 지도를 화면 꽉 채우고, 뒤로가기+검색창은 지도 위에 떠있게 배치함.
 //
-// 검색창 아래 탭 3개(스위치처럼 하나만 선택됨):
-//   "내 계획"    -> 아직 시작 안 한 계획(PLANNED) - 여행으로 전환하면 여기서 빠짐
-//   "저장한 루트" -> 남의 공개 루트를 북마크한 것(SAVED)
-//   "여행보기"    -> 내가 실제로 다녀온 여행(DRAWN)
+// 검색창 아래 탭 4개(스위치처럼 하나만 선택됨, 가로 스크롤):
+//   "내 계획"     -> 아직 시작 안 한 계획(PLANNED) - 여행으로 전환하면 여기서 빠짐
+//   "저장한 루트"  -> 남의 공개 루트를 북마크한 것(SAVED)
+//   "여행보기"     -> 내가 실제로 다녀온 여행(DRAWN)
+//   "저장한 장소"  -> 북마크(핀)로 저장한 단일 장소(PLACES) - 경로가 아니라 장소 하나하나라 선은 안 그려지고 핀만 찍힘
 
 private val ColorAccentBlue = Color(0xFF0074CE)
 
 private enum class MapTab(val apiType: String, val label: String, val lineColorHex: String) {
     PLANNED("planned", "내 계획", "#405AC8FA"), // 하늘색, 투명도 25% (CourseDetailScreen 등이랑 동일)
     SAVED("saved", "저장한 루트", "#FF7A3D"),
-    VISITED("drawn", "여행보기", "#0074CE")
+    VISITED("drawn", "여행보기", "#0074CE"),
+    PLACES("places", "저장한 장소", "#00B894") // 스팟 1개짜리라 이 색은 실제로는 안 쓰임(선이 안 그려짐)
 }
 
 @Composable
@@ -229,8 +233,12 @@ fun MyMapDetailScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // 탭 3개 - 최대 하나만 선택되지만, 켜진 탭을 다시 누르면 꺼져서 셋 다 비활성화 가능
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            // 탭 4개 - 최대 하나만 선택되지만, 켜진 탭을 다시 누르면 꺼져서 넷 다 비활성화 가능.
+            // 버튼이 커져서 한 화면에 다 안 들어갈 수 있어 가로 스크롤 가능하게 함.
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 MapTab.entries.forEach { tab ->
                     MapTabButton(
                         label = tab.label,
@@ -268,14 +276,14 @@ private fun MapTabButton(
 ) {
     Box(
         modifier = Modifier
-            .clip(RoundedCornerShape(20.dp))
+            .clip(RoundedCornerShape(24.dp))
             .background(if (active) ColorAccentBlue else Color.White)
             .clickable { onClick() }
-            .padding(horizontal = 16.dp, vertical = 10.dp)
+            .padding(horizontal = 22.dp, vertical = 14.dp)
     ) {
         Text(
             text = label,
-            fontSize = 13.sp,
+            fontSize = 15.sp,
             fontWeight = FontWeight.Bold,
             color = if (active) Color.White else ColorAccentBlue
         )
