@@ -2,6 +2,8 @@ package com.tripping.app.data.api
 
 import com.tripping.app.data.request.CreatePlaceRequest
 import com.tripping.app.data.response.PlaceSearchResponse
+import com.tripping.app.data.response.PlaceDetailResponse
+import retrofit2.http.Path
 import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.POST
@@ -26,4 +28,8 @@ interface PlaceApi {
     // 👈 새로 추가: 네이버맵에서 발견한(우리 DB에 없는) 장소를 새로 등록 - 백엔드팀 구현 예정
     @POST("places")
     suspend fun createPlace(@Body request: CreatePlaceRequest): PlaceSearchResponse
+
+    @GET("places/{placeId}/detail")
+    suspend fun getPlaceDetail(@Path("placeId") placeId: Long): PlaceDetailResponse
+
 }
