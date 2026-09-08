@@ -10,6 +10,7 @@ import com.tripping.app.data.response.MapDetailResponse
 import com.tripping.app.data.response.MapPinResponse
 import com.tripping.app.data.response.MapSearchResponse
 import com.tripping.app.data.response.ProfileResponse
+import com.tripping.app.data.response.SavedPlaceCardResponse
 import com.tripping.app.data.response.SavedRouteResponse
 import com.tripping.app.data.response.TripDetailResponse
 import com.tripping.app.data.response.TripSummaryResponse
@@ -42,6 +43,13 @@ class MyPageViewModel : ViewModel() {
     private val _visitedPlaceCount = MutableStateFlow(0)
     val visitedPlaceCount: StateFlow<Int> = _visitedPlaceCount
 
+    // "저장한 장소" 탭용 - 북마크(찜)한 단일 장소 목록
+    private val _savedPlaces = MutableStateFlow<List<SavedPlaceCardResponse>>(emptyList())
+    val savedPlaces: StateFlow<List<SavedPlaceCardResponse>> = _savedPlaces
+
+    private val _savedPlacesTotal = MutableStateFlow(0)
+    val savedPlacesTotal: StateFlow<Int> = _savedPlacesTotal
+
     // "나의 여행 지도 자세히보기" 화면용 - 지도에 찍을 핀 전체 목록
     private val _mapPins = MutableStateFlow<List<MapPinResponse>>(emptyList())
     val mapPins: StateFlow<List<MapPinResponse>> = _mapPins
@@ -69,6 +77,7 @@ class MyPageViewModel : ViewModel() {
         loadProfile()
         loadRecentTrips()
         loadSavedRoutes()
+        loadSavedPlaces()
         loadMyMap()
         loadBadges()
     }
@@ -123,6 +132,37 @@ class MyPageViewModel : ViewModel() {
                     val body = response.body()
                     _savedRoutes.value = body?.content ?: emptyList()
                     _savedRoutesTotal.value = body?.totalElements?.toInt() ?: 0
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "네트워크 오류가 발생했습니다."
+            }
+        }
+    }
+
+    fun loadSavedPlaces() {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.myPageApi.getSavedPlaces()
+                if (response.isSuccessful) {
+                    val body = response.body()
+                    _savedPlaces.value = body?.content ?: emptyList()
+                    _savedPlacesTotal.value = body?.totalElements?.toInt() ?: 0
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "네트워크 오류가 발생했습니다."
+            }
+        }
+    }
+
+    /** 저장한 장소 취소 (성공하면 목록 새로고침) */
+    fun unsavePlace(spotId: Long) {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.myPageApi.unsavePlace(spotId)
+                if (response.isSuccessful) {
+                    loadSavedPlaces()
+                } else {
+                    _errorMessage.value = "저장 취소에 실패했습니다. (${response.code()})"
                 }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "네트워크 오류가 발생했습니다."

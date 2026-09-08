@@ -9,6 +9,7 @@ import com.tripping.app.data.response.MapSearchResponse
 import com.tripping.app.data.response.MyMapResponse
 import com.tripping.app.data.response.PageResponse
 import com.tripping.app.data.response.ProfileResponse
+import com.tripping.app.data.response.SavedPlaceCardResponse
 import com.tripping.app.data.response.SavedRouteResponse
 import com.tripping.app.data.response.SavedRouteSaveResponse
 import com.tripping.app.data.response.TripDetailResponse
@@ -57,6 +58,17 @@ interface MyPageApi {
     // routeId = SavedRouteResponse.tripId (원본 actualRouteId)
     @DELETE("routes/{routeId}/saved")
     suspend fun unsaveRoute(@Path("routeId") routeId: Long): Response<Unit>
+
+    // 마이페이지 "저장한 장소" 탭 - 북마크(찜)한 단일 장소 목록
+    @GET("users/me/places/saved")
+    suspend fun getSavedPlaces(
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 10
+    ): Response<PageResponse<SavedPlaceCardResponse>>
+
+    // 장소 북마크 해제 (place 도메인 API, spotId 기준)
+    @DELETE("places/{placeId}/saved/me")
+    suspend fun unsavePlace(@Path("placeId") placeId: Long): Response<Unit>
 
     @GET("users/me/map")
     suspend fun getMyMap(): Response<MyMapResponse>
