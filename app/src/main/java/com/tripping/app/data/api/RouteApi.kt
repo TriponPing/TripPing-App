@@ -10,6 +10,7 @@ import com.tripping.app.data.request.PlannedRouteCreateRequest
 import com.tripping.app.data.request.PlannedRoutePlaceRequest
 import com.tripping.app.data.request.TripCreateRequest
 import com.tripping.app.data.response.TripResponse
+import com.tripping.app.data.response.PopularTripDetailResponse
 import retrofit2.http.Path
 import retrofit2.http.Body
 import retrofit2.http.GET
@@ -54,4 +55,9 @@ interface RouteApi {
         @Body request: TripCreateRequest
     ): TripResponse
 
+    @GET("trips/{routeId}")
+    suspend fun getTripDetail(@Path("routeId") routeId: Long): PopularTripDetailResponse
+
+    @GET("routes/saved/map")
+    suspend fun getSavedRoutesForMap(): List<RouteMapSearchResponse>
 }
