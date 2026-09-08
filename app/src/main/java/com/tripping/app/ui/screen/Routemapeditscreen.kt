@@ -1,0 +1,522 @@
+package com.tripping.app.ui.screen
+
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bookmark
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.naver.maps.geometry.LatLng
+import com.naver.maps.map.CameraUpdate
+import com.naver.maps.map.MapView
+import com.naver.maps.map.NaverMap
+import com.naver.maps.map.overlay.Marker
+import com.naver.maps.map.overlay.OverlayImage
+import com.naver.maps.map.overlay.PathOverlay
+import com.tripping.app.R
+import kotlin.math.roundToInt
+
+private val AccentBlue = Color(0xFF0074CE)
+private val GrayText = Color(0xFF818181)
+private val LightGrayBorder = Color(0xFFE0E0E0)
+
+/**
+ * 지역 코드(regionId, 예: "R01") -> 초기 지도 중심 좌표.
+ */
+private object RegionMapCenters {
+    private val centers = mapOf(
+        "R01" to LatLng(37.5665, 126.9780), // 서울
+        "R02" to LatLng(35.1796, 129.0756), // 부산
+        "R03" to LatLng(37.8228, 128.1555), // 강원
+        "R04" to LatLng(33.4996, 126.5312)  // 제주
+    )
+
+    fun findCenter(regionId: String): LatLng {
+        return centers[regionId] ?: centers.getValue("R01")
+    }
+}
+
+/**
+ * "추천 안 받고 다음으로" 눌렀을 때 보여주는 화면.
+ * 상단 검색창에서 검색해서 장소를 추가하고, 하단 리스트에서 꾹 눌러 순서를 바꾸고,
+ * 저장해놓은 장소를 지도 위 버튼으로 불러와서 추가할 수 있어요.
+ *
+ * 검색은 네이버 검색 API 결과든 우리 DB 검색 결과든 상관없이 searchResults로만 받아요 —
+ * 어느 소스를 쓸지는 onSearchQueryChange 안(ViewModel/리포지토리)에서 결정하시면 돼요.
+ *
+ * @param initialRegionText 지도 초기 중심 계산용 지역 코드 (예: "R01") — RouteCreateViewModel의 lastRegionId
+ * @param routePlaces 현재 루트에 담긴 장소 목록 (order 순서대로)
+ * @param onRoutePlacesChange 순서 변경/삭제 등으로 목록이 바뀔 때마다 호출
+ * @param searchQuery 검색창에 입력 중인 텍스트
+ * @param onSearchQueryChange 검색어가 바뀔 때 호출 (실제 검색은 상위에서 처리)
+ * @param searchResults 검색 결과 목록
+ * @param onAddPlace 검색 결과나 저장한 장소 목록에서 "추가"할 때
+ * @param onEditPlace 리스트 아이템의 "수정" 눌렀을 때 (예: 검색 다시 열어서 교체)
+ * @param savedPlaces 사용자가 저장해놓은 장소 목록
+ * @param onNextClick 이 화면에서 "다음"으로 넘어갈 때
+ */
+@Composable
+fun RouteMapEditScreen(
+    initialRegionText: String,
+    routePlaces: List<RoutePlaceItem>,
+    onRoutePlacesChange: (List<RoutePlaceItem>) -> Unit,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    searchResults: List<RoutePlaceItem>,
+    onAddPlace: (RoutePlaceItem) -> Unit,
+    savedPlaces: List<RoutePlaceItem>,
+    onEditPlace: (RoutePlaceItem) -> Unit = {},
+    onBackClick: () -> Unit = {},
+    onNextClick: () -> Unit = {}
+) {
+    var showSavedPlacesPanel by remember { mutableStateOf(false) }
+    val initialCenter = remember(initialRegionText) { RegionMapCenters.findCenter(initialRegionText) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        // ===== 상단 타이틀 + 뒤로가기 =====
+        Text(
+            text = "루트",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(start = 20.dp, top = 20.dp, bottom = 12.dp)
+        )
+        BackButtonRow(onClick = onBackClick)
+        HorizontalDivider(color = LightGrayBorder, thickness = 1.dp)
+
+        RouteStepIndicator(currentStep = 3)
+
+        // ===== 상단 검색창 (항상 보임) =====
+        Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
+            OutlinedTextField(
+                value = searchQuery,
+                onValueChange = onSearchQueryChange,
+                placeholder = { Text("장소를 검색해보세요") },
+                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = GrayText) },
+                singleLine = true,
+                shape = RoundedCornerShape(28.dp),
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            // 검색 결과 드롭다운 (검색어 있을 때만)
+            if (searchQuery.isNotBlank()) {
+                Column(
+                    modifier = Modifier
+                        .padding(top = 60.dp)
+                        .fillMaxWidth()
+                        .shadow(6.dp, RoundedCornerShape(16.dp))
+                        .background(Color.White, RoundedCornerShape(16.dp))
+                ) {
+                    if (searchResults.isEmpty()) {
+                        Text(
+                            text = "검색 결과가 없어요",
+                            fontSize = 13.sp,
+                            color = GrayText,
+                            modifier = Modifier.padding(16.dp)
+                        )
+                    } else {
+                        LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
+                            itemsIndexed(searchResults) { _, place ->
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable { onAddPlace(place) }
+                                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(text = place.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                                        if (place.tags.isNotEmpty()) {
+                                            Text(text = place.tags.joinToString(" · "), fontSize = 12.sp, color = GrayText)
+                                        }
+                                    }
+                                    Text(text = "+ 추가", fontSize = 13.sp, color = AccentBlue, fontWeight = FontWeight.SemiBold)
+                                }
+                                HorizontalDivider(color = LightGrayBorder, thickness = 1.dp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        // ===== 지도 + 저장한 장소 버튼 =====
+        Box(modifier = Modifier.weight(1f)) {
+            NaverEditableMapView(
+                modifier = Modifier.fillMaxSize(),
+                initialCenter = initialCenter,
+                places = routePlaces
+            )
+
+            FloatingCircleButton(
+                icon = Icons.Filled.Bookmark,
+                contentDescription = "저장한 장소",
+                modifier = Modifier
+                    .align(Alignment.BottomEnd)
+                    .padding(16.dp),
+                onClick = { showSavedPlacesPanel = true }
+            )
+
+            if (showSavedPlacesPanel) {
+                SavedPlacesOverlayPanel(
+                    savedPlaces = savedPlaces,
+                    onAddPlace = { place ->
+                        onAddPlace(place)
+                        showSavedPlacesPanel = false
+                    },
+                    onDismiss = { showSavedPlacesPanel = false }
+                )
+            }
+        }
+
+        // ===== 하단 루트 리스트 (이름 + 수정 + X, 꾹 눌러서 순서 변경) =====
+        ReorderablePlaceList(
+            places = routePlaces,
+            onReorder = onRoutePlacesChange,
+            onEdit = onEditPlace,
+            onRemove = { place -> onRoutePlacesChange(routePlaces - place) },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(max = 260.dp)
+        )
+
+        Button(
+            onClick = onNextClick,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .height(52.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+        ) {
+            Text(text = "다음", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+        }
+    }
+}
+
+@Composable
+private fun RouteStepIndicator(currentStep: Int) {
+    val steps = listOf("정보 입력", "추천 확인", "완료")
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 32.dp, vertical = 16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        steps.forEachIndexed { index, label ->
+            val stepNumber = index + 1
+            val isActive = stepNumber == currentStep
+            val isDone = stepNumber < currentStep
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.weight(1f)) {
+                Box(
+                    modifier = Modifier
+                        .size(32.dp)
+                        .background(
+                            if (isActive || isDone) AccentBlue else Color(0xFFE0E0E0),
+                            CircleShape
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = stepNumber.toString(), color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                }
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(
+                    text = label,
+                    fontSize = 12.sp,
+                    fontWeight = if (isActive) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isActive) AccentBlue else GrayText
+                )
+            }
+            if (index < steps.size - 1) {
+                HorizontalDivider(
+                    modifier = Modifier.weight(1f).padding(bottom = 20.dp),
+                    color = if (stepNumber < currentStep) AccentBlue else Color(0xFFE0E0E0),
+                    thickness = 2.dp
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NaverEditableMapView(
+    modifier: Modifier = Modifier,
+    initialCenter: LatLng,
+    places: List<RoutePlaceItem>
+) {
+    val context = LocalContext.current
+    val mapView = remember { MapView(context) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_CREATE -> mapView.onCreate(null)
+                Lifecycle.Event.ON_START -> mapView.onStart()
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_STOP -> mapView.onStop()
+                Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
+                else -> {}
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
+    var didSetInitialCamera by remember { mutableStateOf(false) }
+
+    AndroidView(
+        modifier = modifier,
+        factory = { mapView },
+        update = { view ->
+            view.getMapAsync { naverMap ->
+                if (!didSetInitialCamera) {
+                    naverMap.moveCamera(CameraUpdate.scrollTo(initialCenter))
+                    didSetInitialCamera = true
+                }
+                redrawMarkers(naverMap, places)
+            }
+        }
+    )
+}
+
+private fun redrawMarkers(naverMap: NaverMap, places: List<RoutePlaceItem>) {
+    // 참고: 매번 새 Marker/PathOverlay를 만들어서 map에 올리기만 하는 단순 버전이에요.
+    // 실제로는 기존 마커 목록을 remember로 들고 있다가 map = null 로 지우고 다시 그려야 해요.
+    val validPlaces = places
+        .sortedBy { it.order }
+        .filter { it.latitude != null && it.longitude != null }
+
+    if (validPlaces.isEmpty()) return
+
+    val latLngs = validPlaces.map { LatLng(it.latitude!!, it.longitude!!) }
+    val pinIcon = OverlayImage.fromResource(R.drawable.blueping)
+
+    latLngs.forEach { latLng ->
+        Marker().apply {
+            position = latLng
+            icon = pinIcon
+            map = naverMap
+        }
+    }
+
+    if (latLngs.size >= 2) {
+        // 경로선 색을 마커(blueping) 색과 통일
+        val pinLineColor = 0xFF0074CE.toInt()
+        PathOverlay().apply {
+            coords = latLngs
+            color = pinLineColor
+            outlineColor = pinLineColor
+            map = naverMap
+        }
+    }
+}
+
+@Composable
+private fun FloatingCircleButton(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    contentDescription: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = modifier
+            .shadow(4.dp, CircleShape)
+            .background(AccentBlue, CircleShape)
+            .clickable { onClick() }
+            .padding(14.dp)
+    ) {
+        Icon(icon, contentDescription = contentDescription, tint = Color.White, modifier = Modifier.size(22.dp))
+    }
+}
+
+@Composable
+private fun SavedPlacesOverlayPanel(
+    savedPlaces: List<RoutePlaceItem>,
+    onAddPlace: (RoutePlaceItem) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(16.dp)
+            .shadow(6.dp, RoundedCornerShape(16.dp))
+            .background(Color.White, RoundedCornerShape(16.dp))
+            .padding(16.dp)
+    ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "저장한 장소", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            IconButton(onClick = onDismiss) {
+                Icon(Icons.Filled.Close, contentDescription = "닫기")
+            }
+        }
+
+        if (savedPlaces.isEmpty()) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(text = "저장해놓은 장소가 없어요", fontSize = 13.sp, color = GrayText)
+        } else {
+            Spacer(modifier = Modifier.height(4.dp))
+            LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
+                itemsIndexed(savedPlaces) { _, place ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onAddPlace(place) }
+                            .padding(vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Filled.Bookmark, contentDescription = null, tint = AccentBlue, modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(10.dp))
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(text = place.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                            if (place.tags.isNotEmpty()) {
+                                Text(text = place.tags.joinToString(" · "), fontSize = 12.sp, color = GrayText)
+                            }
+                        }
+                        Text(text = "+ 추가", fontSize = 13.sp, color = AccentBlue, fontWeight = FontWeight.SemiBold)
+                    }
+                    HorizontalDivider(color = LightGrayBorder, thickness = 1.dp)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * 이름 + 수정 + X 로 구성된 라운드 박스 리스트. 꾹 눌러서 드래그하면 순서가 바뀌어요.
+ * 외부 라이브러리 없이 직접 구현한 간단 버전이라, 아이템이 아주 많거나
+ * 더 매끄러운 애니메이션이 필요하면 org.burnoutcrew.compose-reorderable로 교체를 추천해요.
+ */
+@Composable
+private fun ReorderablePlaceList(
+    places: List<RoutePlaceItem>,
+    onReorder: (List<RoutePlaceItem>) -> Unit,
+    onEdit: (RoutePlaceItem) -> Unit,
+    onRemove: (RoutePlaceItem) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var draggingIndex by remember { mutableStateOf(-1) }
+    var dragOffsetY by remember { mutableStateOf(0f) }
+    val rowHeightPx = remember { mutableStateOf(140f) } // 대략적인 행 높이(px), 필요시 onGloballyPositioned로 정교화 가능
+
+    LazyColumn(
+        modifier = modifier.padding(horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        itemsIndexed(places, key = { _, place -> "${place.order}-${place.name}" }) { index, place ->
+            val isDragging = index == draggingIndex
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .graphicsLayer { translationY = if (isDragging) dragOffsetY else 0f }
+                    .border(1.dp, LightGrayBorder, RoundedCornerShape(12.dp))
+                    .background(if (isDragging) Color(0xFFF5F5F5) else Color.White, RoundedCornerShape(12.dp))
+                    .pointerInput(places) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = {
+                                draggingIndex = index
+                                dragOffsetY = 0f
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                dragOffsetY += dragAmount.y
+
+                                val rowHeight = rowHeightPx.value
+                                val moveBy = (dragOffsetY / rowHeight).roundToInt()
+                                if (moveBy != 0) {
+                                    val targetIndex = (draggingIndex + moveBy).coerceIn(0, places.size - 1)
+                                    if (targetIndex != draggingIndex) {
+                                        val mutable = places.toMutableList()
+                                        val moved = mutable.removeAt(draggingIndex)
+                                        mutable.add(targetIndex, moved)
+                                        onReorder(mutable)
+                                        draggingIndex = targetIndex
+                                        dragOffsetY -= moveBy * rowHeight
+                                    }
+                                }
+                            },
+                            onDragEnd = { draggingIndex = -1; dragOffsetY = 0f },
+                            onDragCancel = { draggingIndex = -1; dragOffsetY = 0f }
+                        )
+                    }
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = place.name,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color.Black,
+                    modifier = Modifier.weight(1f)
+                )
+
+                Text(
+                    text = "수정",
+                    fontSize = 13.sp,
+                    color = GrayText,
+                    modifier = Modifier.clickable { onEdit(place) }
+                )
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = "삭제",
+                    tint = GrayText,
+                    modifier = Modifier
+                        .size(18.dp)
+                        .clickable { onRemove(place) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun BackButtonRow(onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() }
+            .padding(horizontal = 20.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = Icons.Filled.KeyboardArrowLeft,
+            contentDescription = "뒤로가기",
+            tint = Color.Black,
+            modifier = Modifier.size(22.dp)
+        )
+        Spacer(modifier = Modifier.width(2.dp))
+        Text(text = "뒤로가기", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+    }
+}
