@@ -35,13 +35,15 @@ data class RoutePlaceItem(
     val name: String,
     val tags: List<String>,
     val latitude: Double? = null,
-    val longitude: Double? = null
+    val longitude: Double? = null,
+    val spotId: Long? = null // 루트 저장 API(addPlace)에 필요. 추천/검색/저장한장소 어디서 오든 꼭 채워야 함
 )
 
 data class RecommendedRoute(
     val id: String,
-    val label: String,           // "추천1"
-    val places: List<RoutePlaceItem>
+    val label: String,           // "추천1" — 탭에 표시되는 이름
+    val places: List<RoutePlaceItem>,
+    val theme: String? = null    // "역사탐방 루트" 등 — 저장할 때 실제 제목으로 씀
 )
 
 /**
