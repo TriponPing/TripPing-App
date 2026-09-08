@@ -32,6 +32,7 @@ import com.tripping.app.ui.component.AppBottomNavBar
 import com.tripping.app.ui.component.AppBottomNavTab
 import com.tripping.app.ui.component.RouteMenuSheet
 import com.tripping.app.ui.screen.RouteRecommendScreen
+import com.tripping.app.ui.screen.RouteDetailScreen
 import com.tripping.app.viewmodel.RouteCreateViewModel
 
 import com.tripping.app.ui.screen.CourseDetailScreen
@@ -57,6 +58,8 @@ import com.tripping.app.ui.screen.RouteMapAppliedScreen
 import com.tripping.app.ui.screen.RouteMapEditScreen
 import com.tripping.app.ui.screen.RoutePlaceSearchScreen
 import com.tripping.app.ui.screen.RecommendedRoute
+import com.tripping.app.ui.screen.PlaceDetailScreen
+
 
 import com.tripping.app.viewmodel.AuthState
 import com.tripping.app.viewmodel.AuthViewModel
@@ -83,6 +86,9 @@ private val bottomBarRoutes = mapOf(
     "home" to AppBottomNavTab.HOME,
 
     "placeSearch" to AppBottomNavTab.SEARCH,
+    "placeSearch" to AppBottomNavTab.SEARCH,
+    "route_detail/{routeId}" to AppBottomNavTab.SEARCH,
+    "place_detail/{spotId}" to AppBottomNavTab.SEARCH,
 
     ROUTE_CREATE_ROUTE to AppBottomNavTab.ROUTE,
 
@@ -438,12 +444,58 @@ fun AppNavigation() {
                 // ========================================================
 
                 composable("placeSearch") {
-
                     PlaceSearchScreen(
-
                         onPlaceClick = { spotId ->
-
                             // TODO: 장소 상세조회
+                        },
+                        onRouteClick = { routeId ->
+                            navController.navigate("route_detail/$routeId")
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 탐색 - 루트 상세 (인기 루트 카드/선 클릭 시)
+                // ========================================================
+
+                composable(
+                    "route_detail/{routeId}",
+                    arguments = listOf(
+                        navArgument("routeId") { type = NavType.LongType }
+                    )
+                ) { backStackEntry ->
+
+                    val routeId = backStackEntry.arguments?.getLong("routeId") ?: 0L
+
+                    RouteDetailScreen(
+                        routeId = routeId,
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+                        onStopClick = { spotId ->
+                            navController.navigate("place_detail/$spotId")
+                        }
+                    )
+                }
+
+// ⭐ 장소 상세 조회
+                composable(
+                    "place_detail/{spotId}",
+                    arguments = listOf(
+                        navArgument("spotId") { type = NavType.LongType }
+                    )
+                ) { backStackEntry ->
+
+                    val spotId = backStackEntry.arguments?.getLong("spotId") ?: 0L
+
+                    PlaceDetailScreen(
+                        placeId = spotId,
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+                        onRouteCardClick = { actualRouteId ->
+                            navController.navigate("route_detail/$actualRouteId")
                         }
                     )
                 }

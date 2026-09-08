@@ -37,44 +37,56 @@ import com.tripping.app.viewmodel.PlaceSearchViewModel
 import androidx.compose.foundation.layout.offset
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 
-private val regionOptions = listOf("전체", "서울", "강원", "부산", "제주")
+// 드롭다운에 보여줄 이름 -> (regionId, 지도 중심 좌표)
+// regionId는 RouteMapEditScreen의 RegionMapCenters랑 값 맞춤 (R01~R04)
+private val regionInfo: Map<String, Pair<String?, LatLng?>> = linkedMapOf(
+    "전체" to (null to null),
+    "서울" to ("R01" to LatLng(37.5665, 126.9780)),
+    "부산" to ("R02" to LatLng(35.1796, 129.0756)),
+    "강원" to ("R03" to LatLng(37.8228, 128.1555)),
+    "제주" to ("R04" to LatLng(33.4996, 126.5312))
+)
+private val regionOptions = regionInfo.keys.toList()
+
 private val timeSlotOptions = listOf("전체", "아침", "오전", "오후", "저녁", "밤/새벽")
 private val pingCountOptions = listOf("전체" to null, "3개" to 3, "4개 이상" to 4, "5개 이상" to 5, "6개 이상" to 6)
+
+private val AccentBlue = Color(0xFF0074CE)
 
 @OptIn(ExperimentalNaverMapApi::class)
 @Composable
 fun PlaceSearchScreen(
     viewModel: PlaceSearchViewModel = viewModel(),
-    onPlaceClick: (Long) -> Unit = {}
+    onPlaceClick: (Long) -> Unit = {},
+    onRouteClick: (Long) -> Unit = {}
 ) {
     val places by viewModel.places.collectAsState()
     val routes by viewModel.routes.collectAsState()
+    val savedIndividualPlaces by viewModel.savedIndividualPlaces.collectAsState()
     val selectedCategory by viewModel.selectedCategory.collectAsState()
     val selectedTimeSlot by viewModel.selectedTimeSlot.collectAsState()
     val selectedMinPingCount by viewModel.selectedMinPingCount.collectAsState()
 
     var regionMenuExpanded by remember { mutableStateOf(false) }
-    var selectedRegion by remember { mutableStateOf("지역") }
+    var selectedRegionName by remember { mutableStateOf("지역") }
     var timeSlotMenuExpanded by remember { mutableStateOf(false) }
     var pingCountMenuExpanded by remember { mutableStateOf(false) }
     var selectedPlace by remember { mutableStateOf<PlaceSearchResponse?>(null) }
 
-    val pinIcon = remember { OverlayImage.fromResource(R.drawable.ic_map_pin) }
+    val pinIcon = remember { OverlayImage.fromResource(R.drawable.blueping) }
 
     // 화면 처음 진입 시: 카테고리 미선택 상태이므로 전체 루트/핑 로드
-    LaunchedEffect(Unit) { viewModel.loadAllRoutes() }
+    LaunchedEffect(Unit) { viewModel.loadSavedRoutesAndPlaces() }
 
     Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
 
         // ===== 상단 헤더 =====
-        // ===== 상단 헤더: 피그마 좌표 그대로 절대 배치 (동네핑거 문구 / 지역 / 카테고리 탭) =====
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .height(90.dp)
                 .background(Color.White)
         ) {
-            // "동네핑거가 등록한" — left:90 top:16 width:208 height:25
             Text(
                 text = "동네핑거가 등록한",
                 fontSize = 13.sp,
@@ -87,20 +99,23 @@ fun PlaceSearchScreen(
                     .height(25.dp)
             )
 
-            // "지역" 드롭다운 — left:14 top:32
+            // "지역" 드롭다운 — 선택하면 필터링 + 지도 카메라 이동까지 같이 처리
             Box(
                 modifier = Modifier
                     .offset(x = 14.dp, y = 32.dp)
             ) {
                 RegionDropdownField(
-                    selectedRegion = selectedRegion,
+                    selectedRegion = selectedRegionName,
                     expanded = regionMenuExpanded,
                     onExpandedChange = { regionMenuExpanded = it },
-                    onRegionSelected = { selectedRegion = it }
+                    onRegionSelected = { regionName ->
+                        selectedRegionName = regionName
+                        val (regionId, _) = regionInfo[regionName] ?: (null to null)
+                        viewModel.onRegionSelected(regionId)
+                    }
                 )
             }
 
-            // 카테고리 탭 박스 — left:156 top:44 width:242 height:33 (오른쪽 여백을 지역 왼쪽 여백과 동일하게 14dp로 맞춤)
             Row(
                 modifier = Modifier
                     .offset(x = 156.dp, y = 44.dp)
@@ -118,18 +133,26 @@ fun PlaceSearchScreen(
                         text = category.label,
                         fontSize = 15.sp,
                         fontWeight = FontWeight.SemiBold,
-                        color = if (isSelected) Color(0xFF0074CE) else Color(0xFF818181),
+                        color = if (isSelected) AccentBlue else Color(0xFF818181),
                         modifier = Modifier.clickable { viewModel.onCategorySelected(category) }
                     )
                 }
             }
         }
 
-        // ===== 지도 영역: 지도 + (카테고리 미선택 시만) 검색/필터바 + 장소 카드 =====
+        // ===== 지도 영역 =====
         Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
 
             val cameraPositionState = rememberCameraPositionState {
                 position = CameraPosition(LatLng(37.5665, 126.9780), 12.0)
+            }
+
+            // 지역 선택이 바뀔 때마다 그 지역 중심으로 카메라 이동 ("전체"면 안 움직임)
+            LaunchedEffect(selectedRegionName) {
+                val (_, center) = regionInfo[selectedRegionName] ?: (null to null)
+                if (center != null) {
+                    cameraPositionState.position = CameraPosition(center, 12.0)
+                }
             }
 
             NaverMap(
@@ -142,14 +165,18 @@ fun PlaceSearchScreen(
                     if (sortedPlaces.size >= 2) {
                         PolylineOverlay(
                             coords = sortedPlaces.map { LatLng(it.latitude, it.longitude) },
-                            color = Color(0xFFD95A5A),
-                            width = 8.dp
+                            color = AccentBlue,
+                            width = 8.dp,
+                            onClick = {
+                                onRouteClick(route.routeId)
+                                true
+                            }
                         )
                     }
                 }
 
                 if (selectedCategory == null) {
-                    // 카테고리 미선택: 루트에 등록된 장소들을 전부 핑으로 표시 (중복 제거)
+                    // 카테고리 미선택: 내가 저장한 루트에 속한 장소들 + 개별로 저장한 장소들을 핑으로 표시
                     val routePlaces = routes.flatMap { it.places }.distinctBy { it.spotId }
                     routePlaces.forEach { routePlace ->
                         Marker(
@@ -173,6 +200,23 @@ fun PlaceSearchScreen(
                             }
                         )
                     }
+
+                    val routeSpotIds = routePlaces.map { it.spotId }.toSet()
+                    savedIndividualPlaces
+                        .filter { it.spotId !in routeSpotIds } // 루트에 이미 포함된 장소는 중복 표시 안 함
+                        .forEach { place ->
+                            Marker(
+                                state = MarkerState(position = LatLng(place.latitude, place.longitude)),
+                                icon = pinIcon,
+                                width = 34.dp,
+                                height = 34.dp,
+                                captionText = place.name,
+                                onClick = {
+                                    selectedPlace = place
+                                    true
+                                }
+                            )
+                        }
                 } else {
                     // 카테고리 선택됨: 해당 카테고리 검색 결과만 핑으로 표시
                     places.forEach { place ->
@@ -321,7 +365,6 @@ private fun RegionDropdownField(
             modifier = Modifier
                 .background(Color.White, RoundedCornerShape(12.dp))
         ) {
-            // 상단에 "지역" 헤더를 위쪽 화살표와 함께 반복 표시 (다시 누르면 닫힘)
             DropdownMenuItem(
                 text = {
                     Row(verticalAlignment = Alignment.CenterVertically) {
