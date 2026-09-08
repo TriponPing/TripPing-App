@@ -13,8 +13,13 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -28,6 +33,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.naver.maps.geometry.LatLng
+import com.naver.maps.geometry.LatLngBounds
 import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
@@ -44,19 +50,24 @@ private val LightGrayBorder = Color(0xFFE0E0E0)
 /**
  * "적용" 버튼을 눌렀을 때 보여주는 화면.
  * 선택된 추천 루트(route)의 장소들을 네이버 지도 위에 마커 + 경로선으로 표시하고,
- * 하단에서 "등록"(저장) 또는 "여행 바로 시작하기"를 선택할 수 있어요.
+ * 하단에서 "루트 저장" 또는 "여행 바로 시작하기"를 선택할 수 있어요.
+ * "루트 저장"은 저장 완료 후 "루트가 저장되었습니다" 팝업을 띄우고, 확인하면 홈으로 이동해요.
  *
  * 주의: RoutePlaceItem.latitude / longitude 가 null인 장소는 지도에 표시되지 않아요.
  *
- * @param onRegisterClick "등록" — 이 루트를 저장만 하고 나중에 시작
- * @param onStartTripClick "여행 바로 시작하기" — 저장과 동시에 바로 여행 시작
+ * @param onSaveRouteClick "루트 저장" — 이 루트를 DB에 저장 (실제 API 호출은 상위에서 처리)
+ * @param onStartTripClick "여행 바로 시작하기" — 저장과 동시에 바로 여행 시작 화면으로 이동
+ * @param showSavedDialog 저장 API 성공 후 true로 넘겨주면 "루트가 저장되었습니다" 팝업이 떠요
+ * @param onDismissSavedDialog 팝업의 "확인" 눌렀을 때 (보통 여기서 홈으로 이동)
  */
 @Composable
 fun RouteMapAppliedScreen(
     route: RecommendedRoute,
     onBackClick: () -> Unit = {},
-    onRegisterClick: () -> Unit = {},
-    onStartTripClick: () -> Unit = {}
+    onSaveRouteClick: () -> Unit = {},
+    onStartTripClick: () -> Unit = {},
+    showSavedDialog: Boolean = false,
+    onDismissSavedDialog: () -> Unit = {}
 ) {
     Column(modifier = Modifier.fillMaxSize()) {
         Text(
@@ -79,14 +90,14 @@ fun RouteMapAppliedScreen(
 
         Column(modifier = Modifier.padding(horizontal = 20.dp, vertical = 16.dp)) {
             Button(
-                onClick = onRegisterClick,
+                onClick = onSaveRouteClick,
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
                 shape = RoundedCornerShape(12.dp),
                 colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
             ) {
-                Text(text = "등록", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                Text(text = "루트 저장", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -102,6 +113,20 @@ fun RouteMapAppliedScreen(
                 Text(text = "여행 바로 시작하기", fontSize = 16.sp, fontWeight = FontWeight.Bold)
             }
         }
+    }
+
+    if (showSavedDialog) {
+        AlertDialog(
+            onDismissRequest = onDismissSavedDialog,
+            confirmButton = {
+                TextButton(onClick = onDismissSavedDialog) {
+                    Text("확인")
+                }
+            },
+            text = {
+                Text(text = "루트가 저장되었습니다", fontSize = 15.sp)
+            }
+        )
     }
 }
 
@@ -158,6 +183,8 @@ private fun NaverRouteMapView(
     val context = LocalContext.current
     val mapView = remember { MapView(context) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val markers = remember { mutableStateListOf<Marker>() }
+    val pathOverlayState = remember { mutableStateOf<PathOverlay?>(null) }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -180,13 +207,24 @@ private fun NaverRouteMapView(
         factory = { mapView },
         update = { view ->
             view.getMapAsync { naverMap ->
-                drawRoute(naverMap, places)
+                drawRoute(naverMap, places, markers, pathOverlayState)
             }
         }
     )
 }
 
-private fun drawRoute(naverMap: NaverMap, places: List<RoutePlaceItem>) {
+private fun drawRoute(
+    naverMap: NaverMap,
+    places: List<RoutePlaceItem>,
+    markers: MutableList<Marker>,
+    pathOverlayState: MutableState<PathOverlay?>
+) {
+    // 기존에 그려둔 마커/경로선을 먼저 지움 (안 지우면 다시 그릴 때마다 겹쳐서 쌓임)
+    markers.forEach { it.map = null }
+    markers.clear()
+    pathOverlayState.value?.map = null
+    pathOverlayState.value = null
+
     val validPlaces = places
         .sortedBy { it.order }
         .filter { it.latitude != null && it.longitude != null }
@@ -194,27 +232,38 @@ private fun drawRoute(naverMap: NaverMap, places: List<RoutePlaceItem>) {
     if (validPlaces.isEmpty()) return
 
     val latLngs = validPlaces.map { LatLng(it.latitude!!, it.longitude!!) }
-    val pinIcon = OverlayImage.fromResource(R.drawable.blueping)
+    val pinIcon = OverlayImage.fromResource(R.drawable.map_ping)
 
     latLngs.forEach { latLng ->
-        Marker().apply {
+        val marker = Marker().apply {
             position = latLng
             icon = pinIcon
             map = naverMap
         }
+        markers.add(marker)
     }
 
-    // 경로선 색을 마커(blueping) 색과 통일
+    // 경로선 색을 마커(map_ping) 색과 통일
     val pinLineColor = 0xFF0074CE.toInt()
 
-    PathOverlay().apply {
+    val newPath = PathOverlay().apply {
         coords = latLngs
         color = pinLineColor
         outlineColor = pinLineColor
         map = naverMap
     }
+    pathOverlayState.value = newPath
 
-    naverMap.moveCamera(CameraUpdate.scrollTo(latLngs.first()))
+    // 카메라를 전체 루트가 다 보이도록 맞춤 (장소가 1개면 그냥 그 위치로 이동)
+    val cameraUpdate = if (latLngs.size == 1) {
+        CameraUpdate.scrollTo(latLngs.first())
+    } else {
+        val bounds = LatLngBounds.Builder().apply {
+            latLngs.forEach { include(it) }
+        }.build()
+        CameraUpdate.fitBounds(bounds, 120)
+    }
+    naverMap.moveCamera(cameraUpdate)
 }
 
 @Composable
