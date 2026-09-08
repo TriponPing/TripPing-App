@@ -31,6 +31,7 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.naver.maps.geometry.LatLng
+import com.naver.maps.geometry.LatLngBounds
 import com.naver.maps.map.CameraUpdate
 import com.naver.maps.map.MapView
 import com.naver.maps.map.NaverMap
@@ -65,34 +66,30 @@ private object RegionMapCenters {
  * 상단 검색창에서 검색해서 장소를 추가하고, 하단 리스트에서 꾹 눌러 순서를 바꾸고,
  * 저장해놓은 장소를 지도 위 버튼으로 불러와서 추가할 수 있어요.
  *
- * 검색은 네이버 검색 API 결과든 우리 DB 검색 결과든 상관없이 searchResults로만 받아요 —
- * 어느 소스를 쓸지는 onSearchQueryChange 안(ViewModel/리포지토리)에서 결정하시면 돼요.
+ * 검색은 별도의 RoutePlaceSearchScreen에서 처리해요 (onSearchBarClick으로 이동).
+ * 네이버 검색 API든 우리 DB 검색이든 상관없이, 그 화면에서 고른 장소가 onAddPlace로 넘어와요.
  *
  * @param initialRegionText 지도 초기 중심 계산용 지역 코드 (예: "R01") — RouteCreateViewModel의 lastRegionId
  * @param routePlaces 현재 루트에 담긴 장소 목록 (order 순서대로)
  * @param onRoutePlacesChange 순서 변경/삭제 등으로 목록이 바뀔 때마다 호출
- * @param searchQuery 검색창에 입력 중인 텍스트
- * @param onSearchQueryChange 검색어가 바뀔 때 호출 (실제 검색은 상위에서 처리)
- * @param searchResults 검색 결과 목록
- * @param onAddPlace 검색 결과나 저장한 장소 목록에서 "추가"할 때
- * @param onEditPlace 리스트 아이템의 "수정" 눌렀을 때 (예: 검색 다시 열어서 교체)
+ * @param onSearchBarClick 검색창을 눌렀을 때 (RoutePlaceSearchScreen으로 이동)
+ * @param onAddPlace 저장한 장소 목록에서 "추가"할 때
  * @param savedPlaces 사용자가 저장해놓은 장소 목록
- * @param onNextClick 이 화면에서 "다음"으로 넘어갈 때
+ * @param onNextClick 이 화면에서 "다음"으로 넘어갈 때 (사용자가 입력한 루트 제목을 같이 넘김)
  */
 @Composable
 fun RouteMapEditScreen(
     initialRegionText: String,
     routePlaces: List<RoutePlaceItem>,
     onRoutePlacesChange: (List<RoutePlaceItem>) -> Unit,
-    searchQuery: String,
-    onSearchQueryChange: (String) -> Unit,
-    searchResults: List<RoutePlaceItem>,
+    onSearchBarClick: () -> Unit,
     onAddPlace: (RoutePlaceItem) -> Unit,
     savedPlaces: List<RoutePlaceItem>,
-    onEditPlace: (RoutePlaceItem) -> Unit = {},
     onBackClick: () -> Unit = {},
-    onNextClick: () -> Unit = {}
+    onNextClick: (String) -> Unit = {}
 ) {
+    var showTitleDialog by remember { mutableStateOf(false) }
+    var routeTitle by remember { mutableStateOf("") }
     var showSavedPlacesPanel by remember { mutableStateOf(false) }
     val initialCenter = remember(initialRegionText) { RegionMapCenters.findCenter(initialRegionText) }
 
@@ -109,58 +106,19 @@ fun RouteMapEditScreen(
 
         RouteStepIndicator(currentStep = 3)
 
-        // ===== 상단 검색창 (항상 보임) =====
-        Box(modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)) {
-            OutlinedTextField(
-                value = searchQuery,
-                onValueChange = onSearchQueryChange,
-                placeholder = { Text("장소를 검색해보세요") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null, tint = GrayText) },
-                singleLine = true,
-                shape = RoundedCornerShape(28.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            // 검색 결과 드롭다운 (검색어 있을 때만)
-            if (searchQuery.isNotBlank()) {
-                Column(
-                    modifier = Modifier
-                        .padding(top = 60.dp)
-                        .fillMaxWidth()
-                        .shadow(6.dp, RoundedCornerShape(16.dp))
-                        .background(Color.White, RoundedCornerShape(16.dp))
-                ) {
-                    if (searchResults.isEmpty()) {
-                        Text(
-                            text = "검색 결과가 없어요",
-                            fontSize = 13.sp,
-                            color = GrayText,
-                            modifier = Modifier.padding(16.dp)
-                        )
-                    } else {
-                        LazyColumn(modifier = Modifier.heightIn(max = 280.dp)) {
-                            itemsIndexed(searchResults) { _, place ->
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable { onAddPlace(place) }
-                                        .padding(horizontal = 16.dp, vertical = 12.dp),
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Column(modifier = Modifier.weight(1f)) {
-                                        Text(text = place.name, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-                                        if (place.tags.isNotEmpty()) {
-                                            Text(text = place.tags.joinToString(" · "), fontSize = 12.sp, color = GrayText)
-                                        }
-                                    }
-                                    Text(text = "+ 추가", fontSize = 13.sp, color = AccentBlue, fontWeight = FontWeight.SemiBold)
-                                }
-                                HorizontalDivider(color = LightGrayBorder, thickness = 1.dp)
-                            }
-                        }
-                    }
-                }
-            }
+        // ===== 상단 검색창 (누르면 검색 화면으로 이동) =====
+        Row(
+            modifier = Modifier
+                .padding(horizontal = 20.dp, vertical = 8.dp)
+                .fillMaxWidth()
+                .border(1.dp, LightGrayBorder, RoundedCornerShape(28.dp))
+                .clickable { onSearchBarClick() }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Filled.Search, contentDescription = null, tint = GrayText)
+            Spacer(modifier = Modifier.width(10.dp))
+            Text(text = "장소를 검색해보세요", fontSize = 15.sp, color = GrayText)
         }
 
         // ===== 지도 + 저장한 장소 버튼 =====
@@ -177,7 +135,7 @@ fun RouteMapEditScreen(
                 modifier = Modifier
                     .align(Alignment.BottomEnd)
                     .padding(16.dp),
-                onClick = { showSavedPlacesPanel = true }
+                onClick = { showSavedPlacesPanel = !showSavedPlacesPanel }
             )
 
             if (showSavedPlacesPanel) {
@@ -192,19 +150,23 @@ fun RouteMapEditScreen(
             }
         }
 
-        // ===== 하단 루트 리스트 (이름 + 수정 + X, 꾹 눌러서 순서 변경) =====
+        Spacer(modifier = Modifier.height(16.dp)) // 지도랑 리스트 사이 간격
+
+        // ===== 하단 루트 리스트 (이름 + X, 꾹 눌러서 순서 변경) =====
         ReorderablePlaceList(
             places = routePlaces,
             onReorder = onRoutePlacesChange,
-            onEdit = onEditPlace,
-            onRemove = { place -> onRoutePlacesChange(routePlaces - place) },
+            onRemove = { place ->
+                val updated = (routePlaces - place).mapIndexed { index, p -> p.copy(order = index + 1) }
+                onRoutePlacesChange(updated)
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .heightIn(max = 260.dp)
         )
 
         Button(
-            onClick = onNextClick,
+            onClick = { showTitleDialog = true },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 12.dp)
@@ -214,6 +176,34 @@ fun RouteMapEditScreen(
         ) {
             Text(text = "다음", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
+    }
+
+    if (showTitleDialog) {
+        AlertDialog(
+            onDismissRequest = { showTitleDialog = false },
+            title = { Text("루트 제목", fontWeight = FontWeight.Bold) },
+            text = {
+                OutlinedTextField(
+                    value = routeTitle,
+                    onValueChange = { routeTitle = it },
+                    placeholder = { Text("루트 제목을 입력해주세요") },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        val finalTitle = routeTitle.ifBlank { "내가 만든 루트" }
+                        showTitleDialog = false
+                        onNextClick(finalTitle)
+                    }
+                ) { Text("확인") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showTitleDialog = false }) { Text("취소") }
+            }
+        )
     }
 }
 
@@ -271,6 +261,8 @@ private fun NaverEditableMapView(
     val context = LocalContext.current
     val mapView = remember { MapView(context) }
     val lifecycleOwner = LocalLifecycleOwner.current
+    val markers = remember { mutableStateListOf<Marker>() }
+    val pathOverlayState = remember { mutableStateOf<PathOverlay?>(null) }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -295,19 +287,45 @@ private fun NaverEditableMapView(
         factory = { mapView },
         update = { view ->
             view.getMapAsync { naverMap ->
-                if (!didSetInitialCamera) {
-                    naverMap.moveCamera(CameraUpdate.scrollTo(initialCenter))
-                    didSetInitialCamera = true
+                redrawMarkers(naverMap, places, markers, pathOverlayState)
+
+                val validPlaces = places.filter { it.latitude != null && it.longitude != null }
+                if (validPlaces.isEmpty()) {
+                    // 아직 추가한 장소가 없으면 선택 지역 중심으로 (최초 1번만)
+                    if (!didSetInitialCamera) {
+                        naverMap.moveCamera(CameraUpdate.scrollTo(initialCenter))
+                        didSetInitialCamera = true
+                    }
+                } else {
+                    // 장소가 있으면 추가/삭제/순서변경 때마다 전체 루트가 다 보이도록 맞춤
+                    val latLngs = validPlaces.map { LatLng(it.latitude!!, it.longitude!!) }
+                    val cameraUpdate = if (latLngs.size == 1) {
+                        CameraUpdate.scrollTo(latLngs.first())
+                    } else {
+                        val bounds = LatLngBounds.Builder().apply {
+                            latLngs.forEach { include(it) }
+                        }.build()
+                        CameraUpdate.fitBounds(bounds, 120)
+                    }
+                    naverMap.moveCamera(cameraUpdate)
                 }
-                redrawMarkers(naverMap, places)
             }
         }
     )
 }
 
-private fun redrawMarkers(naverMap: NaverMap, places: List<RoutePlaceItem>) {
-    // 참고: 매번 새 Marker/PathOverlay를 만들어서 map에 올리기만 하는 단순 버전이에요.
-    // 실제로는 기존 마커 목록을 remember로 들고 있다가 map = null 로 지우고 다시 그려야 해요.
+private fun redrawMarkers(
+    naverMap: NaverMap,
+    places: List<RoutePlaceItem>,
+    markers: MutableList<Marker>,
+    pathOverlayState: MutableState<PathOverlay?>
+) {
+    // 기존에 그려둔 마커/경로선을 먼저 지움 (안 지우면 추가/삭제/순서변경 할 때마다 겹쳐서 쌓임)
+    markers.forEach { it.map = null }
+    markers.clear()
+    pathOverlayState.value?.map = null
+    pathOverlayState.value = null
+
     val validPlaces = places
         .sortedBy { it.order }
         .filter { it.latitude != null && it.longitude != null }
@@ -315,25 +333,27 @@ private fun redrawMarkers(naverMap: NaverMap, places: List<RoutePlaceItem>) {
     if (validPlaces.isEmpty()) return
 
     val latLngs = validPlaces.map { LatLng(it.latitude!!, it.longitude!!) }
-    val pinIcon = OverlayImage.fromResource(R.drawable.blueping)
+    val pinIcon = OverlayImage.fromResource(R.drawable.map_ping)
 
     latLngs.forEach { latLng ->
-        Marker().apply {
+        val marker = Marker().apply {
             position = latLng
             icon = pinIcon
             map = naverMap
         }
+        markers.add(marker)
     }
 
     if (latLngs.size >= 2) {
-        // 경로선 색을 마커(blueping) 색과 통일
+        // 경로선 색을 마커(map_ping) 색과 통일
         val pinLineColor = 0xFF0074CE.toInt()
-        PathOverlay().apply {
+        val newPath = PathOverlay().apply {
             coords = latLngs
             color = pinLineColor
             outlineColor = pinLineColor
             map = naverMap
         }
+        pathOverlayState.value = newPath
     }
 }
 
@@ -412,7 +432,7 @@ private fun SavedPlacesOverlayPanel(
 }
 
 /**
- * 이름 + 수정 + X 로 구성된 라운드 박스 리스트. 꾹 눌러서 드래그하면 순서가 바뀌어요.
+ * 이름 + X 로 구성된 라운드 박스 리스트. 꾹 눌러서 드래그하면 순서가 바뀌어요.
  * 외부 라이브러리 없이 직접 구현한 간단 버전이라, 아이템이 아주 많거나
  * 더 매끄러운 애니메이션이 필요하면 org.burnoutcrew.compose-reorderable로 교체를 추천해요.
  */
@@ -420,7 +440,6 @@ private fun SavedPlacesOverlayPanel(
 private fun ReorderablePlaceList(
     places: List<RoutePlaceItem>,
     onReorder: (List<RoutePlaceItem>) -> Unit,
-    onEdit: (RoutePlaceItem) -> Unit,
     onRemove: (RoutePlaceItem) -> Unit,
     modifier: Modifier = Modifier
 ) {
@@ -458,7 +477,9 @@ private fun ReorderablePlaceList(
                                         val mutable = places.toMutableList()
                                         val moved = mutable.removeAt(draggingIndex)
                                         mutable.add(targetIndex, moved)
-                                        onReorder(mutable)
+                                        // 순서가 바뀐 만큼 order 값도 다시 매겨서, 지도 연결선이 새 순서로 그려지게 함
+                                        val renumbered = mutable.mapIndexed { i, p -> p.copy(order = i + 1) }
+                                        onReorder(renumbered)
                                         draggingIndex = targetIndex
                                         dragOffsetY -= moveBy * rowHeight
                                     }
@@ -478,15 +499,6 @@ private fun ReorderablePlaceList(
                     color = Color.Black,
                     modifier = Modifier.weight(1f)
                 )
-
-                Text(
-                    text = "수정",
-                    fontSize = 13.sp,
-                    color = GrayText,
-                    modifier = Modifier.clickable { onEdit(place) }
-                )
-
-                Spacer(modifier = Modifier.width(12.dp))
 
                 Icon(
                     Icons.Filled.Close,
