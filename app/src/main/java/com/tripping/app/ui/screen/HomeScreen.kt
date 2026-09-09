@@ -69,7 +69,8 @@ private val HomeScreenHorizontalPadding = 28.dp
 @Composable
 fun HomeScreen(
     onStartRouteClick: () -> Unit = {},
-    onViewRouteClick: () -> Unit = {},
+    // 진행 중인 여행의 "루트보기" 버튼 - routeId와 대표 장소 이름(코스 상세 화면 타이틀용)을 넘김
+    onViewRouteClick: (routeId: Long, title: String) -> Unit = { _, _ -> },
     onPingClick: () -> Unit = {},
     onSeeAllPopularRoutes: () -> Unit = {},
     onSeeAllPopularPlaces: () -> Unit = {},
@@ -126,7 +127,9 @@ fun HomeScreen(
             if (trip != null) {
                 ActiveTripCard(
                     trip = trip,
-                    onViewRouteClick = onViewRouteClick,
+                    onViewRouteClick = {
+                        onViewRouteClick(trip.actualRouteId, trip.visitedPlaceNames.firstOrNull() ?: "여행 기록")
+                    },
                     onPingClick = onPingClick
                 )
             } else {
