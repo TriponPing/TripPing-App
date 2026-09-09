@@ -32,6 +32,7 @@ import com.tripping.app.ui.component.AppBottomNavBar
 import com.tripping.app.ui.component.AppBottomNavTab
 import com.tripping.app.ui.component.RouteMenuSheet
 import com.tripping.app.ui.screen.RouteRecommendScreen
+import com.tripping.app.ui.screen.RouteDetailScreen
 import com.tripping.app.viewmodel.RouteCreateViewModel
 
 import com.tripping.app.ui.screen.CourseDetailScreen
@@ -56,6 +57,10 @@ import com.tripping.app.ui.screen.TripHistoryScreen
 import com.tripping.app.ui.screen.TripStartScreen
 import com.tripping.app.ui.screen.RouteMapAppliedScreen
 import com.tripping.app.ui.screen.RouteMapEditScreen
+import com.tripping.app.ui.screen.RoutePlaceSearchScreen
+import com.tripping.app.ui.screen.RecommendedRoute
+import com.tripping.app.ui.screen.PlaceDetailScreen
+
 
 import com.tripping.app.viewmodel.AuthState
 import com.tripping.app.viewmodel.AuthViewModel
@@ -90,6 +95,9 @@ private val bottomBarRoutes = mapOf(
     "home" to AppBottomNavTab.HOME,
 
     "placeSearch" to AppBottomNavTab.SEARCH,
+    "placeSearch" to AppBottomNavTab.SEARCH,
+    "route_detail/{routeId}" to AppBottomNavTab.SEARCH,
+    "place_detail/{spotId}" to AppBottomNavTab.SEARCH,
 
     ROUTE_CREATE_ROUTE to AppBottomNavTab.ROUTE,
 
@@ -470,12 +478,58 @@ fun AppNavigation() {
                 // ========================================================
 
                 composable("placeSearch") {
-
                     PlaceSearchScreen(
-
                         onPlaceClick = { spotId ->
-
                             // TODO: 장소 상세조회
+                        },
+                        onRouteClick = { routeId ->
+                            navController.navigate("route_detail/$routeId")
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 탐색 - 루트 상세 (인기 루트 카드/선 클릭 시)
+                // ========================================================
+
+                composable(
+                    "route_detail/{routeId}",
+                    arguments = listOf(
+                        navArgument("routeId") { type = NavType.LongType }
+                    )
+                ) { backStackEntry ->
+
+                    val routeId = backStackEntry.arguments?.getLong("routeId") ?: 0L
+
+                    RouteDetailScreen(
+                        routeId = routeId,
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+                        onStopClick = { spotId ->
+                            navController.navigate("place_detail/$spotId")
+                        }
+                    )
+                }
+
+// ⭐ 장소 상세 조회
+                composable(
+                    "place_detail/{spotId}",
+                    arguments = listOf(
+                        navArgument("spotId") { type = NavType.LongType }
+                    )
+                ) { backStackEntry ->
+
+                    val spotId = backStackEntry.arguments?.getLong("spotId") ?: 0L
+
+                    PlaceDetailScreen(
+                        placeId = spotId,
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+                        onRouteCardClick = { actualRouteId ->
+                            navController.navigate("route_detail/$actualRouteId")
                         }
                     )
                 }
@@ -491,10 +545,6 @@ fun AppNavigation() {
 
                         onBackClick = {
                             navController.popBackStack()
-                        },
-
-                        onCourseClick = {
-                            // TODO
                         }
                     )
                 }
@@ -531,8 +581,8 @@ fun AppNavigation() {
                             navController.popBackStack()
                         },
 
-                        onCourseClick = {
-                            // TODO
+                        onCourseClick = { routeId ->
+                            navController.navigate("route_detail/$routeId")
                         }
                     )
                 }
@@ -1230,6 +1280,7 @@ fun AppNavigation() {
                 composable("route_map_applied") {
 
                     val selectedRoute by routeCreateViewModel.selectedRoute.collectAsState()
+                    val routeSaved by routeCreateViewModel.routeSaved.collectAsState()
 
                     selectedRoute?.let { route ->
                         RouteMapAppliedScreen(
@@ -1237,11 +1288,24 @@ fun AppNavigation() {
                             onBackClick = {
                                 navController.popBackStack()
                             },
-                            onRegisterClick = {
-                                // TODO: 루트 저장 API 호출
+                            onSaveRouteClick = {
+                                routeCreateViewModel.saveRoute()
                             },
                             onStartTripClick = {
-                                // TODO: 저장 + 여행 시작(trip_start 화면 등으로 이동)
+                                routeCreateViewModel.startTripNow(
+                                    onSuccess = { actualRouteId ->
+                                        navigateToTripStart(navController, tripId = actualRouteId, title = route.theme ?: route.label)
+                                    },
+                                    onError = { message ->
+                                        // TODO: 에러 토스트/스낵바 등으로 사용자에게 알려주기
+                                        android.util.Log.e("ROUTE_DEBUG", "여행 시작 실패: $message")
+                                    }
+                                )
+                            },
+                            showSavedDialog = routeSaved,
+                            onDismissSavedDialog = {
+                                routeCreateViewModel.resetRouteSaved()
+                                navigateToTab(navController, "home")
                             }
                         )
                     }
@@ -1254,8 +1318,6 @@ fun AppNavigation() {
                 composable("route_map_edit") {
 
                     val places by routeCreateViewModel.editablePlaces.collectAsState()
-                    val query by routeCreateViewModel.searchQuery.collectAsState()
-                    val results by routeCreateViewModel.searchResults.collectAsState()
                     val saved by routeCreateViewModel.savedPlaces.collectAsState()
                     val regionId by routeCreateViewModel.lastRegionId.collectAsState()
 
@@ -1263,16 +1325,44 @@ fun AppNavigation() {
                         initialRegionText = regionId,
                         routePlaces = places,
                         onRoutePlacesChange = { routeCreateViewModel.updateEditablePlaces(it) },
-                        searchQuery = query,
-                        onSearchQueryChange = { routeCreateViewModel.onSearchQueryChange(it) },
-                        searchResults = results,
+                        onSearchBarClick = {
+                            navController.navigate("route_place_search")
+                        },
                         onAddPlace = { routeCreateViewModel.addPlaceToRoute(it) },
                         savedPlaces = saved,
                         onBackClick = {
                             navController.popBackStack()
                         },
-                        onNextClick = {
-                            // TODO: 3단계(완료) 화면으로 이동
+                        onNextClick = { title ->
+                            routeCreateViewModel.selectRoute(
+                                RecommendedRoute(
+                                    id = "manual",
+                                    label = title,
+                                    theme = title,
+                                    places = places
+                                )
+                            )
+                            navController.navigate("route_map_applied")
+                        }
+                    )
+                }
+
+                // ========================================================
+                // ⭐ 루트에 추가할 장소 검색 화면
+                // ========================================================
+
+                composable("route_place_search") {
+
+                    val query by routeCreateViewModel.searchQuery.collectAsState()
+                    val results by routeCreateViewModel.searchResults.collectAsState()
+
+                    RoutePlaceSearchScreen(
+                        query = query,
+                        onQueryChange = { routeCreateViewModel.onSearchQueryChange(it) },
+                        results = results,
+                        onAddPlace = { routeCreateViewModel.addPlaceToRoute(it) },
+                        onBackClick = {
+                            navController.popBackStack()
                         }
                     )
                 }

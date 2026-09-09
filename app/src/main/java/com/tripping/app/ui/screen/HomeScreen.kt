@@ -30,6 +30,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -38,11 +39,12 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import coil.compose.AsyncImage
 import com.tripping.app.R
 import com.tripping.app.data.response.CurrentTripSummaryResponse
+import com.tripping.app.data.response.PopularPlaceResponse
 import com.tripping.app.data.response.PopularTripResponse
 import com.tripping.app.ui.model.HomeCourseCard
 import com.tripping.app.ui.model.HomeKeyword
-import com.tripping.app.ui.model.HomePopularPlace
 import com.tripping.app.viewmodel.HomeViewModel
+import com.tripping.app.viewmodel.PlaceCategory
 
 // ===== 색상 (피그마 파일 MRryaRzdtZqvbGJf07TqMk, node 19:2 / 108:793 / 74:3178 / 88:3521 에서 추출) =====
 // 다른 화면 파일들처럼 이 파일에서만 쓰는 색은 로컬로 선언함.
@@ -78,28 +80,21 @@ fun HomeScreen(
     // [2번 섹션] 인사말 닉네임 - 실제 API(GET /auth/me) 연동됨
     // [3번 섹션] 이번 주 인기 루트 - 실제 API(GET /trips/popular) 연동됨
     // [4번 섹션] 이번 주 인기 키워드 - 실제 API(GET /keyword/popular) 연동됨.
-    //   백엔드에 keyword(RouteCondition.theme)를 만드는 API가 아직 없어서 지금은 항상 빈 목록임 -
-    //   데이터 생기면 별도 작업 없이 바로 채워짐.
+    //   Ping 후기 등록 시 같이 남기는 해시태그를 최근 7일 기준으로 집계함.
     val currentTrip by viewModel.currentTrip.collectAsState()
     val nickname by viewModel.nickname.collectAsState()
     val popularTrips by viewModel.popularTrips.collectAsState()
     val popularKeywords by viewModel.popularKeywords.collectAsState()
+    val popularPlaces by viewModel.popularPlaces.collectAsState()
     LaunchedEffect(Unit) {
         viewModel.loadCurrentTrip()
         viewModel.loadNickname()
         viewModel.loadPopularTrips()
         viewModel.loadPopularKeywords()
+        viewModel.loadPopularPlaces(limit = 4)
     }
 
-    // TODO: 인기 장소/내 주변 코스 API 나오면 mock 데이터 교체
-    val popularPlaces = remember {
-        listOf(
-            HomePopularPlace(1, "해운대", "부산"),
-            HomePopularPlace(2, "카페거리", "부산"),
-            HomePopularPlace(3, "여의도 한강-", "서울"),
-            HomePopularPlace(4, "남산타워", "서울")
-        )
-    }
+    // TODO: 내 주변 코스 API 나오면 mock 데이터 교체
     val nearbyCourses = remember {
         listOf(
             HomeCourseCard(
@@ -162,7 +157,14 @@ fun HomeScreen(
         item { PopularPlacesRow(places = popularPlaces) }
         item { Spacer(modifier = Modifier.height(22.dp)) }
 
-        item { SectionHeader(title = "이번 주 인기 키워드", showSeeAll = false, onSeeAllClick = onSeeAllKeywords) }
+        item {
+            SectionHeader(
+                title = "이번 주 인기 키워드",
+                showSeeAll = false,
+                onSeeAllClick = onSeeAllKeywords,
+                rowClickable = popularKeywords.isNotEmpty()
+            )
+        }
         item { Spacer(modifier = Modifier.height(9.dp)) }
         item {
             if (popularKeywords.isNotEmpty()) {
@@ -380,12 +382,17 @@ private fun OutlinedButtonPill(text: String, modifier: Modifier = Modifier, onCl
 }
 
 @Composable
-private fun SectionHeader(title: String, showSeeAll: Boolean, onSeeAllClick: () -> Unit) {
+private fun SectionHeader(
+    title: String,
+    showSeeAll: Boolean,
+    onSeeAllClick: () -> Unit,
+    rowClickable: Boolean = !showSeeAll
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = HomeScreenHorizontalPadding)
-            .clickable(enabled = !showSeeAll) { onSeeAllClick() },
+            .clickable(enabled = rowClickable) { onSeeAllClick() },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HomeTextPrimary, modifier = Modifier.weight(1f))
@@ -507,8 +514,10 @@ private fun formatPopularityLabel(savedCount: Long): String {
     }
 }
 
+// 저장 수 순위(1위부터) 그대로 나열 - /places/popular가 이미 저장 수 내림차순으로 내려줌.
+// 장소별 실제 사진은 아직 없어서, 자리(순서)별 고정 이미지를 그대로 유지함.
 @Composable
-private fun PopularPlacesRow(places: List<HomePopularPlace>) {
+private fun PopularPlacesRow(places: List<PopularPlaceResponse>) {
     val images = listOf(
         R.drawable.home_place_haeundae,
         R.drawable.home_place_cafe_street,
@@ -521,7 +530,7 @@ private fun PopularPlacesRow(places: List<HomePopularPlace>) {
     ) {
         items(places.size) { index ->
             val place = places[index]
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(78.dp)) {
                 Image(
                     painter = painterResource(images.getOrElse(index) { R.drawable.home_place_haeundae }),
                     contentDescription = null,
@@ -529,12 +538,27 @@ private fun PopularPlacesRow(places: List<HomePopularPlace>) {
                     modifier = Modifier.size(78.dp).clip(RoundedCornerShape(8.dp))
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Text(text = place.name, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, color = HomeTextPrimary)
-                Text(text = place.region, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = HomeGrayText)
+                Text(
+                    text = place.name,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = HomeTextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                // 주소가 있으면 지역명(예: "서울"), 주소가 없는 장소는 카테고리로 대체 - 항상 둘째 줄이 비지 않게 함
+                val subLabel = regionOf(place.address) ?: place.category?.let { PlaceCategory.labelOf(it) }
+                if (subLabel != null) {
+                    Text(text = subLabel, fontSize = 10.sp, fontWeight = FontWeight.SemiBold, color = HomeGrayText)
+                }
             }
         }
     }
 }
+
+// 주소 문자열(예: "서울 종로구 사직로 161")의 맨 앞 토큰을 지역명으로 사용. 주소가 없으면 표시 안 함.
+private fun regionOf(address: String?): String? =
+    address?.trim()?.split(" ")?.firstOrNull()?.takeIf { it.isNotBlank() }
 
 @Composable
 private fun KeywordChipsRow(

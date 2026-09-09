@@ -8,5 +8,7 @@ data class PlaceSearchResponse(
     val latitude: Double,
     val longitude: Double,
     val imageUrl: String?,
-    val description: String?
+    val description: String?,
+    val popularTimeSlot: String? = null,
+    val pingCount: Long = 0L
 )

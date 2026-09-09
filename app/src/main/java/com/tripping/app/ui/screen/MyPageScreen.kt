@@ -30,6 +30,7 @@ import com.naver.maps.map.overlay.Marker
 import com.tripping.app.R
 import com.tripping.app.data.response.BadgeResponse
 import com.tripping.app.data.response.MapPinResponse
+import com.tripping.app.data.response.SavedPlaceCardResponse
 import com.tripping.app.data.response.SavedRouteResponse
 import com.tripping.app.data.response.TripSummaryResponse
 import com.tripping.app.ui.component.NaverMapContainer
@@ -54,7 +55,7 @@ private fun TripSummaryResponse.toCardModel(): MyPageTripCard = MyPageTripCard(
 )
 
 private fun SavedRouteResponse.toCardModel(): MyPageTripCard = MyPageTripCard(
-    title = representativeSpotName ?: "여행 기록",
+    title = writerNickname ?: "여행 기록",
     dateRange = travelDate,
     pingCount = placeCount,
     isSaved = true,
@@ -69,7 +70,7 @@ fun MyPageScreen(
     onOpenTripDetail: (Long, String) -> Unit = { _, _ -> },
     viewModel: MyPageViewModel = viewModel()
 ) {
-    var selectedTab by remember { mutableStateOf(0) } // 0 = 여행기록, 1 = 저장한 여행
+    var selectedTab by remember { mutableStateOf(0) } // 0 = 여행기록, 1 = 저장한 장소, 2 = 저장한 여행
 
     LaunchedEffect(Unit) {
         viewModel.loadAll()
@@ -79,6 +80,7 @@ fun MyPageScreen(
     val recentTrips by viewModel.recentTrips.collectAsState()
     val savedRoutes by viewModel.savedRoutes.collectAsState()
     val savedRoutesTotal by viewModel.savedRoutesTotal.collectAsState()
+    val savedPlaces by viewModel.savedPlaces.collectAsState()
     val visitedPlaceCount by viewModel.visitedPlaceCount.collectAsState()
     val mapPins by viewModel.mapPins.collectAsState()
     val badges by viewModel.badges.collectAsState()
@@ -105,6 +107,11 @@ fun MyPageScreen(
                     onOpenTripHistory = onOpenTripHistory,
                     onOpenMyMap = onOpenMyMap,
                     onOpenTripDetail = onOpenTripDetail
+                )
+                1 -> SavedPlaceTab(
+                    places = savedPlaces,
+                    onCancelSave = { spotId -> viewModel.unsavePlace(spotId) },
+                    onOpenMap = onOpenMyMap // "지도 바로가기" -> 나의 여행 지도(자세히보기)로 이동, 다녀온 여행 탭과 같은 목적지
                 )
                 else -> SavedTripTab(
                     savedTrips = savedRoutes.map { it.toCardModel() },
@@ -211,10 +218,10 @@ private fun BadgeCircle(emoji: String, label: String) {
     }
 }
 
-// ===== 탭 (여행기록 / 저장한 여행) =====
+// ===== 탭 (여행기록 / 저장한 장소 / 저장한 여행) =====
 @Composable
 private fun MyPageTabRow(selectedTab: Int, onTabSelected: (Int) -> Unit) {
-    val tabs = listOf("여행기록", "저장한 여행")
+    val tabs = listOf("여행기록", "저장한 장소", "저장한 여행")
 
     Column(modifier = Modifier.background(Color.White)) {
         Row(modifier = Modifier.fillMaxWidth()) {
@@ -299,7 +306,108 @@ private fun TripRecordTab(
     }
 }
 
-// ===== 탭2: 저장한 여행 =====
+// ===== 탭2: 저장한 장소 (북마크/핀으로 저장한 단일 장소) =====
+@Composable
+private fun SavedPlaceTab(
+    places: List<SavedPlaceCardResponse>,
+    onCancelSave: (Long) -> Unit,
+    onOpenMap: () -> Unit
+) {
+    // 실수로 누를 수 있어서(로그아웃 버튼과 동일하게) 바로 취소하지 않고 확인 팝업을 한 번 거침
+    var pendingCancelPlace by remember { mutableStateOf<SavedPlaceCardResponse?>(null) }
+
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            Text(
+                text = "지도 바로가기 ›",
+                fontSize = 12.sp,
+                color = ColorTextSecondary,
+                modifier = Modifier.clickable { onOpenMap() }
+            )
+        }
+
+        if (places.isEmpty()) {
+            EmptyStateText("저장한 장소가 없어요")
+        } else {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize(),
+                contentPadding = PaddingValues(horizontal = 20.dp, vertical = 4.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                items(places) { place ->
+                    SavedPlaceCard(
+                        place = place,
+                        onCancelSave = { pendingCancelPlace = place }
+                    )
+                }
+            }
+        }
+    }
+
+    val target = pendingCancelPlace
+    if (target != null) {
+        AlertDialog(
+            onDismissRequest = { pendingCancelPlace = null },
+            text = {
+                Text(text = "저장을 취소하시겠습니까?", fontSize = 15.sp, color = ColorTextPrimary)
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    onCancelSave(target.spotId)
+                    pendingCancelPlace = null
+                }) {
+                    Text(text = "확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingCancelPlace = null }) {
+                    Text(text = "취소")
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun SavedPlaceCard(place: SavedPlaceCardResponse, onCancelSave: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(16.dp))
+            .background(Color.White)
+            .border(1.dp, ColorCardBorder, RoundedCornerShape(16.dp))
+            .padding(16.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = place.name ?: "이름 없는 장소",
+                fontSize = 15.sp,
+                fontWeight = FontWeight.Bold,
+                color = ColorTextPrimary
+            )
+            if (!place.category.isNullOrBlank()) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Text(text = place.category, fontSize = 12.sp, color = ColorTextSecondary)
+            }
+        }
+        Icon(
+            imageVector = Icons.Outlined.BookmarkBorder,
+            contentDescription = "저장 취소",
+            tint = ColorTextPrimary,
+            modifier = Modifier
+                .size(20.dp)
+                .clickable { onCancelSave() }
+        )
+    }
+}
+
+// ===== 탭3: 저장한 여행 =====
 @Composable
 private fun SavedTripTab(
     savedTrips: List<MyPageTripCard>,
