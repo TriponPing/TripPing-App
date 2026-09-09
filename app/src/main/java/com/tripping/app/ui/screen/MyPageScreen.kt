@@ -55,7 +55,7 @@ private fun TripSummaryResponse.toCardModel(): MyPageTripCard = MyPageTripCard(
 )
 
 private fun SavedRouteResponse.toCardModel(): MyPageTripCard = MyPageTripCard(
-    title = representativeSpotName ?: "여행 기록",
+    title = writerNickname ?: "여행 기록",
     dateRange = travelDate,
     pingCount = placeCount,
     isSaved = true,
