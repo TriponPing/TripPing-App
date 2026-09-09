@@ -566,8 +566,8 @@ fun AppNavigation() {
                             navController.popBackStack()
                         },
 
-                        onPlaceClick = {
-                            // TODO
+                        onPlaceClick = { spotId ->
+                            navController.navigate("place_detail/$spotId")
                         }
                     )
                 }
