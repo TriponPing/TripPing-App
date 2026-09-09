@@ -48,7 +48,7 @@ class HomeViewModel : ViewModel() {
     val popularPlaces: StateFlow<List<PopularPlaceResponse>> = _popularPlaces
 
     // 내가 저장한 장소 spotId 집합. savedRouteIds와 동일한 이유로, 화면 진입 시
-    // GET /places/saved/me 목록을 통째로 불러와 초기화함.
+    // GET /places/saved/me/ids 목록을 통째로 불러와 초기화함.
     private val _savedPlaceIds = MutableStateFlow<Set<Long>>(emptySet())
     val savedPlaceIds: StateFlow<Set<Long>> = _savedPlaceIds
 

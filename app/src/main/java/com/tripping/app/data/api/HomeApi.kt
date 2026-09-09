@@ -34,7 +34,7 @@ interface HomeApi {
         @Query("limit") limit: Int = 30
     ): Response<List<PopularPlaceResponse>>
 
-    @GET("places/saved/me")
+    @GET("places/saved/me/ids")
     suspend fun getSavedPlaceIds(): Response<List<Long>>
 
     @POST("places/{placeId}/saved/me")
