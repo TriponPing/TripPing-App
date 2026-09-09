@@ -80,8 +80,7 @@ fun HomeScreen(
     // [2번 섹션] 인사말 닉네임 - 실제 API(GET /auth/me) 연동됨
     // [3번 섹션] 이번 주 인기 루트 - 실제 API(GET /trips/popular) 연동됨
     // [4번 섹션] 이번 주 인기 키워드 - 실제 API(GET /keyword/popular) 연동됨.
-    //   백엔드에 keyword(RouteCondition.theme)를 만드는 API가 아직 없어서 지금은 항상 빈 목록임 -
-    //   데이터 생기면 별도 작업 없이 바로 채워짐.
+    //   Ping 후기 등록 시 같이 남기는 해시태그를 최근 7일 기준으로 집계함.
     val currentTrip by viewModel.currentTrip.collectAsState()
     val nickname by viewModel.nickname.collectAsState()
     val popularTrips by viewModel.popularTrips.collectAsState()
@@ -158,7 +157,14 @@ fun HomeScreen(
         item { PopularPlacesRow(places = popularPlaces) }
         item { Spacer(modifier = Modifier.height(22.dp)) }
 
-        item { SectionHeader(title = "이번 주 인기 키워드", showSeeAll = false, onSeeAllClick = onSeeAllKeywords) }
+        item {
+            SectionHeader(
+                title = "이번 주 인기 키워드",
+                showSeeAll = false,
+                onSeeAllClick = onSeeAllKeywords,
+                rowClickable = popularKeywords.isNotEmpty()
+            )
+        }
         item { Spacer(modifier = Modifier.height(9.dp)) }
         item {
             if (popularKeywords.isNotEmpty()) {
@@ -376,12 +382,17 @@ private fun OutlinedButtonPill(text: String, modifier: Modifier = Modifier, onCl
 }
 
 @Composable
-private fun SectionHeader(title: String, showSeeAll: Boolean, onSeeAllClick: () -> Unit) {
+private fun SectionHeader(
+    title: String,
+    showSeeAll: Boolean,
+    onSeeAllClick: () -> Unit,
+    rowClickable: Boolean = !showSeeAll
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = HomeScreenHorizontalPadding)
-            .clickable(enabled = !showSeeAll) { onSeeAllClick() },
+            .clickable(enabled = rowClickable) { onSeeAllClick() },
         verticalAlignment = Alignment.CenterVertically
     ) {
         Text(text = title, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HomeTextPrimary, modifier = Modifier.weight(1f))

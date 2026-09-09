@@ -511,10 +511,6 @@ fun AppNavigation() {
 
                         onBackClick = {
                             navController.popBackStack()
-                        },
-
-                        onCourseClick = {
-                            // TODO
                         }
                     )
                 }
