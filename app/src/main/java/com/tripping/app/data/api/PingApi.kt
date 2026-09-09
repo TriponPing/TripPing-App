@@ -8,6 +8,7 @@ import com.tripping.app.data.response.AddTripSpotResponse
 import com.tripping.app.data.response.CurrentTripResponse
 import com.tripping.app.data.response.PingDto
 import com.tripping.app.data.response.PingResponse
+import com.tripping.app.data.response.PingReviewResponse
 import com.tripping.app.data.response.SpotPingStatsResponse
 import retrofit2.http.*
 
@@ -38,6 +39,10 @@ interface PingApi {
         @Path("routeId") routeId: Long,
         @Body request: AddTripSpotRequest
     ): AddTripSpotResponse
+
+    // 👈 새로 추가: 기존 후기 조회 - 화면 진입 시 등록/수정 모드 판단용 (없으면 404 예외 발생함)
+    @GET("pings/{pingId}/review")
+    suspend fun getPingReview(@Path("pingId") pingId: Long): PingReviewResponse
 
     // Ping 후기 등록
     @POST("pings/{pingId}/review")
