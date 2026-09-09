@@ -37,7 +37,7 @@ internal fun PingRecordContent(
     modifier: Modifier = Modifier,
     viewModel: PingViewModel = viewModel(),
     onAddPingClick: (routeId: Long) -> Unit,
-    onPingLogClick: (Long) -> Unit,
+    onPingLogClick: (pingId: Long, placeName: String) -> Unit,
     onRouteCardClick: (routeId: Long, title: String) -> Unit,
     onMoreClick: () -> Unit = {} // 👈 "바로가기" 클릭 시 실행될 콜백 (다녀온 여행 목록으로 이동 등)
 ) {
@@ -48,24 +48,21 @@ internal fun PingRecordContent(
     val recentTrip = viewModel.recentTrip       // 아래쪽 카드용: 가장 최근 "다녀온" 여행 요약
     val hasOngoingTrip = viewModel.hasOngoingTrip
     val ongoingRouteId = viewModel.ongoingRouteId
-    val pingDtos = viewModel.ongoingPings        // 위쪽 타임라인용: "진행중" 여행의 핑 목록
+    val ongoingSpots = viewModel.ongoingTripSpots  // 위쪽 타임라인용: "진행중" 여행의 전체 일정 (ACTUAL_ROUTE_SPOT)
 
-    // 서버 응답 데이터를 UI 모델로 변환 (pingTime 안전하게 포맷팅)
-    val pingsFromDb = pingDtos.map { dto ->
+    // 서버 응답 데이터를 UI 모델로 변환 (visitTime 안전하게 포맷팅)
+    val pingsFromDb = ongoingSpots.mapIndexed { index, spot ->
         val formattedTime = try {
-            if (dto.pingTime.length >= 16) dto.pingTime.substring(11, 16) else dto.pingTime
+            spot.visitTime?.let { if (it.length >= 16) it.substring(11, 16) else it } ?: "시간 미정"
         } catch (e: Exception) {
             "시간 미정"
         }
 
         PingItem(
-            id = dto.pingId,
-            placeName = dto.placeName,
+            id = spot.spotId ?: index.toLong(),
+            placeName = spot.spotName ?: "이름 없음",
             time = formattedTime,
-            status = when (dto.isConfirmed) {
-                true -> PingStatus.DONE
-                else -> PingStatus.CURRENT
-            }
+            status = PingStatus.DONE
         )
     }
 
@@ -95,7 +92,7 @@ internal fun PingRecordContent(
             }
 
             items(pingsFromDb) { ping ->
-                PingCard(ping = ping, onLinkClick = { onPingLogClick(ping.id) })
+                PingCard(ping = ping, onLinkClick = { onPingLogClick(ping.id, ping.placeName) })
                 Spacer(modifier = Modifier.height(10.dp))
             }
 

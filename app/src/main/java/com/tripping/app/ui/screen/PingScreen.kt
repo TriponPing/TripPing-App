@@ -23,7 +23,7 @@ private enum class PingTab { RECORD, LOG }
 @Composable
 fun PingScreen(
     onAddPingClick: (routeId: Long) -> Unit = {},
-    onPingLogClick: (Long) -> Unit = {},
+    onPingLogClick: (pingId: Long, placeName: String) -> Unit = { _, _ -> },
     onRouteCardClick: (routeId: Long, title: String) -> Unit = { _, _ -> },
     onCourseClick: (Long) -> Unit = {},
     onMoreClick: () -> Unit = {} // 👈 "바로가기" 클릭 시 실행될 콜백 (Ping 다녀온 여행 화면으로 이동)
