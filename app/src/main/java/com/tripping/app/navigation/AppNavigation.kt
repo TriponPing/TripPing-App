@@ -527,10 +527,6 @@ fun AppNavigation() {
 
                         onBackClick = {
                             navController.popBackStack()
-                        },
-
-                        onCourseClick = {
-                            // TODO
                         }
                     )
                 }
@@ -567,8 +563,8 @@ fun AppNavigation() {
                             navController.popBackStack()
                         },
 
-                        onCourseClick = {
-                            // TODO
+                        onCourseClick = { routeId ->
+                            navController.navigate("route_detail/$routeId")
                         }
                     )
                 }
