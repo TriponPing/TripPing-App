@@ -56,7 +56,7 @@ fun RouteDetailScreen(
     val detail by viewModel.detail.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
-    var isSaved by remember { mutableStateOf(false) }
+    val isSaved by viewModel.isSaved.collectAsState()
 
     LaunchedEffect(routeId) { viewModel.loadDetail(routeId) }
 
@@ -79,8 +79,7 @@ fun RouteDetailScreen(
                     onBackClick = onBackClick,
                     onStopClick = onStopClick,
                     onSaveClick = {
-                        isSaved = !isSaved
-                        viewModel.saveRoute(routeId)
+                        viewModel.toggleSaveRoute(routeId)
                     }
                 )
             }

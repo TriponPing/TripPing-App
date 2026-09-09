@@ -551,8 +551,8 @@ fun AppNavigation() {
                             navController.popBackStack()
                         },
 
-                        onCourseClick = {
-                            // TODO
+                        onCourseClick = { routeId ->
+                            navController.navigate("route_detail/$routeId")
                         }
                     )
                 }
