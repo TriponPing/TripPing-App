@@ -53,7 +53,7 @@ class PlaceSearchViewModel : ViewModel() {
         if (_selectedCategory.value == category) {
             _selectedCategory.value = null
             _places.value = emptyList()
-            loadAllRoutes()
+            loadSavedRoutesAndPlaces()
         } else {
             _selectedCategory.value = category
             loadPlaces()
@@ -62,7 +62,7 @@ class PlaceSearchViewModel : ViewModel() {
 
     fun onRegionSelected(regionId: String?) {
         _selectedRegionId.value = regionId
-        if (_selectedCategory.value != null) loadPlaces() else loadAllRoutes()
+        if (_selectedCategory.value != null) loadPlaces() else loadSavedRoutesAndPlaces()
     }
 
     fun onTimeSlotSelected(timeSlot: String?) {
@@ -99,22 +99,21 @@ class PlaceSearchViewModel : ViewModel() {
         }
     }
 
-    // 카테고리 미선택 상태: 전체 공개 루트(및 거기 포함된 장소들) 로드
-    fun loadAllRoutes() {
+    // 카테고리 미선택 상태: 사용사 저장 루트(및 거기 포함된 장소들) 로드
+    fun loadSavedRoutesAndPlaces() {
         viewModelScope.launch {
             _isLoading.value = true
-            _errorMessage.value = null
             try {
-                val routeResult = RetrofitClient.routeApi.searchRoutesForMap(
-                    regionId = _selectedRegionId.value,
-                    category = null
-                )
-                _routes.value = routeResult
+                _routes.value = RetrofitClient.routeApi.getSavedRoutesForMap()
+                _savedIndividualPlaces.value = RetrofitClient.routeApi.getSavedPlaces()
             } catch (e: Exception) {
-                _errorMessage.value = "루트를 불러오지 못했어요: ${e.message}"
+                _errorMessage.value = "저장한 루트/장소를 불러오지 못했어요: ${e.message}"
             } finally {
                 _isLoading.value = false
             }
         }
     }
+
+    private val _savedIndividualPlaces = MutableStateFlow<List<PlaceSearchResponse>>(emptyList())
+    val savedIndividualPlaces: StateFlow<List<PlaceSearchResponse>> = _savedIndividualPlaces
 }
