@@ -21,14 +21,14 @@ class PingViewModel : ViewModel() {
     var recentTrip by mutableStateOf<TripSummaryResponse?>(null)
         private set
 
-    // ===== "진행중인 여행"의 핑 목록 (상단 타임라인용, WIDGET_PING 기반) =====
+    // ===== "진행중인 여행"의 전체 일정 (상단 타임라인용, ACTUAL_ROUTE_SPOT 기반 - WIDGET_PING 아님) =====
     var ongoingRouteId by mutableStateOf<Long?>(null)
         private set
 
     var hasOngoingTrip by mutableStateOf(false)
         private set
 
-    var ongoingPings by mutableStateOf<List<PingDto>>(emptyList())
+    var ongoingTripSpots by mutableStateOf<List<TripDetailResponse.SpotDetail>>(emptyList())
         private set
 
     // ===== 코스 상세 화면(PingCourseDetailScreen) 전용 - 완료된 여행의 확정된 방문 스팟 (ACTUAL_ROUTE_SPOT) =====
@@ -54,7 +54,7 @@ class PingViewModel : ViewModel() {
         loadRecentTrip()
     }
 
-    /** 진행중인 여행이 있는지 조회하고, 있으면 그 여행의 핑 목록도 함께 불러옴 */
+    /** 진행중인 여행이 있는지 조회하고, 있으면 그 여행의 전체 일정(ACTUAL_ROUTE_SPOT)도 함께 불러옴 */
     private fun loadOngoingTrip() {
         viewModelScope.launch {
             try {
@@ -62,13 +62,18 @@ class PingViewModel : ViewModel() {
                 ongoingRouteId = current.actualRouteId
                 hasOngoingTrip = true
 
-                val ongoing = RetrofitClient.pingApi.getOngoingPings(current.actualRouteId)
-                ongoingPings = ongoing.pings
+                // 👈 WIDGET_PING이 아니라, "다녀온 여행 상세"랑 같은 API로 이 여행의 전체 방문 일정을 가져옴
+                val detailResponse = RetrofitClient.myPageApi.getTripDetail(current.actualRouteId)
+                ongoingTripSpots = if (detailResponse.isSuccessful) {
+                    detailResponse.body()?.spots ?: emptyList()
+                } else {
+                    emptyList()
+                }
             } catch (e: Exception) {
                 // 진행중인 여행이 없으면 서버가 404 등을 줄 수 있음 - 정상적인 "없음" 상태로 처리
                 ongoingRouteId = null
                 hasOngoingTrip = false
-                ongoingPings = emptyList()
+                ongoingTripSpots = emptyList()
             }
         }
     }
@@ -171,10 +176,12 @@ class PingViewModel : ViewModel() {
         }
     }
 
-
+    /** 핑 후기 등록 - 별점(필수)/후기 텍스트/태그를 서버 스펙에 맞게 전송 */
     fun submitReview(
         pingId: Long,
+        rating: Int,
         content: String,
+        tags: List<String> = emptyList(),
         onSuccess: () -> Unit = {}
     ) {
         viewModelScope.launch {
@@ -184,7 +191,12 @@ class PingViewModel : ViewModel() {
             try {
                 RetrofitClient.pingApi.createPingReview(
                     pingId = pingId,
-                    request = PingReviewRequest(content = content)
+                    request = PingReviewRequest(
+                        rating = rating,
+                        photoUrl = null,
+                        reviewComment = content.ifBlank { null },
+                        tags = tags
+                    )
                 )
                 reviewSubmitSuccess = true
                 onSuccess()
@@ -196,9 +208,12 @@ class PingViewModel : ViewModel() {
         }
     }
 
+    /** 핑 후기 수정 */
     fun updateReview(
         pingId: Long,
+        rating: Int,
         content: String,
+        tags: List<String> = emptyList(),
         onSuccess: () -> Unit = {}
     ) {
         viewModelScope.launch {
@@ -208,7 +223,12 @@ class PingViewModel : ViewModel() {
             try {
                 RetrofitClient.pingApi.updatePingReview(
                     pingId = pingId,
-                    request = PingReviewRequest(content = content)
+                    request = PingReviewRequest(
+                        rating = rating,
+                        photoUrl = null,
+                        reviewComment = content.ifBlank { null },
+                        tags = tags
+                    )
                 )
                 reviewSubmitSuccess = true
                 onSuccess()
@@ -219,6 +239,4 @@ class PingViewModel : ViewModel() {
             }
         }
     }
-
-
 }

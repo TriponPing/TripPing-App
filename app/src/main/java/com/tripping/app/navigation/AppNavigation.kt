@@ -43,6 +43,7 @@ import com.tripping.app.ui.screen.MyPageScreen
 import com.tripping.app.ui.screen.NearbyCoursesScreen
 import com.tripping.app.ui.screen.PingCourseDetailScreen
 import com.tripping.app.ui.screen.PingHistoryScreen
+import com.tripping.app.ui.screen.PingLogReviewScreen
 import com.tripping.app.ui.screen.PingPlaceSearchScreen
 import com.tripping.app.ui.screen.PingScreen
 import com.tripping.app.ui.screen.PlaceSearchScreen
@@ -78,6 +79,10 @@ private const val PING_ADD_PLACE_ROUTE =
 private const val PING_ADD_ONGOING_PLACE_ROUTE =
     "ping_add_ongoing_place/{routeId}"
 
+// 👈 새로 추가: "핑로그 기록/수정 하러가기" -> 후기 작성 화면
+private const val PING_LOG_REVIEW_ROUTE =
+    "ping_log_review/{pingId}?placeName={placeName}"
+
 private const val PING_HISTORY_ROUTE =
     "ping_history"
 
@@ -100,6 +105,7 @@ private val bottomBarRoutes = mapOf(
     PING_COURSE_DETAIL_ROUTE to AppBottomNavTab.PING,
     PING_ADD_PLACE_ROUTE to AppBottomNavTab.PING,
     PING_ADD_ONGOING_PLACE_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
+    PING_LOG_REVIEW_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
     PING_HISTORY_ROUTE to AppBottomNavTab.PING,
 
     "mypage" to AppBottomNavTab.MY,
@@ -170,6 +176,18 @@ private fun navigateToPingAddOngoingPlace(
 ) {
     navController.navigate(
         "ping_add_ongoing_place/$routeId"
+    )
+}
+
+
+// 👈 새로 추가: "핑로그 기록/수정 하러가기" → 후기 작성 화면
+private fun navigateToPingLogReview(
+    navController: NavController,
+    pingId: Long,
+    placeName: String
+) {
+    navController.navigate(
+        "ping_log_review/$pingId?placeName=${Uri.encode(placeName)}"
     )
 }
 
@@ -862,8 +880,12 @@ fun AppNavigation() {
                             )
                         },
 
-                        onPingLogClick = { pingId ->
-                            // TODO
+                        onPingLogClick = { pingId, placeName ->
+                            navigateToPingLogReview(
+                                navController,
+                                pingId,
+                                placeName
+                            )
                         },
 
                         onRouteCardClick = {
@@ -974,8 +996,12 @@ fun AppNavigation() {
                             )
                         },
 
-                        onPingLogClick = {
-                            // TODO
+                        onPingLogClick = { pingId, placeName ->
+                            navigateToPingLogReview(
+                                navController,
+                                pingId,
+                                placeName
+                            )
                         }
                     )
                 }
@@ -1092,6 +1118,110 @@ fun AppNavigation() {
                                     Toast.makeText(
                                         context,
                                         "핑이 등록되었습니다!",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+
+                                    navController.popBackStack()
+                                }
+                            )
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 👈 새로 추가: Ping 로그 후기 작성/수정
+                // ========================================================
+
+                composable(
+                    PING_LOG_REVIEW_ROUTE,
+
+                    arguments = listOf(
+
+                        navArgument("pingId") {
+                            type = NavType.LongType
+                        },
+
+                        navArgument("placeName") {
+
+                            type = NavType.StringType
+
+                            defaultValue = ""
+                        }
+                    )
+
+                ) { backStackEntry ->
+
+
+                    val pingId =
+                        backStackEntry.arguments
+                            ?.getLong("pingId")
+                            ?: 0L
+
+                    val placeName =
+                        backStackEntry.arguments
+                            ?.getString("placeName")
+                            ?: "핑로그"
+
+                    val pingViewModel:
+                            com.tripping.app.viewmodel.PingViewModel =
+                        viewModel()
+
+                    val context =
+                        LocalContext.current
+
+
+                    PingLogReviewScreen(
+
+                        placeName = placeName,
+
+                        onBackClick = {
+
+                            navController.popBackStack()
+                        },
+
+                        onSubmit = { content, rating, tags ->
+
+                            pingViewModel.submitReview(
+
+                                pingId = pingId,
+
+                                rating = rating,
+
+                                content = content,
+
+                                tags = tags,
+
+                                onSuccess = {
+
+                                    Toast.makeText(
+                                        context,
+                                        "후기가 등록되었습니다!",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+
+                                    navController.popBackStack()
+                                }
+                            )
+                        },
+
+                        onSubmitAndNext = { content, rating, tags ->
+
+                            pingViewModel.submitReview(
+
+                                pingId = pingId,
+
+                                rating = rating,
+
+                                content = content,
+
+                                tags = tags,
+
+                                onSuccess = {
+
+                                    Toast.makeText(
+                                        context,
+                                        "후기가 등록되었습니다!",
                                         Toast.LENGTH_SHORT
                                     ).show()
 

@@ -26,7 +26,7 @@ fun PingCourseDetailScreen(
     viewModel: PingViewModel = viewModel(),
     onBackClick: () -> Unit,
     onAddPingClick: () -> Unit,
-    onPingLogClick: (Long) -> Unit
+    onPingLogClick: (pingId: Long, placeName: String) -> Unit
 ) {
     // 이 코스(routeId)의 확정된 방문 스팟(ACTUAL_ROUTE_SPOT)을 불러옴
     LaunchedEffect(routeId) {
@@ -43,7 +43,7 @@ fun PingCourseDetailScreen(
         }
 
         PingItem(
-            id = spot.spotId ?: index.toLong(),
+            id = spot.actualRouteSpotId ?: (spot.spotId ?: index.toLong()),
             placeName = spot.spotName ?: "이름 없음",
             time = formattedTime,
             status = PingStatus.DONE // 이미 확정된(다녀온) 방문 기록이라 전부 완료 상태
@@ -89,7 +89,7 @@ fun PingCourseDetailScreen(
                 }
 
                 items(pingsFromDb) { ping ->
-                    PingCard(ping = ping, onLinkClick = { onPingLogClick(ping.id) })
+                    PingCard(ping = ping, onLinkClick = { onPingLogClick(ping.id, ping.placeName) })
                     Spacer(modifier = Modifier.height(10.dp))
                 }
             }

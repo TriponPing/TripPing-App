@@ -1,6 +1,9 @@
+// [파일 설명] Ping 후기 등록/수정 요청. 백엔드 스펙(rating 필수, photoUrl/reviewComment/tags 선택)에 맞춤.
 package com.tripping.app.data.request
 
-// TODO: 실제 후기 등록 폼 필드에 맞춰 수정 필요 (사진, 별점 등 추가될 수 있음)
 data class PingReviewRequest(
-    val content: String
+    val rating: Int,
+    val photoUrl: String? = null,
+    val reviewComment: String? = null,
+    val tags: List<String>? = null
 )
