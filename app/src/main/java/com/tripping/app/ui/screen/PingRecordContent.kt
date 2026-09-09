@@ -59,7 +59,7 @@ internal fun PingRecordContent(
         }
 
         PingItem(
-            id = spot.spotId ?: index.toLong(),
+            id = spot.actualRouteSpotId ?: (spot.spotId ?: index.toLong()),
             placeName = spot.spotName ?: "이름 없음",
             time = formattedTime,
             status = PingStatus.DONE

@@ -43,7 +43,7 @@ fun PingCourseDetailScreen(
         }
 
         PingItem(
-            id = spot.spotId ?: index.toLong(),
+            id = spot.actualRouteSpotId ?: (spot.spotId ?: index.toLong()),
             placeName = spot.spotName ?: "이름 없음",
             time = formattedTime,
             status = PingStatus.DONE // 이미 확정된(다녀온) 방문 기록이라 전부 완료 상태
