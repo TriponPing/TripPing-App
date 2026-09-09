@@ -11,6 +11,7 @@ import com.tripping.app.data.request.AddTripSpotRequest
 import com.tripping.app.data.request.CreatePingRequest
 import com.tripping.app.data.request.PingReviewRequest
 import com.tripping.app.data.response.PingDto
+import com.tripping.app.data.response.PingReviewResponse
 import com.tripping.app.data.response.TripDetailResponse
 import com.tripping.app.data.response.TripSummaryResponse
 import kotlinx.coroutines.launch
@@ -46,6 +47,13 @@ class PingViewModel : ViewModel() {
         private set
 
     var reviewSubmitSuccess by mutableStateOf(false)
+        private set
+
+    // ===== 👈 새로 추가: 기존 후기 조회 (등록/수정 모드 판단용) =====
+    var existingReview by mutableStateOf<PingReviewResponse?>(null)
+        private set
+
+    var isCheckingExistingReview by mutableStateOf(true)
         private set
 
     /** Ping 탭(기록) 진입 시: 진행중인 여행 + 가장 최근 다녀온 여행을 각각 따로 불러옴 */
@@ -172,6 +180,21 @@ class PingViewModel : ViewModel() {
                 tripSpots = emptyList()
             } finally {
                 isLoading = false
+            }
+        }
+    }
+
+    /** 핑로그 후기 화면 진입 시: 이미 등록된 후기가 있는지 확인 (있으면 수정 모드로 전환하는 데 씀) */
+    fun loadExistingReview(pingId: Long) {
+        viewModelScope.launch {
+            isCheckingExistingReview = true
+            try {
+                existingReview = RetrofitClient.pingApi.getPingReview(pingId)
+            } catch (e: Exception) {
+                // 404 등 - 아직 후기가 없다는 뜻, 정상적인 "없음" 상태로 처리
+                existingReview = null
+            } finally {
+                isCheckingExistingReview = false
             }
         }
     }

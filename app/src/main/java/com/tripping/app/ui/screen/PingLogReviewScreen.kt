@@ -33,16 +33,20 @@ private const val MAX_TAGS = 3
 @Composable
 fun PingLogReviewScreen(
     placeName: String,
+    initialRating: Int? = null,
+    initialContent: String? = null,
+    initialTags: List<String> = emptyList(),
+    isEditMode: Boolean = false,
     onBackClick: () -> Unit,
     onSubmit: (content: String, rating: Int, tags: List<String>) -> Unit,
     onSubmitAndNext: (content: String, rating: Int, tags: List<String>) -> Unit
 ) {
-    var reviewText by remember { mutableStateOf("") }
-    var rating by remember { mutableIntStateOf(5) } // 기본 별점 5점 설정
+    var reviewText by remember { mutableStateOf(initialContent ?: "") }
+    var rating by remember { mutableIntStateOf(initialRating ?: 5) } // 기존 후기 있으면 그 값, 없으면 기본 5점
 
-    // 👈 새로 추가: 칩 형태 태그 입력용 상태
+    // 👈 새로 추가: 칩 형태 태그 입력용 상태 (기존 태그가 있으면 미리 채워둠)
     var tagInput by remember { mutableStateOf("") }
-    var tags by remember { mutableStateOf<List<String>>(emptyList()) }
+    var tags by remember { mutableStateOf(initialTags) }
 
     // 텍스트 본문에서 #해시태그도 보조로 추출 (직접 입력한 칩 태그와 합쳐서 최대 3개)
     val extractHashtagsFromBody: (String) -> List<String> = { text ->
@@ -245,7 +249,7 @@ fun PingLogReviewScreen(
             contentAlignment = Alignment.Center
         ) {
             Text(
-                text = "등록",
+                text = if (isEditMode) "수정" else "등록",
                 fontWeight = FontWeight.Bold,
                 fontSize = 16.sp,
                 color = Color.White

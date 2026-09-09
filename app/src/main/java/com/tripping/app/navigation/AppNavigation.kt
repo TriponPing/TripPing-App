@@ -1186,66 +1186,132 @@ fun AppNavigation() {
                     val context =
                         LocalContext.current
 
+                    // 👈 새로 추가: 진입 시 이미 등록된 후기가 있는지 먼저 확인
+                    LaunchedEffect(pingId) {
+                        pingViewModel.loadExistingReview(pingId)
+                    }
 
-                    PingLogReviewScreen(
+                    val existingReview = pingViewModel.existingReview
+                    val isCheckingExisting = pingViewModel.isCheckingExistingReview
 
-                        placeName = placeName,
+                    if (isCheckingExisting) {
 
-                        onBackClick = {
-
-                            navController.popBackStack()
-                        },
-
-                        onSubmit = { content, rating, tags ->
-
-                            pingViewModel.submitReview(
-
-                                pingId = pingId,
-
-                                rating = rating,
-
-                                content = content,
-
-                                tags = tags,
-
-                                onSuccess = {
-
-                                    Toast.makeText(
-                                        context,
-                                        "후기가 등록되었습니다!",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-
-                                    navController.popBackStack()
-                                }
-                            )
-                        },
-
-                        onSubmitAndNext = { content, rating, tags ->
-
-                            pingViewModel.submitReview(
-
-                                pingId = pingId,
-
-                                rating = rating,
-
-                                content = content,
-
-                                tags = tags,
-
-                                onSuccess = {
-
-                                    Toast.makeText(
-                                        context,
-                                        "후기가 등록되었습니다!",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-
-                                    navController.popBackStack()
-                                }
-                            )
+                        // 확인 끝나기 전까지는 빈 화면(잠깐 대기) - 초기값이 안 채워진 채로
+                        // 화면이 먼저 그려지는 걸 방지하기 위함
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            androidx.compose.material3.CircularProgressIndicator()
                         }
-                    )
+                    } else {
+
+                        PingLogReviewScreen(
+
+                            placeName = placeName,
+
+                            initialRating = existingReview?.rating,
+
+                            initialContent = existingReview?.reviewComment,
+
+                            initialTags = existingReview?.tags ?: emptyList(),
+
+                            isEditMode = existingReview != null,
+
+                            onBackClick = {
+
+                                navController.popBackStack()
+                            },
+
+                            onSubmit = { content, rating, tags ->
+
+                                if (existingReview != null) {
+
+                                    pingViewModel.updateReview(
+
+                                        pingId = pingId,
+
+                                        rating = rating,
+
+                                        content = content,
+
+                                        tags = tags,
+
+                                        onSuccess = {
+
+                                            Toast.makeText(
+                                                context,
+                                                "후기가 수정되었습니다!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+
+                                            navController.popBackStack()
+                                        }
+                                    )
+                                } else {
+
+                                    pingViewModel.submitReview(
+
+                                        pingId = pingId,
+
+                                        rating = rating,
+
+                                        content = content,
+
+                                        tags = tags,
+
+                                        onSuccess = {
+
+                                            Toast.makeText(
+                                                context,
+                                                "후기가 등록되었습니다!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+
+                                            navController.popBackStack()
+                                        }
+                                    )
+                                }
+                            },
+
+                            onSubmitAndNext = { content, rating, tags ->
+
+                                if (existingReview != null) {
+
+                                    pingViewModel.updateReview(
+                                        pingId = pingId,
+                                        rating = rating,
+                                        content = content,
+                                        tags = tags,
+                                        onSuccess = {
+                                            Toast.makeText(
+                                                context,
+                                                "후기가 수정되었습니다!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            navController.popBackStack()
+                                        }
+                                    )
+                                } else {
+
+                                    pingViewModel.submitReview(
+                                        pingId = pingId,
+                                        rating = rating,
+                                        content = content,
+                                        tags = tags,
+                                        onSuccess = {
+                                            Toast.makeText(
+                                                context,
+                                                "후기가 등록되었습니다!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            navController.popBackStack()
+                                        }
+                                    )
+                                }
+                            }
+                        )
+                    }
                 }
 
 
