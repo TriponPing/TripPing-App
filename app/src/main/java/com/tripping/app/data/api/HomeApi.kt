@@ -29,6 +29,12 @@ interface HomeApi {
         @Query("limit") limit: Int = 10
     ): Response<List<PopularKeywordResponse>>
 
+    @GET("keyword/{keyword}/routes")
+    suspend fun getRoutesByKeyword(
+        @Path("keyword") keyword: String,
+        @Query("limit") limit: Int = 20
+    ): Response<List<PopularTripResponse>>
+
     @GET("places/popular")
     suspend fun getPopularPlaces(
         @Query("limit") limit: Int = 30

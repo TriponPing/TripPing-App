@@ -220,7 +220,8 @@ private fun RouteThumbnail(trip: PopularTripResponse, modifier: Modifier = Modif
 }
 
 // 방문 순서대로 이웃한 좌표 사이 거리(하버사인)를 다 더한 총 이동거리. 좌표가 2개 미만이면 계산 불가하므로 null.
-private fun totalDistanceKmOrNull(coordinates: List<RouteCoordinate>): Double? {
+// PopularKeywordsScreen도 루트 카드에 거리 표시할 때 그대로 재사용함.
+internal fun totalDistanceKmOrNull(coordinates: List<RouteCoordinate>): Double? {
     if (coordinates.size < 2) return null
     var total = 0.0
     for (i in 0 until coordinates.lastIndex) {

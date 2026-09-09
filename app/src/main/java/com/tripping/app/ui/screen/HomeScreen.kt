@@ -4,10 +4,12 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -71,7 +73,8 @@ fun HomeScreen(
     onPingClick: () -> Unit = {},
     onSeeAllPopularRoutes: () -> Unit = {},
     onSeeAllPopularPlaces: () -> Unit = {},
-    onSeeAllKeywords: () -> Unit = {},
+    // 키워드 칩을 직접 눌렀으면 그 키워드가, "이번 주 인기 키워드" 제목을 눌렀으면 null이 넘어옴
+    onSeeAllKeywords: (String?) -> Unit = {},
     onSeeAllNearbyCourses: () -> Unit = {},
     onCourseClick: (Int) -> Unit = {},
     viewModel: HomeViewModel = viewModel()
@@ -161,7 +164,7 @@ fun HomeScreen(
             SectionHeader(
                 title = "이번 주 인기 키워드",
                 showSeeAll = false,
-                onSeeAllClick = onSeeAllKeywords,
+                onSeeAllClick = { onSeeAllKeywords(null) },
                 rowClickable = popularKeywords.isNotEmpty()
             )
         }
@@ -171,7 +174,7 @@ fun HomeScreen(
                 KeywordChipsRow(
                     keywords = popularKeywords.map { HomeKeyword(text = "#${it.keyword}") },
                     outlined = currentTrip != null,
-                    onKeywordClick = { onSeeAllKeywords() }
+                    onKeywordClick = { onSeeAllKeywords(it.text.removePrefix("#")) }
                 )
             } else {
                 Text(
@@ -646,9 +649,21 @@ internal fun HomeCourseCardView(
                 }
                 Spacer(modifier = Modifier.height(10.dp))
                 if (showArrows) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // 실데이터는 장소 이름이 길 수 있어서(예: "인천 계양구 감성 소품샵 카페 1501호점"),
+                    // 줄바꿈 없는 Row를 그냥 두면 좁은 카드 폭에 짓눌려 레이아웃이 깨짐 -> 가로 스크롤 처리
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         course.stops.forEachIndexed { index, stop ->
-                            Text(text = stop, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HomeTextPrimary)
+                            Text(
+                                text = stop,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = HomeTextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                             if (index != course.stops.lastIndex) {
                                 Text(text = "  →  ", fontSize = 13.sp, color = HomeTextPrimary)
                             }
