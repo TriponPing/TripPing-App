@@ -36,10 +36,10 @@ private val EmptyTextColor = Color(0xFFE6E6E6)
 internal fun PingRecordContent(
     modifier: Modifier = Modifier,
     viewModel: PingViewModel = viewModel(),
-    onAddPingClick: () -> Unit,
+    onAddPingClick: (routeId: Long) -> Unit,
     onPingLogClick: (Long) -> Unit,
     onRouteCardClick: (routeId: Long, title: String) -> Unit,
-    onMoreClick: () -> Unit // 👈 추가된 부분: 바로가기 클릭 시 실행될 콜백
+    onMoreClick: () -> Unit = {} // 👈 "바로가기" 클릭 시 실행될 콜백 (다녀온 여행 목록으로 이동 등)
 ) {
     LaunchedEffect(Unit) {
         viewModel.loadPingTabData()
@@ -47,6 +47,7 @@ internal fun PingRecordContent(
 
     val recentTrip = viewModel.recentTrip       // 아래쪽 카드용: 가장 최근 "다녀온" 여행 요약
     val hasOngoingTrip = viewModel.hasOngoingTrip
+    val ongoingRouteId = viewModel.ongoingRouteId
     val pingDtos = viewModel.ongoingPings        // 위쪽 타임라인용: "진행중" 여행의 핑 목록
 
     // 서버 응답 데이터를 UI 모델로 변환 (pingTime 안전하게 포맷팅)
@@ -100,7 +101,7 @@ internal fun PingRecordContent(
 
             if (canAddMorePing) {
                 item {
-                    AddPingButton(onClick = onAddPingClick)
+                    AddPingButton(onClick = { ongoingRouteId?.let { onAddPingClick(it) } })
                     Spacer(modifier = Modifier.height(12.dp))
                 }
             }
@@ -115,14 +116,8 @@ internal fun PingRecordContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "기록을 추가하고 싶은 여행이 있나요?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                // 👈 수정된 부분: 바로가기 텍스트에 clickable 추가
-                Text(
-                    text = "바로가기",
-                    fontSize = 13.sp,
-                    color = GrayText,
-                    modifier = Modifier.clickable { onMoreClick() }
-                )
+                Text(text = "기록을 추가하고 싶은 핑로그가 있나요?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(text = "바로가기", fontSize = 13.sp, color = GrayText, modifier = Modifier.clickable { onMoreClick() })
             }
             Spacer(modifier = Modifier.height(12.dp))
 

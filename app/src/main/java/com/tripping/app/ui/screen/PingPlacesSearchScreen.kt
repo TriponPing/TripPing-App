@@ -18,8 +18,11 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.draw.clip
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.naver.maps.geometry.LatLng
 import com.naver.maps.map.CameraPosition
@@ -65,6 +68,8 @@ fun PingPlaceSearchScreen(
     var selectedRegion by remember { mutableStateOf("지역") }
     var isRegistering by remember { mutableStateOf(false) } // "+" 눌러서 신규 장소 등록 중일 때 버튼 비활성화용
     var showCategoryPicker by remember { mutableStateOf(false) } // 신규 장소 등록 전, 카테고리 선택창 노출 여부
+    var showSuccessDialog by remember { mutableStateOf(false) } // 등록 완료 안내창 노출 여부
+    var registeredPlace by remember { mutableStateOf<PlaceSearchResponse?>(null) } // 방금 등록 완료된 장소 (확인 누르면 다음 단계로 넘김)
 
     val pinIcon = remember { OverlayImage.fromResource(R.drawable.ic_map_pin) }
     val coroutineScope = rememberCoroutineScope()
@@ -232,7 +237,7 @@ fun PingPlaceSearchScreen(
                     )
                 }
 
-                // 신규 장소 카테고리 선택창 - 고른 카테고리로 등록 -> 핑 등록까지 이어감
+                // 1단계: 신규 장소 카테고리 선택창
                 if (showCategoryPicker) {
                     selectedPlace?.let { place ->
                         CategoryPickerDialog(
@@ -250,13 +255,26 @@ fun PingPlaceSearchScreen(
                                                 longitude = place.longitude
                                             )
                                         )
-                                        onPlaceSelected(created)
+                                        registeredPlace = created
+                                        showSuccessDialog = true
                                     } catch (e: Exception) {
                                         // TODO: 등록 실패 시 에러 안내 (스낵바 등)
                                     } finally {
                                         isRegistering = false
                                     }
                                 }
+                            }
+                        )
+                    }
+                }
+
+                // 2단계: 등록 완료 안내창 - "확인" 누르면 그제서야 다음 단계(핑 등록)로 넘어감
+                if (showSuccessDialog) {
+                    registeredPlace?.let { place ->
+                        PlaceRegisteredDialog(
+                            onConfirm = {
+                                showSuccessDialog = false
+                                onPlaceSelected(place)
                             }
                         )
                     }
@@ -356,35 +374,178 @@ private fun SelectedPlaceCard(
     }
 }
 
-// 신규(미등록) 장소 등록 시 카테고리를 직접 고르는 선택창
+// 신규(미등록) 장소 등록 시 카테고리를 아이콘으로 직접 고르는 선택창
 @Composable
 private fun CategoryPickerDialog(
     onDismiss: () -> Unit,
     onCategorySelected: (String) -> Unit
 ) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(text = "카테고리를 선택해주세요", fontWeight = FontWeight.Bold) },
-        text = {
-            Column {
-                PlaceCategory.entries.forEach { category ->
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable { onCategorySelected(category.label) }
-                            .padding(vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(text = category.label, fontSize = 16.sp, fontWeight = FontWeight.Medium)
-                    }
-                }
+    Dialog(onDismissRequest = onDismiss) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White, RoundedCornerShape(16.dp))
+                .padding(20.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                    text = "이 장소를 등록하시겠습니까?",
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.align(Alignment.Center)
+                )
+                Text(
+                    text = "×",
+                    fontSize = 18.sp,
+                    color = GrayText,
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .clickable { onDismiss() }
+                )
             }
-        },
-        confirmButton = {},
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(text = "취소", color = GrayText)
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(text = "이 장소는 어떤 장소인가요?", fontSize = 12.sp, color = GrayText)
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+                CategoryIconOption(
+                    iconRes = R.drawable.fork_spoon,
+                    label = "맛집",
+                    onClick = { onCategorySelected("맛집") }
+                )
+                CategoryIconOption(
+                    iconRes = R.drawable.camera,
+                    label = "관광지",
+                    onClick = { onCategorySelected("관광지") }
+                )
+                CategoryIconOption(
+                    iconRes = R.drawable.coffee,
+                    label = "카페",
+                    onClick = { onCategorySelected("카페") }
+                )
             }
         }
+    }
+}
+
+@Composable
+private fun CategoryIconOption(iconRes: Int, label: String, onClick: () -> Unit) {
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
+        modifier = Modifier.clickable { onClick() }
+    ) {
+        Box(
+            modifier = Modifier
+                .size(64.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(GrayBg),
+            contentAlignment = Alignment.Center
+        ) {
+            Image(
+                painter = painterResource(id = iconRes),
+                contentDescription = label,
+                modifier = Modifier.size(28.dp)
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Text(text = label, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+// 장소 등록 완료 안내창 - 마스코트 + "확인" 버튼
+@Composable
+private fun PlaceRegisteredDialog(onConfirm: () -> Unit) {
+    Dialog(onDismissRequest = onConfirm) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White, RoundedCornerShape(16.dp))
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(text = "장소가 등록되었습니다!", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.height(16.dp))
+            Image(
+                painter = painterResource(id = R.drawable.check_dino),
+                contentDescription = "등록 완료",
+                modifier = Modifier.size(120.dp)
+            )
+            Spacer(modifier = Modifier.height(20.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(48.dp)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(BluePrimary)
+                    .clickable { onConfirm() },
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "확인", color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+            }
+        }
+    }
+}
+
+// ===== 프리뷰 =====
+// SelectedPlaceCard: 정적 프리뷰에서 바로 잘 보임
+@Preview(showBackground = true)
+@Composable
+private fun SelectedPlaceCardRegisteredPreview() {
+    SelectedPlaceCard(
+        place = PlaceSearchResponse(
+            spotId = 1L,
+            name = "서울 암사동 유적",
+            category = "관광지",
+            address = "",
+            latitude = 37.55,
+            longitude = 127.13,
+            imageUrl = null,
+            description = null
+        ),
+        isRegistered = true,
+        popularTimeSlot = "오후 2시 ~ 4시",
+        totalPingCount = 2L,
+        isRegistering = false,
+        onAddClick = {}
     )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun SelectedPlaceCardUnregisteredPreview() {
+    SelectedPlaceCard(
+        place = PlaceSearchResponse(
+            spotId = UNREGISTERED_SPOT_ID,
+            name = "Camel Coffee",
+            category = "장소",
+            address = "",
+            latitude = 37.55,
+            longitude = 127.13,
+            imageUrl = null,
+            description = null
+        ),
+        isRegistered = false,
+        popularTimeSlot = null,
+        totalPingCount = null,
+        isRegistering = false,
+        onAddClick = {}
+    )
+}
+
+// CategoryPickerDialog / PlaceRegisteredDialog: Dialog로 감싸져 있어서 정적 프리뷰에서
+// 빈 화면으로 보일 수 있음 -> Android Studio에서 "Interactive Preview"(재생 버튼)로 실행해서 확인할 것
+@Preview(showBackground = true)
+@Composable
+private fun CategoryPickerDialogPreview() {
+    CategoryPickerDialog(
+        onDismiss = {},
+        onCategorySelected = {}
+    )
+}
+
+@Preview(showBackground = true)
+@Composable
+private fun PlaceRegisteredDialogPreview() {
+    PlaceRegisteredDialog(onConfirm = {})
 }

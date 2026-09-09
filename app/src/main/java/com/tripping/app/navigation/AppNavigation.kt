@@ -74,6 +74,10 @@ private const val PING_COURSE_DETAIL_ROUTE =
 private const val PING_ADD_PLACE_ROUTE =
     "ping_add_place/{routeId}"
 
+// 👈 새로 추가: 진행중인 여행 "+" 버튼 -> 이 라우트로 이동해서 장소 검색 후 실시간 핑 등록
+private const val PING_ADD_ONGOING_PLACE_ROUTE =
+    "ping_add_ongoing_place/{routeId}"
+
 private const val PING_HISTORY_ROUTE =
     "ping_history"
 
@@ -95,6 +99,7 @@ private val bottomBarRoutes = mapOf(
     "ping" to AppBottomNavTab.PING,
     PING_COURSE_DETAIL_ROUTE to AppBottomNavTab.PING,
     PING_ADD_PLACE_ROUTE to AppBottomNavTab.PING,
+    PING_ADD_ONGOING_PLACE_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
     PING_HISTORY_ROUTE to AppBottomNavTab.PING,
 
     "mypage" to AppBottomNavTab.MY,
@@ -154,6 +159,17 @@ private fun navigateToPingAddPlace(
 ) {
     navController.navigate(
         "ping_add_place/$routeId"
+    )
+}
+
+
+// 👈 새로 추가: Ping 진행중인 여행 → 장소 추가(실시간 핑)
+private fun navigateToPingAddOngoingPlace(
+    navController: NavController,
+    routeId: Long
+) {
+    navController.navigate(
+        "ping_add_ongoing_place/$routeId"
     )
 }
 
@@ -842,8 +858,12 @@ fun AppNavigation() {
 
                     PingScreen(
 
-                        onAddPingClick = {
-                            // TODO
+                        onAddPingClick = { routeId ->
+
+                            navigateToPingAddOngoingPlace(
+                                navController,
+                                routeId
+                            )
                         },
 
                         onPingLogClick = { pingId ->
@@ -1014,6 +1034,68 @@ fun AppNavigation() {
                                     Toast.makeText(
                                         context,
                                         "과거 여행에 추가되었습니다!",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+
+                                    navController.popBackStack()
+                                }
+                            )
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 👈 새로 추가: Ping 진행중인 여행 장소 추가 (실시간 핑 등록)
+                // ========================================================
+
+                composable(
+                    PING_ADD_ONGOING_PLACE_ROUTE,
+
+                    arguments = listOf(
+
+                        navArgument("routeId") {
+                            type = NavType.LongType
+                        }
+                    )
+
+                ) { backStackEntry ->
+
+
+                    val routeId =
+                        backStackEntry.arguments
+                            ?.getLong("routeId")
+                            ?: 0L
+
+                    val pingViewModel:
+                            com.tripping.app.viewmodel.PingViewModel =
+                        viewModel()
+
+                    val context =
+                        LocalContext.current
+
+
+                    PingPlaceSearchScreen(
+
+                        onPlaceSelected = { place ->
+
+                            pingViewModel.createPing(
+
+                                routeId = routeId,
+
+                                spotId = place.spotId,
+
+                                placeName = place.name,
+
+                                latitude = place.latitude,
+
+                                longitude = place.longitude,
+
+                                onSuccess = {
+
+                                    Toast.makeText(
+                                        context,
+                                        "핑이 등록되었습니다!",
                                         Toast.LENGTH_SHORT
                                     ).show()
 
