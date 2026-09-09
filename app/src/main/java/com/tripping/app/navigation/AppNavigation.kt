@@ -392,8 +392,8 @@ fun AppNavigation() {
                             showRouteMenu = true
                         },
 
-                        onViewRouteClick = {
-                            // TODO: 진행 중인 여행 루트 상세
+                        onViewRouteClick = { routeId, title ->
+                            navigateToCourseDetail(navController, routeId, title)
                         },
 
                         onPingClick = {
