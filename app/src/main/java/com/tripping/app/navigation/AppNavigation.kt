@@ -104,7 +104,7 @@ private val bottomBarRoutes = mapOf(
     TRIP_START_ROUTE to AppBottomNavTab.MY,
     "settings" to AppBottomNavTab.MY,
 
-    "popular_keywords" to AppBottomNavTab.HOME,
+    "popular_keywords?keyword={keyword}" to AppBottomNavTab.HOME,
     "nearby_courses" to AppBottomNavTab.HOME,
     "popular_routes" to AppBottomNavTab.HOME,
     "popular_places" to AppBottomNavTab.HOME
@@ -418,10 +418,10 @@ fun AppNavigation() {
                             )
                         },
 
-                        onSeeAllKeywords = {
+                        onSeeAllKeywords = { keyword ->
 
                             navController.navigate(
-                                "popular_keywords"
+                                "popular_keywords?keyword=${Uri.encode(keyword ?: "")}"
                             )
                         },
 
@@ -505,12 +505,28 @@ fun AppNavigation() {
                 // 인기 키워드
                 // ========================================================
 
-                composable("popular_keywords") {
+                composable(
+                    "popular_keywords?keyword={keyword}",
+                    arguments = listOf(
+                        navArgument("keyword") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        }
+                    )
+                ) { backStackEntry ->
+
+                    val keywordArg = backStackEntry.arguments?.getString("keyword").orEmpty()
 
                     PopularKeywordsScreen(
 
+                        initialKeyword = keywordArg.ifBlank { null },
+
                         onBackClick = {
                             navController.popBackStack()
+                        },
+
+                        onCourseClick = { routeId ->
+                            navController.navigate("route_detail/$routeId")
                         }
                     )
                 }

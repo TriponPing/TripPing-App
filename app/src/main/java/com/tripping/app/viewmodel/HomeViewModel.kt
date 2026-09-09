@@ -44,6 +44,13 @@ class HomeViewModel : ViewModel() {
     private val _popularKeywords = MutableStateFlow<List<PopularKeywordResponse>>(emptyList())
     val popularKeywords: StateFlow<List<PopularKeywordResponse>> = _popularKeywords
 
+    // 인기 키워드 더보기 화면에서 칩을 선택하면 그 키워드가 달린 루트 목록을 보여줌
+    private val _selectedKeyword = MutableStateFlow<String?>(null)
+    val selectedKeyword: StateFlow<String?> = _selectedKeyword
+
+    private val _keywordRoutes = MutableStateFlow<List<PopularTripResponse>>(emptyList())
+    val keywordRoutes: StateFlow<List<PopularTripResponse>> = _keywordRoutes
+
     private val _popularPlaces = MutableStateFlow<List<PopularPlaceResponse>>(emptyList())
     val popularPlaces: StateFlow<List<PopularPlaceResponse>> = _popularPlaces
 
@@ -103,6 +110,24 @@ class HomeViewModel : ViewModel() {
                 _popularKeywords.value = if (response.isSuccessful) response.body() ?: emptyList() else emptyList()
             } catch (e: Exception) {
                 // 목록형 섹션이라 실패해도 빈 목록으로 두고 에러 배너는 안 띄움
+            }
+        }
+    }
+
+    // 키워드 칩 선택: 같은 걸 다시 누르면 선택 해제(목록 닫힘)
+    fun toggleKeywordSelection(keyword: String) {
+        if (_selectedKeyword.value == keyword) {
+            _selectedKeyword.value = null
+            _keywordRoutes.value = emptyList()
+            return
+        }
+        _selectedKeyword.value = keyword
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.homeApi.getRoutesByKeyword(keyword)
+                _keywordRoutes.value = if (response.isSuccessful) response.body() ?: emptyList() else emptyList()
+            } catch (e: Exception) {
+                _keywordRoutes.value = emptyList()
             }
         }
     }

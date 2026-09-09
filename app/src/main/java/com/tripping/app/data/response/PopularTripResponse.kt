@@ -12,7 +12,8 @@ data class PopularTripResponse(
     val stopNames: List<String>,
     val photoUrl: String?,
     val pingCount: Long,
-    val coordinates: List<RouteCoordinate>
+    val coordinates: List<RouteCoordinate>,
+    val tags: List<String> = emptyList() // 키워드로 루트 조회할 때만 채워짐, 그 외엔 빈 목록
 )
 
 data class RouteCoordinate(
