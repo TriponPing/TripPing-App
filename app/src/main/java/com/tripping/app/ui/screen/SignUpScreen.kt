@@ -30,6 +30,7 @@ import com.tripping.app.data.response.RegionResponse
 // ===== 회원가입 - 2단계 (피그마 반영) =====
 // 1단계: 닉네임/이메일/비밀번호 입력 -> "다음"
 // 2단계: 사는 지역 선택(GET /regions) -> "회원가입" (실제 가입 요청은 여기서 나감)
+// 절대좌표(offset) 대신 Column + fillMaxWidth로 짜서 기기 화면 너비가 달라도 항상 같은 비율로 보이게 함.
 @Composable
 fun SignUpScreen(
     regions: List<RegionResponse>,
@@ -70,6 +71,33 @@ fun SignUpScreen(
     }
 }
 
+// 회원가입 두 단계 화면 공통 상단부 - 배경 일러스트 위에 로고를 가운데로 얹음
+@Composable
+private fun SignUpBanner() {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            // 고정 height + Crop을 쓰면 이미지 아래쪽의 자연스러운 그라데이션 부분이 잘려서
+            // 경계선이 뚝 끊겨 보임 - 원본 이미지 비율(412:271) 그대로 보여줘서 안 잘리게 함
+            .aspectRatio(412f / 271f)
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.image33),
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            modifier = Modifier.fillMaxSize()
+        )
+        Image(
+            painter = painterResource(id = R.drawable.logo),
+            contentDescription = "Trip Ping",
+            modifier = Modifier
+                .align(Alignment.Center)
+                .fillMaxWidth(0.45f)
+                .aspectRatio(355f / 125f) // logo.png를 여백 없이 꽉 채워 크롭해둔 실제 비율
+        )
+    }
+}
+
 // ===== 1단계: 닉네임 / 이메일 / 비밀번호 =====
 @Composable
 private fun SignUpStep1(
@@ -84,146 +112,125 @@ private fun SignUpStep1(
 ) {
     val canProceed = nickname.isNotBlank() && email.isNotBlank() && password.isNotBlank()
 
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // ===== 상단 배너 영역 =====
-        Image(
-            painter = painterResource(id = R.drawable.image33),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
+        SignUpBanner()
+
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(257.dp)
-        )
-
-        // ===== 로고 =====
-        // 고정 dp 대신 화면 너비 비율로 크기를 잡아서 기기마다 다르게 보이는 문제를 없앰
-        Image(
-            painter = painterResource(id = R.drawable.logo),
-            contentDescription = "Trip Ping",
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = 16.dp, top = 45.dp)
-                .fillMaxWidth(0.55f)
-                .aspectRatio(412f / 370f)
-        )
-
-        Text(
-            text = "회원가입",
-            fontSize = 32.sp,
-            fontWeight = FontWeight.Bold,
-            color = Color(0xFF000000),
-            modifier = Modifier.offset(x = 122.dp, y = 211.dp)
-        )
-
-        Text(
-            text = "TripPing과 함께 멋진 여행을 시작해요",
-            fontSize = 13.sp,
-            color = Color(0xFF818181),
-            modifier = Modifier.offset(x = 103.dp, y = 271.dp)
-        )
-
-        Text(
-            text = "닉네임",
-            fontSize = 16.sp,
-            color = Color(0xFF000000),
-            modifier = Modifier.offset(x = 44.dp, y = 320.dp)
-        )
-        OutlinedTextField(
-            value = nickname,
-            onValueChange = onNicknameChange,
-            modifier = Modifier
-                .offset(x = 44.dp, y = 355.dp)
-                .size(324.dp, 52.dp),
-            singleLine = true,
-            shape = RoundedCornerShape(8.dp),
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = Color(0xFFD0D0D0),
-                focusedBorderColor = Color(0xFFD0D0D0)
-            )
-        )
-
-        Text(
-            text = "이메일",
-            fontSize = 16.sp,
-            color = Color(0xFF000000),
-            modifier = Modifier.offset(x = 44.dp, y = 430.dp)
-        )
-        OutlinedTextField(
-            value = email,
-            onValueChange = onEmailChange,
-            modifier = Modifier
-                .offset(x = 44.dp, y = 461.dp)
-                .size(324.dp, 52.dp),
-            singleLine = true,
-            shape = RoundedCornerShape(8.dp),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = Color(0xFFD0D0D0),
-                focusedBorderColor = Color(0xFFD0D0D0)
-            )
-        )
-
-        Text(
-            text = "비밀번호",
-            fontSize = 16.sp,
-            color = Color(0xFF000000),
-            modifier = Modifier.offset(x = 44.dp, y = 536.dp)
-        )
-        OutlinedTextField(
-            value = password,
-            onValueChange = onPasswordChange,
-            modifier = Modifier
-                .offset(x = 44.dp, y = 567.dp)
-                .size(324.dp, 52.dp),
-            singleLine = true,
-            shape = RoundedCornerShape(8.dp),
-            visualTransformation = PasswordVisualTransformation(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            colors = OutlinedTextFieldDefaults.colors(
-                unfocusedBorderColor = Color(0xFFD0D0D0),
-                focusedBorderColor = Color(0xFFD0D0D0)
-            )
-        )
-
-        Text(
-            text = "회원가입까지 자기 사는 지역을 받아요",
-            fontSize = 11.sp,
-            color = Color(0xFF818181),
-            modifier = Modifier.offset(x = 44.dp, y = 638.dp)
-        )
-
-        // ===== "다음" 버튼 =====
-        Button(
-            onClick = onNextClick,
-            enabled = canProceed,
-            modifier = Modifier
-                .offset(x = 44.dp, y = 668.dp)
-                .size(324.dp, 66.dp),
-            shape = RoundedCornerShape(8.dp),
-            colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5AA2D9))
+                .padding(horizontal = 44.dp)
         ) {
-            Text(text = "다음", fontSize = 16.sp, color = Color(0xFFFFFFFF))
-        }
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                text = "회원가입",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF000000),
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "TripPing과 함께 멋진 여행을 시작해요",
+                fontSize = 13.sp,
+                color = Color(0xFF818181),
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
+            Spacer(modifier = Modifier.height(28.dp))
 
-        Text(
-            text = "이미 계정이 있나요? ",
-            fontSize = 12.sp,
-            color = Color(0xFF818181),
-            modifier = Modifier.offset(x = 122.dp, y = 746.dp)
-        )
-        Text(
-            text = "로그인",
-            fontSize = 13.sp,
-            color = Color(0xFF22567E),
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier
-                .offset(x = 232.dp, y = 746.dp)
-                .clickable { onLoginLinkClick() }
-        )
+            Text(text = "닉네임", fontSize = 16.sp, color = Color(0xFF000000))
+            Spacer(modifier = Modifier.height(6.dp))
+            OutlinedTextField(
+                value = nickname,
+                onValueChange = onNicknameChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                singleLine = true,
+                shape = RoundedCornerShape(8.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = Color(0xFFD0D0D0),
+                    focusedBorderColor = Color(0xFFD0D0D0)
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = "이메일", fontSize = 16.sp, color = Color(0xFF000000))
+            Spacer(modifier = Modifier.height(6.dp))
+            OutlinedTextField(
+                value = email,
+                onValueChange = onEmailChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                singleLine = true,
+                shape = RoundedCornerShape(8.dp),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = Color(0xFFD0D0D0),
+                    focusedBorderColor = Color(0xFFD0D0D0)
+                )
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Text(text = "비밀번호", fontSize = 16.sp, color = Color(0xFF000000))
+            Spacer(modifier = Modifier.height(6.dp))
+            OutlinedTextField(
+                value = password,
+                onValueChange = onPasswordChange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                singleLine = true,
+                shape = RoundedCornerShape(8.dp),
+                visualTransformation = PasswordVisualTransformation(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedBorderColor = Color(0xFFD0D0D0),
+                    focusedBorderColor = Color(0xFFD0D0D0)
+                )
+            )
+
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(
+                text = "회원가입까지 자기 사는 지역을 받아요",
+                fontSize = 11.sp,
+                color = Color(0xFF818181)
+            )
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Button(
+                onClick = onNextClick,
+                enabled = canProceed,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(66.dp),
+                shape = RoundedCornerShape(8.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF5AA2D9))
+            ) {
+                Text(text = "다음", fontSize = 16.sp, color = Color(0xFFFFFFFF))
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 24.dp),
+                horizontalArrangement = Arrangement.Center
+            ) {
+                Text(text = "이미 계정이 있나요? ", fontSize = 12.sp, color = Color(0xFF818181))
+                Text(
+                    text = "로그인",
+                    fontSize = 13.sp,
+                    color = Color(0xFF22567E),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.clickable { onLoginLinkClick() }
+                )
+            }
+        }
     }
 }
 
@@ -238,36 +245,26 @@ private fun SignUpStep2(
     isLoading: Boolean,
     errorMessage: String?
 ) {
-    Box(
+    Column(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
-        Image(
-            painter = painterResource(id = R.drawable.image33),
-            contentDescription = null,
-            contentScale = ContentScale.Crop,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(257.dp)
-        )
-
-        Image(
-            painter = painterResource(id = R.drawable.logo),
-            contentDescription = "Trip Ping",
-            modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(start = 16.dp, top = 45.dp)
-                .fillMaxWidth(0.55f)
-                .aspectRatio(412f / 370f)
-        )
+        SignUpBanner()
 
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = 211.dp, start = 44.dp, end = 44.dp)
+                .padding(horizontal = 44.dp)
         ) {
-            Text(text = "회원가입", fontSize = 32.sp, fontWeight = FontWeight.Bold, color = Color(0xFF000000))
+            Spacer(modifier = Modifier.height(20.dp))
+            Text(
+                text = "회원가입",
+                fontSize = 32.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF000000),
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            )
             Spacer(modifier = Modifier.height(14.dp))
             Text(text = "사는 지역", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = Color(0xFF000000))
             Spacer(modifier = Modifier.height(4.dp))
