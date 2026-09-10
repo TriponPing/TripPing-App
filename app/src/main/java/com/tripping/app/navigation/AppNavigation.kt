@@ -61,10 +61,13 @@ import com.tripping.app.ui.screen.RouteMapEditScreen
 import com.tripping.app.ui.screen.RoutePlaceSearchScreen
 import com.tripping.app.ui.screen.RecommendedRoute
 import com.tripping.app.ui.screen.PlaceDetailScreen
+import com.tripping.app.ui.screen.RegionPingRegisterScreen
+import com.tripping.app.data.response.PlaceSearchResponse
 
 
 import com.tripping.app.viewmodel.AuthState
 import com.tripping.app.viewmodel.AuthViewModel
+import com.tripping.app.viewmodel.CommunityViewModel
 
 
 private const val COURSE_DETAIL_ROUTE = "course_detail/{tripId}?title={title}"
@@ -91,6 +94,14 @@ private const val PING_HISTORY_ROUTE =
 private const val PING_LOG_DETAIL_ROUTE =
     "ping_log_detail/{routeId}"
 
+// 👈 새로 추가: "지역핑 등록하기" -> 장소 선택(지도) 화면 (PingPlaceSearchScreen 재사용)
+private const val REGION_PING_PLACE_ROUTE =
+    "region_ping_place/{regionId}?regionName={regionName}"
+
+// 👈 새로 추가: 장소 선택 후 -> 평점/후기 입력 화면
+private const val REGION_PING_FORM_ROUTE =
+    "region_ping_form/{spotId}/{spotName}/{address}/{latitude}/{longitude}?regionName={regionName}"
+
 private const val ROUTE_CREATE_ROUTE =
     "route_create"
 
@@ -113,6 +124,8 @@ private val bottomBarRoutes = mapOf(
     PING_LOG_REVIEW_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
     PING_HISTORY_ROUTE to AppBottomNavTab.PING,
     PING_LOG_DETAIL_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
+    REGION_PING_PLACE_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
+    REGION_PING_FORM_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
 
     "mypage" to AppBottomNavTab.MY,
     "trip_history" to AppBottomNavTab.MY,
@@ -205,6 +218,34 @@ private fun navigateToPingLogReview(
 ) {
     navController.navigate(
         "ping_log_review/$pingId?placeName=${Uri.encode(placeName)}"
+    )
+}
+
+
+// 👈 새로 추가: "지역핑 등록하기" → 장소 선택 화면
+private fun navigateToRegionPingPlace(
+    navController: NavController,
+    regionId: String,
+    regionName: String
+) {
+    navController.navigate(
+        "region_ping_place/$regionId?regionName=${Uri.encode(regionName)}"
+    )
+}
+
+// 👈 새로 추가: 장소 선택 완료 → 평점/후기 입력 화면
+private fun navigateToRegionPingForm(
+    navController: NavController,
+    regionName: String,
+    place: com.tripping.app.data.response.PlaceSearchResponse
+) {
+    // 방금 새로 등록한 장소는 서버가 address를 null로 내려줄 수 있음(요청 DTO에 주소가 없음) ->
+    // PlaceSearchResponse.address 타입은 String(non-null)이지만 Gson은 null을 그대로 넣어버려서
+    // 방어적으로 null 처리 안 하면 네비게이션 인자 번들 생성 중 IllegalArgumentException으로 앱이 죽음.
+    val safeName = place.name ?: ""
+    val safeAddress = place.address ?: ""
+    navController.navigate(
+        "region_ping_form/${place.spotId}/${Uri.encode(safeName)}/${Uri.encode(safeAddress)}/${place.latitude}/${place.longitude}?regionName=${Uri.encode(regionName)}"
     )
 }
 
@@ -957,6 +998,15 @@ fun AppNavigation() {
                             navigateToPingHistory(
                                 navController
                             )
+                        },
+
+                        onRegisterRegionPingClick = { regionId, regionName ->
+
+                            navigateToRegionPingPlace(
+                                navController,
+                                regionId,
+                                regionName
+                            )
                         }
                     )
                 }
@@ -1080,6 +1130,123 @@ fun AppNavigation() {
                         routeId = routeId,
                         onBackClick = {
                             navController.popBackStack()
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 👈 새로 추가: 지역핑 등록 - 1단계(장소 선택, PingPlaceSearchScreen 재사용)
+                // ========================================================
+
+                composable(
+                    REGION_PING_PLACE_ROUTE,
+
+                    arguments = listOf(
+                        navArgument("regionId") {
+                            type = NavType.StringType
+                        },
+                        navArgument("regionName") {
+                            type = NavType.StringType
+                            defaultValue = "내 지역"
+                        }
+                    )
+
+                ) { backStackEntry ->
+
+                    val regionName =
+                        backStackEntry.arguments
+                            ?.getString("regionName")
+                            ?: "내 지역"
+
+                    val regionId =
+                        backStackEntry.arguments
+                            ?.getString("regionId")
+
+                    PingPlaceSearchScreen(
+                        regionId = regionId,
+                        onPlaceSelected = { place ->
+                            navigateToRegionPingForm(
+                                navController,
+                                regionName,
+                                place
+                            )
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 👈 새로 추가: 지역핑 등록 - 2단계(평점/후기 입력)
+                // ========================================================
+
+                composable(
+                    REGION_PING_FORM_ROUTE,
+
+                    arguments = listOf(
+                        navArgument("spotId") {
+                            type = NavType.LongType
+                        },
+                        navArgument("spotName") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        },
+                        navArgument("address") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        },
+                        navArgument("latitude") {
+                            type = NavType.StringType
+                            defaultValue = "0.0"
+                        },
+                        navArgument("longitude") {
+                            type = NavType.StringType
+                            defaultValue = "0.0"
+                        },
+                        navArgument("regionName") {
+                            type = NavType.StringType
+                            defaultValue = "내 지역"
+                        }
+                    )
+
+                ) { backStackEntry ->
+
+                    val spotId = backStackEntry.arguments?.getLong("spotId") ?: 0L
+                    val spotName = backStackEntry.arguments?.getString("spotName") ?: ""
+                    val address = backStackEntry.arguments?.getString("address") ?: ""
+                    val latitude = backStackEntry.arguments?.getString("latitude")?.toDoubleOrNull() ?: 0.0
+                    val longitude = backStackEntry.arguments?.getString("longitude")?.toDoubleOrNull() ?: 0.0
+                    val regionName = backStackEntry.arguments?.getString("regionName") ?: "내 지역"
+
+                    val communityViewModel: CommunityViewModel = viewModel()
+                    val context = LocalContext.current
+
+                    RegionPingRegisterScreen(
+                        regionName = regionName,
+                        spotName = spotName,
+                        address = address,
+                        latitude = latitude,
+                        longitude = longitude,
+                        isSubmitting = communityViewModel.isRegisteringRegionPing,
+                        errorMessage = communityViewModel.regionPingErrorMessage,
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+                        onSubmit = { rating, reviewComment ->
+                            communityViewModel.registerRegionPing(
+                                spotId = spotId,
+                                rating = rating,
+                                reviewComment = reviewComment,
+                                onSuccess = {
+                                    Toast.makeText(
+                                        context,
+                                        "지역핑이 등록되었습니다!",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    // 장소 선택 화면까지 건너뛰고 "로그" 화면으로 바로 복귀
+                                    navController.popBackStack(REGION_PING_PLACE_ROUTE, true)
+                                }
+                            )
                         }
                     )
                 }

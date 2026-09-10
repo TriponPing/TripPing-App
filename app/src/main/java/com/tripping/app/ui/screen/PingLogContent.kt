@@ -27,18 +27,24 @@ private val GrayBg = Color(0xFFF3F3F5)
 private val GrayText = Color(0xFF9A9A9A)
 private val CardBorder = Color(0xFFECECEC)
 
+private val PurplePrimary = Color(0xFF8B5CF6)
+
 @Composable
 internal fun PingLogContent(
     onCourseClick: (Long) -> Unit,
+    onRegisterRegionPingClick: (regionId: String, regionName: String) -> Unit = { _, _ -> },
     viewModel: CommunityViewModel = viewModel()
 ) {
     LaunchedEffect(Unit) {
         viewModel.loadInitialRegions()
+        viewModel.loadMyRegion()
     }
 
     val regions = viewModel.regions
     val selectedRegion = viewModel.selectedRegion
     val routes = viewModel.routes
+    // 회원가입 때 고른 "내 지역"과 지금 보고 있는 지역이 같을 때만 그 지역에 지역핑을 등록할 수 있음
+    val canRegisterRegionPing = viewModel.myRegionId != null && viewModel.myRegionId == selectedRegion?.regionId
 
     LazyColumn(
         modifier = Modifier
@@ -57,8 +63,25 @@ internal fun PingLogContent(
                     onRegionSelected = { viewModel.selectRegion(it) }
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                Text(text = "지역별 인기순위를 만나보세요", fontSize = 12.sp, color = GrayText)
+
+                if (canRegisterRegionPing) {
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(PurplePrimary)
+                            .clickable {
+                                val region = selectedRegion ?: return@clickable
+                                onRegisterRegionPingClick(region.regionId, region.regionName)
+                            }
+                            .padding(horizontal = 14.dp, vertical = 8.dp)
+                    ) {
+                        Text(text = "지역핑 등록하기", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)
+                    }
+                } else {
+                    Text(text = "지역별 인기순위를 만나보세요", fontSize = 12.sp, color = GrayText)
+                }
             }
+
             Spacer(modifier = Modifier.height(16.dp))
         }
 
