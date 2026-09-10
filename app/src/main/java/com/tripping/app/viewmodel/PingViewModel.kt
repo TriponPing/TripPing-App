@@ -102,6 +102,20 @@ class PingViewModel : ViewModel() {
         }
     }
 
+    /** 👈 새로 추가: 진행중인 여행에 새 장소를 추가하는 화면(PingPlaceSearchScreen)에서, 지금까지
+     * 찍은 핑들을 지도에 선으로 이어서 보여주기 위해 씀. loadPingTabData()와 별개로 그 화면
+     * 진입 시 routeId를 이미 알고 있으니 바로 불러옴. */
+    fun loadTripSpotsForMap(routeId: Long) {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.myPageApi.getTripDetail(routeId)
+                ongoingTripSpots = if (response.isSuccessful) response.body()?.spots ?: emptyList() else emptyList()
+            } catch (e: Exception) {
+                ongoingTripSpots = emptyList()
+            }
+        }
+    }
+
     /** 진행중인 여행에 실시간으로 핑 찍기 (WIDGET_PING) */
     fun createPing(
         routeId: Long,

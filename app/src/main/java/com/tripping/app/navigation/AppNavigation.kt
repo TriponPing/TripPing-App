@@ -1341,8 +1341,14 @@ fun AppNavigation() {
                     val context =
                         LocalContext.current
 
+                    // 👈 새로 추가: 지금까지 찍은 핑들을 지도에 선으로 이어서 보여주기 위해 미리 불러옴
+                    LaunchedEffect(routeId) {
+                        pingViewModel.loadTripSpotsForMap(routeId)
+                    }
 
                     PingPlaceSearchScreen(
+
+                        existingRouteSpots = pingViewModel.ongoingTripSpots,
 
                         onPlaceSelected = { place ->
 
