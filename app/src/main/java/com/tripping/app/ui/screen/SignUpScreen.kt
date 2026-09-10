@@ -16,6 +16,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -89,20 +90,25 @@ private fun SignUpStep1(
             .background(Color.White)
     ) {
         // ===== 상단 배너 영역 =====
-        Box(
+        Image(
+            painter = painterResource(id = R.drawable.image33),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(257.dp)
-                .background(Color(0xFFE3F2F1))
         )
 
         // ===== 로고 =====
+        // 고정 dp 대신 화면 너비 비율로 크기를 잡아서 기기마다 다르게 보이는 문제를 없앰
         Image(
             painter = painterResource(id = R.drawable.logo),
             contentDescription = "Trip Ping",
             modifier = Modifier
-                .offset(x = 121.dp, y = 55.dp)
-                .size(170.dp, 153.dp)
+                .align(Alignment.TopStart)
+                .padding(start = 16.dp, top = 45.dp)
+                .fillMaxWidth(0.55f)
+                .aspectRatio(412f / 370f)
         )
 
         Text(
@@ -237,19 +243,23 @@ private fun SignUpStep2(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        Box(
+        Image(
+            painter = painterResource(id = R.drawable.image33),
+            contentDescription = null,
+            contentScale = ContentScale.Crop,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(257.dp)
-                .background(Color(0xFFE3F2F1))
         )
 
         Image(
             painter = painterResource(id = R.drawable.logo),
             contentDescription = "Trip Ping",
             modifier = Modifier
-                .offset(x = 121.dp, y = 55.dp)
-                .size(170.dp, 153.dp)
+                .align(Alignment.TopStart)
+                .padding(start = 16.dp, top = 45.dp)
+                .fillMaxWidth(0.55f)
+                .aspectRatio(412f / 370f)
         )
 
         Column(

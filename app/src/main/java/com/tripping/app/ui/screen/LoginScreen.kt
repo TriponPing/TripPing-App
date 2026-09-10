@@ -36,12 +36,15 @@ fun LoginScreen(
             .background(Color.White)
     ) {
         // ===== 로고 =====
+        // 고정 dp 대신 화면 너비 비율로 크기를 잡아서 기기마다 다르게 보이는 문제를 없앰
         Image(
             painter = painterResource(id = R.drawable.logo),
             contentDescription = "Trip Ping",
             modifier = Modifier
-                .offset(x = 121.dp, y = 55.dp)
-                .size(170.dp, 153.dp)
+                .align(Alignment.TopStart)
+                .padding(start = 16.dp, top = 45.dp)
+                .fillMaxWidth(0.55f)
+                .aspectRatio(412f / 370f)
         )
 
         // ===== 언어 선택 (우측 상단) =====
