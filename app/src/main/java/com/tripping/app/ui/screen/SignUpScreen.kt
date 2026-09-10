@@ -1,5 +1,6 @@
 package com.tripping.app.ui.screen
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -15,12 +16,14 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tripping.app.R
 import com.tripping.app.data.response.RegionResponse
 
 // ===== 회원가입 - 2단계 (피그마 반영) =====
@@ -93,16 +96,14 @@ private fun SignUpStep1(
                 .background(Color(0xFFE3F2F1))
         )
 
-        // ===== 로고("Trip Ping") 자리 =====
-        // TODO: 피그마 로고 이미지로 교체
-        Box(
+        // ===== 로고 =====
+        Image(
+            painter = painterResource(id = R.drawable.logo),
+            contentDescription = "Trip Ping",
             modifier = Modifier
-                .offset(x = 94.dp, y = 126.dp)
-                .size(224.dp, 89.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("Trip Ping", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color(0xFF3AAFA9))
-        }
+                .offset(x = 121.dp, y = 55.dp)
+                .size(170.dp, 153.dp)
+        )
 
         Text(
             text = "회원가입",
@@ -243,14 +244,13 @@ private fun SignUpStep2(
                 .background(Color(0xFFE3F2F1))
         )
 
-        Box(
+        Image(
+            painter = painterResource(id = R.drawable.logo),
+            contentDescription = "Trip Ping",
             modifier = Modifier
-                .offset(x = 94.dp, y = 126.dp)
-                .size(224.dp, 89.dp),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("Trip Ping", fontSize = 26.sp, fontWeight = FontWeight.Bold, color = Color(0xFF3AAFA9))
-        }
+                .offset(x = 121.dp, y = 55.dp)
+                .size(170.dp, 153.dp)
+        )
 
         Column(
             modifier = Modifier
