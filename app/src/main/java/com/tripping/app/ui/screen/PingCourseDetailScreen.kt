@@ -6,7 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,6 +54,8 @@ fun PingCourseDetailScreen(
 
     val canAddMorePing = pingsFromDb.size < 4
 
+    var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -89,7 +93,11 @@ fun PingCourseDetailScreen(
                 }
 
                 items(pingsFromDb) { ping ->
-                    PingCard(ping = ping, onLinkClick = { onPingLogClick(ping.id, ping.placeName) })
+                    PingCard(
+                        ping = ping,
+                        onLinkClick = { onPingLogClick(ping.id, ping.placeName) },
+                        onDeleteClick = { pendingDeleteId = ping.id }
+                    )
                     Spacer(modifier = Modifier.height(10.dp))
                 }
             }
@@ -107,5 +115,28 @@ fun PingCourseDetailScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
+
+    val deleteTargetId = pendingDeleteId
+    if (deleteTargetId != null) {
+        AlertDialog(
+            onDismissRequest = { pendingDeleteId = null },
+            text = {
+                Text(text = "이 기록을 삭제하시겠습니까?", fontSize = 15.sp)
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteTripSpot(routeId, deleteTargetId)
+                    pendingDeleteId = null
+                }) {
+                    Text(text = "확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteId = null }) {
+                    Text(text = "취소")
+                }
+            }
+        )
     }
 }

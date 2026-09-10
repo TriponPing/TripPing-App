@@ -9,7 +9,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -69,6 +73,9 @@ internal fun PingRecordContent(
     val hasTrip = hasOngoingTrip
     val canAddMorePing = pingsFromDb.size < 4
 
+    // 실수로 지울 수 있어서(다른 삭제 액션들과 동일하게) 확인 팝업을 한 번 거침
+    var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
+
     LazyColumn(
         modifier = modifier
             .fillMaxSize()
@@ -92,7 +99,11 @@ internal fun PingRecordContent(
             }
 
             items(pingsFromDb) { ping ->
-                PingCard(ping = ping, onLinkClick = { onPingLogClick(ping.id, ping.placeName) })
+                PingCard(
+                    ping = ping,
+                    onLinkClick = { onPingLogClick(ping.id, ping.placeName) },
+                    onDeleteClick = { pendingDeleteId = ping.id }
+                )
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
@@ -129,6 +140,29 @@ internal fun PingRecordContent(
                 )
             }
         }
+    }
+
+    val deleteTargetId = pendingDeleteId
+    if (deleteTargetId != null) {
+        AlertDialog(
+            onDismissRequest = { pendingDeleteId = null },
+            text = {
+                Text(text = "이 기록을 삭제하시겠습니까?", fontSize = 15.sp)
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    ongoingRouteId?.let { viewModel.deleteTripSpot(it, deleteTargetId) }
+                    pendingDeleteId = null
+                }) {
+                    Text(text = "확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteId = null }) {
+                    Text(text = "취소")
+                }
+            }
+        )
     }
 }
 
@@ -185,7 +219,7 @@ internal fun TimelineDots(pings: List<PingItem>) {
 }
 
 @Composable
-internal fun PingCard(ping: PingItem, onLinkClick: () -> Unit) {
+internal fun PingCard(ping: PingItem, onLinkClick: () -> Unit, onDeleteClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -207,7 +241,26 @@ internal fun PingCard(ping: PingItem, onLinkClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(text = ping.placeName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(text = "···", fontSize = 14.sp, color = GrayText, fontWeight = FontWeight.Bold)
+
+                var menuExpanded by remember { mutableStateOf(false) }
+                Box {
+                    Text(
+                        text = "···",
+                        fontSize = 14.sp,
+                        color = GrayText,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { menuExpanded = true }
+                    )
+                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("삭제") },
+                            onClick = {
+                                menuExpanded = false
+                                onDeleteClick()
+                            }
+                        )
+                    }
+                }
             }
 
             Text(text = ping.time, fontWeight = FontWeight.Bold, fontSize = 14.sp)
