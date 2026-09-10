@@ -71,7 +71,6 @@ internal fun PingRecordContent(
     }
 
     val hasTrip = hasOngoingTrip
-    val canAddMorePing = pingsFromDb.size < 4
 
     // 실수로 지울 수 있어서(다른 삭제 액션들과 동일하게) 확인 팝업을 한 번 거침
     var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
@@ -107,11 +106,9 @@ internal fun PingRecordContent(
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-            if (canAddMorePing) {
-                item {
-                    AddPingButton(onClick = { ongoingRouteId?.let { onAddPingClick(it) } })
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
+            item {
+                AddPingButton(onClick = { ongoingRouteId?.let { onAddPingClick(it) } })
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
 
