@@ -54,12 +54,18 @@ fun PingLogReviewScreen(
         regex.findAll(text).map { it.groupValues[1] }.toList()
     }
 
+    // 👈 수정: "#맛집 #분위기"처럼 한 번에 여러 개를 입력해도 한 덩어리로 등록되지 않고
+    // #이나 공백 기준으로 쪼개서 각각 따로 태그로 추가되게 함
     fun addTag(raw: String) {
-        val cleaned = raw.removePrefix("#").trim()
-        if (cleaned.isBlank()) return
-        if (tags.size >= MAX_TAGS) return
-        if (tags.contains(cleaned)) return
-        tags = tags + cleaned
+        val candidates = raw.split(Regex("[#\\s]+"))
+            .map { it.trim() }
+            .filter { it.isNotBlank() }
+
+        for (candidate in candidates) {
+            if (tags.size >= MAX_TAGS) break
+            if (tags.contains(candidate)) continue
+            tags = tags + candidate
+        }
         tagInput = ""
     }
 
