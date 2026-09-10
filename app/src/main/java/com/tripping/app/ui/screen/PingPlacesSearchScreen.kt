@@ -30,12 +30,14 @@ import com.naver.maps.map.compose.ExperimentalNaverMapApi
 import com.naver.maps.map.compose.Marker
 import com.naver.maps.map.compose.MarkerState
 import com.naver.maps.map.compose.NaverMap
+import com.naver.maps.map.compose.PolylineOverlay
 import com.naver.maps.map.compose.rememberCameraPositionState
 import com.naver.maps.map.overlay.OverlayImage
 import com.tripping.app.R
 import com.tripping.app.data.api.RetrofitClient
 import com.tripping.app.data.request.CreatePlaceRequest
 import com.tripping.app.data.response.PlaceSearchResponse
+import com.tripping.app.data.response.TripDetailResponse
 import com.tripping.app.viewmodel.PlaceCategory
 import com.tripping.app.viewmodel.PlaceSearchViewModel
 import kotlinx.coroutines.launch
@@ -60,6 +62,9 @@ fun PingPlaceSearchScreen(
     viewModel: PlaceSearchViewModel = viewModel(),
     // 👈 새로 추가: 지역핑 등록 흐름에서만 넘어옴 - 새 장소를 등록할 때 이 지역 소속으로 같이 저장하기 위함
     regionId: String? = null,
+    // 👈 새로 추가: 진행중인 여행에 장소를 추가하는 흐름에서만 넘어옴 - 지금까지 찍은 핑들을
+    // 선으로 이어서 지도에 같이 보여줘서, 내 루트를 보면서 다음 장소를 고를 수 있게 함
+    existingRouteSpots: List<TripDetailResponse.SpotDetail> = emptyList(),
     onPlaceSelected: (PlaceSearchResponse) -> Unit
 ) {
     val places by viewModel.places.collectAsState()
@@ -74,7 +79,15 @@ fun PingPlaceSearchScreen(
     var registeredPlace by remember { mutableStateOf<PlaceSearchResponse?>(null) } // 방금 등록 완료된 장소 (확인 누르면 다음 단계로 넘김)
 
     val pinIcon = remember { OverlayImage.fromResource(R.drawable.ic_map_pin) }
+    val tripSpotIcon = remember { OverlayImage.fromResource(R.drawable.blueping) }
     val coroutineScope = rememberCoroutineScope()
+
+    // 진행중인 여행에서 지금까지 찍은 핑들 - 방문 순서대로 이어서 선으로 그려줌
+    val existingRouteLatLngs = remember(existingRouteSpots) {
+        existingRouteSpots
+            .sortedBy { it.visitOrder ?: 0 }
+            .mapNotNull { spot -> spot.latitude?.let { la -> spot.longitude?.let { lo -> LatLng(la, lo) } } }
+    }
 
     // 선택된 장소의 핑 통계(인기 시간대 / 핑 개수) - DB에 등록된 장소일 때만 조회
     var popularTimeSlot by remember { mutableStateOf<String?>(null) }
@@ -175,7 +188,18 @@ fun PingPlaceSearchScreen(
             // ===== 지도 =====
             Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
                 val cameraPositionState = rememberCameraPositionState {
-                    position = CameraPosition(LatLng(37.5665, 126.9780), 12.0)
+                    // 진행중인 여행의 기존 핑들이 있으면 그 중심으로, 없으면 기존처럼 서울 시청 근처로 시작
+                    position = if (existingRouteLatLngs.isNotEmpty()) {
+                        CameraPosition(
+                            LatLng(
+                                existingRouteLatLngs.map { it.latitude }.average(),
+                                existingRouteLatLngs.map { it.longitude }.average()
+                            ),
+                            15.0
+                        )
+                    } else {
+                        CameraPosition(LatLng(37.5665, 126.9780), 12.0)
+                    }
                 }
 
                 NaverMap(
@@ -198,6 +222,28 @@ fun PingPlaceSearchScreen(
                         true
                     }
                 ) {
+                    // 👈 새로 추가: 진행중인 여행에서 지금까지 찍은 핑들 - 선으로 이어서 내 루트가 보이게 함
+                    if (existingRouteLatLngs.size >= 2) {
+                        PolylineOverlay(
+                            coords = existingRouteLatLngs,
+                            color = BluePrimary,
+                            width = 6.dp
+                        )
+                    }
+                    existingRouteSpots.sortedBy { it.visitOrder ?: 0 }.forEachIndexed { index, spot ->
+                        val la = spot.latitude
+                        val lo = spot.longitude
+                        if (la != null && lo != null) {
+                            Marker(
+                                state = MarkerState(position = LatLng(la, lo)),
+                                icon = tripSpotIcon,
+                                width = 28.dp,
+                                height = 28.dp,
+                                captionText = "${index + 1}. ${spot.spotName ?: ""}"
+                            )
+                        }
+                    }
+
                     // 우리 DB에 이미 등록된 장소들 (커스텀 마커)
                     places.forEach { place ->
                         Marker(
