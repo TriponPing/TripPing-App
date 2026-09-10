@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.tripping.app.data.api.RetrofitClient
 import com.tripping.app.data.request.LoginRequest
 import com.tripping.app.data.request.SignUpRequest
+import com.tripping.app.data.response.RegionResponse
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -19,6 +20,23 @@ class AuthViewModel : ViewModel() {
 
     private val _logoutState = MutableStateFlow<AuthState>(AuthState.Idle)
     val logoutState: StateFlow<AuthState> = _logoutState
+
+    // 회원가입 2단계 "사는 지역" 선택 그리드용
+    private val _regions = MutableStateFlow<List<RegionResponse>>(emptyList())
+    val regions: StateFlow<List<RegionResponse>> = _regions
+
+    fun loadRegions() {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.regionApi.getAllRegions()
+                if (response.isSuccessful) {
+                    _regions.value = response.body() ?: emptyList()
+                }
+            } catch (e: Exception) {
+                // 지역 목록을 못 받아와도 회원가입 자체는 지역 선택 없이 진행 가능하게 둠
+            }
+        }
+    }
 
     fun login(email: String, password: String) {
         viewModelScope.launch {
@@ -36,11 +54,11 @@ class AuthViewModel : ViewModel() {
         }
     }
 
-    fun signUp(nickname: String, email: String, password: String) {
+    fun signUp(nickname: String, email: String, password: String, regionId: String?) {
         viewModelScope.launch {
             _signUpState.value = AuthState.Loading
             try {
-                val response = RetrofitClient.authApi.signUp(SignUpRequest(email, password, nickname))
+                val response = RetrofitClient.authApi.signUp(SignUpRequest(email, password, nickname, regionId))
                 if (response.isSuccessful) {
                     _signUpState.value = AuthState.Success
                 } else {

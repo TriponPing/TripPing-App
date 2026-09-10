@@ -5,9 +5,12 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.widget.ImageView
-import androidx.appcompat.app.AppCompatActivity
+import androidx.activity.ComponentActivity
 
-class SplashActivity : AppCompatActivity() {
+// Theme.Tripping이 AppCompat 계열이 아니라서(android:Theme.Material 기반) AppCompatActivity를 쓰면
+// "You need to use a Theme.AppCompat theme" IllegalStateException으로 바로 크래시남.
+// MainActivity와 동일하게 ComponentActivity를 사용함.
+class SplashActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_splash)

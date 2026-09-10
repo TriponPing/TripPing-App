@@ -1,5 +1,6 @@
 package com.tripping.app.ui.screen
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,11 +12,13 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.tripping.app.R
 
 @Composable
 fun LoginScreen(
@@ -32,17 +35,14 @@ fun LoginScreen(
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // ===== 로고 배너 자리 =====
-        // TODO: Image(painter = painterResource(R.drawable.배너이미지), ...) 로 교체
-        Box(
+        // ===== 로고 =====
+        Image(
+            painter = painterResource(id = R.drawable.logo),
+            contentDescription = "Trip Ping",
             modifier = Modifier
-                .offset(x = 94.dp, y = 126.dp)
-                .size(224.dp, 89.dp)
-                .background(Color(0xFFF5F5F5)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("Trip Ping", fontSize = 20.sp, color = Color(0xFFBBBBBB))
-        }
+                .offset(x = 121.dp, y = 55.dp)
+                .size(170.dp, 153.dp)
+        )
 
         // ===== 언어 선택 (우측 상단) =====
         Box(
