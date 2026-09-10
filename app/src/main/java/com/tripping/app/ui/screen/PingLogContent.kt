@@ -1,6 +1,7 @@
 // [파일 설명] Ping 탭 > "로그" 화면 UI. 지역별로 다른 사람들이 공개해둔 루트(로그 커뮤니티)를 보여줌.
 package com.tripping.app.ui.screen
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,16 +12,21 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tripping.app.R
 import com.tripping.app.data.response.RouteSummaryResponse
 import com.tripping.app.viewmodel.CommunityViewModel
+import com.tripping.app.viewmodel.HomeViewModel
 
 // ===== 색상 (필요시 공통 파일로 관리) =====
 private val GrayBg = Color(0xFFF3F3F5)
@@ -33,16 +39,21 @@ private val PurplePrimary = Color(0xFF8B5CF6)
 internal fun PingLogContent(
     onCourseClick: (Long) -> Unit,
     onRegisterRegionPingClick: (regionId: String, regionName: String) -> Unit = { _, _ -> },
-    viewModel: CommunityViewModel = viewModel()
+    viewModel: CommunityViewModel = viewModel(),
+    // 저장(북마크) 토글은 마이페이지 "저장한 여행"과 같은 API를 쓰는 HomeViewModel 로직을 그대로 재사용
+    homeViewModel: HomeViewModel = viewModel()
 ) {
     LaunchedEffect(Unit) {
         viewModel.loadInitialRegions()
         viewModel.loadMyRegion()
+        homeViewModel.loadSavedRouteIds()
     }
 
     val regions = viewModel.regions
     val selectedRegion = viewModel.selectedRegion
     val routes = viewModel.routes
+    val savedRouteIds by homeViewModel.savedRouteIds.collectAsState()
+    val savedCountDeltas by homeViewModel.savedCountDeltas.collectAsState()
     // 회원가입 때 고른 "내 지역"과 지금 보고 있는 지역이 같을 때만 그 지역에 지역핑을 등록할 수 있음
     val canRegisterRegionPing = viewModel.myRegionId != null && viewModel.myRegionId == selectedRegion?.regionId
 
@@ -96,7 +107,13 @@ internal fun PingLogContent(
             }
         } else {
             items(routes) { route ->
-                RouteCourseCard(route = route, onClick = { onCourseClick(route.routeId) })
+                RouteCourseCard(
+                    route = route,
+                    isSaved = route.routeId in savedRouteIds,
+                    countDelta = savedCountDeltas[route.routeId] ?: 0,
+                    onClick = { onCourseClick(route.routeId) },
+                    onBookmarkClick = { homeViewModel.toggleSaveRoute(route.routeId) }
+                )
                 Spacer(modifier = Modifier.height(10.dp))
             }
         }
@@ -118,7 +135,11 @@ private fun RegionDropdown(
         ) {
             Text(text = selectedRegion?.regionName ?: "지역", fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.width(4.dp))
-            Text(text = "⌄", fontSize = 18.sp, color = Color.Black)
+            Image(
+                painter = painterResource(id = R.drawable.chevron_down),
+                contentDescription = null,
+                modifier = Modifier.size(16.dp)
+            )
         }
 
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -136,7 +157,13 @@ private fun RegionDropdown(
 }
 
 @Composable
-private fun RouteCourseCard(route: RouteSummaryResponse, onClick: () -> Unit) {
+private fun RouteCourseCard(
+    route: RouteSummaryResponse,
+    isSaved: Boolean,
+    countDelta: Int,
+    onClick: () -> Unit,
+    onBookmarkClick: () -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -174,9 +201,11 @@ private fun RouteCourseCard(route: RouteSummaryResponse, onClick: () -> Unit) {
                         fontSize = 16.sp,
                         modifier = Modifier.weight(1f)
                     )
-                    Text(text = "🔖", fontSize = 12.sp)
+                    BookmarkIcon(filled = isSaved, modifier = Modifier.clickable { onBookmarkClick() })
                     Spacer(modifier = Modifier.width(2.dp))
-                    Text(text = route.savedCount.toString(), fontSize = 12.sp, color = GrayText)
+                    // 서버가 준 총 저장 수는 화면 진입 시점 스냅샷이라, 여기서 저장/취소한
+                    // 만큼만(+1/-1) 보정해서 바로 반영함(낙관적 업데이트) - PopularRoutesScreen과 동일 패턴
+                    Text(text = (route.savedCount + countDelta).toString(), fontSize = 12.sp, color = GrayText)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
