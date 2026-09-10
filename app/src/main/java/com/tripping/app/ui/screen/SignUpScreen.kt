@@ -91,7 +91,8 @@ private fun SignUpBanner() {
             painter = painterResource(id = R.drawable.logo),
             contentDescription = "Trip Ping",
             modifier = Modifier
-                .align(Alignment.Center)
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 28.dp)
                 .fillMaxWidth(0.45f)
                 .aspectRatio(355f / 125f) // logo.png를 여백 없이 꽉 채워 크롭해둔 실제 비율
         )
@@ -123,6 +124,7 @@ private fun SignUpStep1(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 44.dp)
+                .offset(y = (-26).dp) // "회원가입" 제목이 배경 이미지 아래쪽과 살짝 겹치도록 위로 당김
         ) {
             Spacer(modifier = Modifier.height(20.dp))
             Text(
