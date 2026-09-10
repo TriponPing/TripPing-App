@@ -49,6 +49,7 @@ object RetrofitClient {
     val placeApi: PlaceApi by lazy { retrofit.create(PlaceApi::class.java) }
     val routeApi: RouteApi by lazy { retrofit.create(RouteApi::class.java) }
     val regionApi: RegionApi by lazy { retrofit.create(RegionApi::class.java) }
+    val communityApi: CommunityApi by lazy { retrofit.create(CommunityApi::class.java) }
 
     /** 로그아웃 시 세션 쿠키 삭제 */
     fun clearSession() {

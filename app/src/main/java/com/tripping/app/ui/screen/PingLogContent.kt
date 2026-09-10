@@ -1,3 +1,4 @@
+// [파일 설명] Ping 탭 > "로그" 화면 UI. 지역별로 다른 사람들이 공개해둔 루트(로그 커뮤니티)를 보여줌.
 package com.tripping.app.ui.screen
 
 import androidx.compose.foundation.background
@@ -17,7 +18,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.tripping.app.viewmodel.PingLogCourse
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.tripping.app.data.response.RouteSummaryResponse
+import com.tripping.app.viewmodel.CommunityViewModel
 
 // ===== 색상 (필요시 공통 파일로 관리) =====
 private val GrayBg = Color(0xFFF3F3F5)
@@ -25,18 +28,17 @@ private val GrayText = Color(0xFF9A9A9A)
 private val CardBorder = Color(0xFFECECEC)
 
 @Composable
-internal fun PingLogContent(onCourseClick: (Long) -> Unit) { // 👈 course.id가 Long이므로 Int에서 Long으로 변경
-    var selectedRegion by remember { mutableStateOf("지역") }
-
-    // TODO: 실제로는 지역 선택에 따른 API 호출 결과로 교체
-    val mockCourses = remember {
-        listOf(
-            PingLogCourse(1L, "등록자이름", "A 코스", listOf("강남", "코엑스", "석촌호수"), 5, 31, 4),
-            PingLogCourse(2L, "등록자이름", "A 코스", listOf("강남", "코엑스", "석촌호수"), 5, 31, 4),
-            PingLogCourse(3L, "등록자이름", "A 코스", listOf("강남", "코엑스", "석촌호수"), 5, 31, 4),
-            PingLogCourse(4L, "등록자이름", "A 코스", listOf("강남", "코엑스", "석촌호수"), 5, 31, 4)
-        )
+internal fun PingLogContent(
+    onCourseClick: (Long) -> Unit,
+    viewModel: CommunityViewModel = viewModel()
+) {
+    LaunchedEffect(Unit) {
+        viewModel.loadInitialRegions()
     }
+
+    val regions = viewModel.regions
+    val selectedRegion = viewModel.selectedRegion
+    val routes = viewModel.routes
 
     LazyColumn(
         modifier = Modifier
@@ -50,8 +52,9 @@ internal fun PingLogContent(onCourseClick: (Long) -> Unit) { // 👈 course.id�
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 RegionDropdown(
+                    regions = regions,
                     selectedRegion = selectedRegion,
-                    onRegionSelected = { selectedRegion = it }
+                    onRegionSelected = { viewModel.selectRegion(it) }
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 Text(text = "지역별 인기순위를 만나보세요", fontSize = 12.sp, color = GrayText)
@@ -59,24 +62,38 @@ internal fun PingLogContent(onCourseClick: (Long) -> Unit) { // 👈 course.id�
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        items(mockCourses) { course ->
-            PingLogCourseCard(course = course, onClick = { onCourseClick(course.id) })
-            Spacer(modifier = Modifier.height(10.dp))
+        if (routes.isEmpty()) {
+            item {
+                Text(
+                    text = if (viewModel.isLoadingRoutes) "불러오는 중..." else "이 지역에 등록된 루트가 아직 없어요",
+                    fontSize = 13.sp,
+                    color = GrayText,
+                    modifier = Modifier.padding(vertical = 24.dp)
+                )
+            }
+        } else {
+            items(routes) { route ->
+                RouteCourseCard(route = route, onClick = { onCourseClick(route.routeId) })
+                Spacer(modifier = Modifier.height(10.dp))
+            }
         }
     }
 }
 
 @Composable
-private fun RegionDropdown(selectedRegion: String, onRegionSelected: (String) -> Unit) {
+private fun RegionDropdown(
+    regions: List<com.tripping.app.data.response.RegionResponse>,
+    selectedRegion: com.tripping.app.data.response.RegionResponse?,
+    onRegionSelected: (com.tripping.app.data.response.RegionResponse) -> Unit
+) {
     var expanded by remember { mutableStateOf(false) }
-    val regions = listOf("전체", "강남", "홍대", "성수", "여의도")
 
     Box {
         Row(
             modifier = Modifier.clickable { expanded = true },
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(text = selectedRegion, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+            Text(text = selectedRegion?.regionName ?: "지역", fontSize = 20.sp, fontWeight = FontWeight.Bold)
             Spacer(modifier = Modifier.width(4.dp))
             Text(text = "⌄", fontSize = 18.sp, color = Color.Black)
         }
@@ -84,7 +101,7 @@ private fun RegionDropdown(selectedRegion: String, onRegionSelected: (String) ->
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             regions.forEach { region ->
                 DropdownMenuItem(
-                    text = { Text(region) },
+                    text = { Text(region.regionName) },
                     onClick = {
                         onRegionSelected(region)
                         expanded = false
@@ -96,7 +113,7 @@ private fun RegionDropdown(selectedRegion: String, onRegionSelected: (String) ->
 }
 
 @Composable
-private fun PingLogCourseCard(course: PingLogCourse, onClick: () -> Unit) {
+private fun RouteCourseCard(route: RouteSummaryResponse, onClick: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -112,7 +129,7 @@ private fun PingLogCourseCard(course: PingLogCourse, onClick: () -> Unit) {
                     .background(GrayBg)
             )
             Spacer(modifier = Modifier.width(8.dp))
-            Text(text = course.authorName, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            Text(text = route.writerNickname, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
         }
         Spacer(modifier = Modifier.height(10.dp))
 
@@ -128,25 +145,30 @@ private fun PingLogCourseCard(course: PingLogCourse, onClick: () -> Unit) {
 
             Column(modifier = Modifier.weight(1f)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(text = course.courseName, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.weight(1f))
+                    Text(
+                        text = "${route.travelDate ?: "날짜 미정"} 루트",
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 16.sp,
+                        modifier = Modifier.weight(1f)
+                    )
                     Text(text = "🔖", fontSize = 12.sp)
                     Spacer(modifier = Modifier.width(2.dp))
-                    Text(text = course.bookmarkCount.toString(), fontSize = 12.sp, color = GrayText)
+                    Text(text = route.savedCount.toString(), fontSize = 12.sp, color = GrayText)
                 }
                 Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = course.stops.joinToString(" → "),
+                    text = route.spotNames.ifEmpty { listOf("경유지 정보 없음") }.joinToString(" → "),
                     fontSize = 13.sp,
                     color = Color(0xFF333333)
                 )
                 Spacer(modifier = Modifier.height(8.dp))
-                Row(
+                Text(
+                    text = "Ping 개수 : ${route.spotCount}개",
+                    fontSize = 11.sp,
+                    color = GrayText,
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Text(text = "Ping 개수 : ${course.pingCount}개", fontSize = 11.sp, color = GrayText)
-                    Text(text = "${course.distanceKm} km", fontSize = 11.sp, color = GrayText)
-                }
+                    textAlign = androidx.compose.ui.text.style.TextAlign.End
+                )
             }
         }
     }
