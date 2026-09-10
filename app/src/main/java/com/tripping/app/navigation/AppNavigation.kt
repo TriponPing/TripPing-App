@@ -1352,13 +1352,15 @@ fun AppNavigation() {
 
                         onPlaceSelected = { place ->
 
-                            pingViewModel.createPing(
+                            // 👈 수정: createPing(WIDGET_PING)에 저장하면 "기록" 탭 타임라인이
+                            // 읽는 ACTUAL_ROUTE_SPOT에는 안 보여서, 완료된 여행 쪽과 똑같이
+                            // addSpotToTrip(ACTUAL_ROUTE_SPOT)을 쓰도록 맞춤 - 추가한 장소가
+                            // 기록 화면에 바로 보이게 됨
+                            pingViewModel.addSpotToTrip(
 
                                 routeId = routeId,
 
                                 spotId = place.spotId,
-
-                                placeName = place.name,
 
                                 latitude = place.latitude,
 
