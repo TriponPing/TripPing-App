@@ -11,6 +11,7 @@ import com.tripping.app.data.request.AddTripSpotRequest
 import com.tripping.app.data.request.CreatePingRequest
 import com.tripping.app.data.request.PingReviewRequest
 import com.tripping.app.data.response.PingDto
+import com.tripping.app.data.response.PingReviewResponse
 import com.tripping.app.data.response.TripDetailResponse
 import com.tripping.app.data.response.TripSummaryResponse
 import kotlinx.coroutines.launch
@@ -46,6 +47,13 @@ class PingViewModel : ViewModel() {
         private set
 
     var reviewSubmitSuccess by mutableStateOf(false)
+        private set
+
+    // ===== 👈 새로 추가: 기존 후기 조회 (등록/수정 모드 판단용) =====
+    var existingReview by mutableStateOf<PingReviewResponse?>(null)
+        private set
+
+    var isCheckingExistingReview by mutableStateOf(true)
         private set
 
     /** Ping 탭(기록) 진입 시: 진행중인 여행 + 가장 최근 다녀온 여행을 각각 따로 불러옴 */
@@ -154,6 +162,24 @@ class PingViewModel : ViewModel() {
         }
     }
 
+    /** 핑 카드 "···" -> 삭제. "기록"(진행중) 탭과 "코스 상세"(완료된 여행) 화면 양쪽에서 씀 */
+    fun deleteTripSpot(routeId: Long, actualRouteSpotId: Long) {
+        viewModelScope.launch {
+            isLoading = true
+            errorMessage = null
+            try {
+                RetrofitClient.pingApi.deleteTripSpot(routeId, actualRouteSpotId)
+                // 로컬 목록에서 바로 제거 - 재조회 없이 즉시 반영 (둘 중 실제로 들어있는 목록만 걸러짐)
+                ongoingTripSpots = ongoingTripSpots.filter { it.actualRouteSpotId != actualRouteSpotId }
+                tripSpots = tripSpots.filter { it.actualRouteSpotId != actualRouteSpotId }
+            } catch (e: Exception) {
+                errorMessage = e.localizedMessage ?: "기록 삭제 중 오류가 발생했습니다."
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
     /** 코스 상세 화면 진입 시: 완료된 여행(routeId)의 확정된 방문 스팟(ACTUAL_ROUTE_SPOT)을 불러옴 */
     fun loadTripSpots(routeId: Long) {
         viewModelScope.launch {
@@ -172,6 +198,21 @@ class PingViewModel : ViewModel() {
                 tripSpots = emptyList()
             } finally {
                 isLoading = false
+            }
+        }
+    }
+
+    /** 핑로그 후기 화면 진입 시: 이미 등록된 후기가 있는지 확인 (있으면 수정 모드로 전환하는 데 씀) */
+    fun loadExistingReview(pingId: Long) {
+        viewModelScope.launch {
+            isCheckingExistingReview = true
+            try {
+                existingReview = RetrofitClient.pingApi.getPingReview(pingId)
+            } catch (e: Exception) {
+                // 404 등 - 아직 후기가 없다는 뜻, 정상적인 "없음" 상태로 처리
+                existingReview = null
+            } finally {
+                isCheckingExistingReview = false
             }
         }
     }

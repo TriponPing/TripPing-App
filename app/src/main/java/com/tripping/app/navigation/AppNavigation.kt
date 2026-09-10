@@ -43,6 +43,7 @@ import com.tripping.app.ui.screen.MyPageScreen
 import com.tripping.app.ui.screen.NearbyCoursesScreen
 import com.tripping.app.ui.screen.PingCourseDetailScreen
 import com.tripping.app.ui.screen.PingHistoryScreen
+import com.tripping.app.ui.screen.PingLogDetailScreen
 import com.tripping.app.ui.screen.PingLogReviewScreen
 import com.tripping.app.ui.screen.PingPlaceSearchScreen
 import com.tripping.app.ui.screen.PingScreen
@@ -86,6 +87,10 @@ private const val PING_LOG_REVIEW_ROUTE =
 private const val PING_HISTORY_ROUTE =
     "ping_history"
 
+// 👈 새로 추가: 로그 커뮤니티 카드 클릭 -> 로그 상세보기(경유지 + 후기)
+private const val PING_LOG_DETAIL_ROUTE =
+    "ping_log_detail/{routeId}"
+
 private const val ROUTE_CREATE_ROUTE =
     "route_create"
 
@@ -110,6 +115,7 @@ private val bottomBarRoutes = mapOf(
     PING_ADD_ONGOING_PLACE_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
     PING_LOG_REVIEW_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
     PING_HISTORY_ROUTE to AppBottomNavTab.PING,
+    PING_LOG_DETAIL_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
 
     "mypage" to AppBottomNavTab.MY,
     "trip_history" to AppBottomNavTab.MY,
@@ -157,6 +163,17 @@ private fun navigateToPingCourseDetail(
 ) {
     navController.navigate(
         "ping_course_detail/$routeId?title=${Uri.encode(title)}"
+    )
+}
+
+
+// Ping "로그" 탭 카드 → 로그 상세보기
+private fun navigateToPingLogDetail(
+    navController: NavController,
+    routeId: Long
+) {
+    navController.navigate(
+        "ping_log_detail/$routeId"
     )
 }
 
@@ -378,6 +395,9 @@ fun AppNavigation() {
                     val signUpState by
                     authViewModel.signUpState.collectAsState()
 
+                    val regions by
+                    authViewModel.regions.collectAsState()
+
 
                     LaunchedEffect(signUpState) {
 
@@ -390,15 +410,24 @@ fun AppNavigation() {
 
                     SignUpScreen(
 
+                        regions = regions,
+
+                        onLoadRegions = {
+
+                            authViewModel.loadRegions()
+                        },
+
                         onSignUpClick = {
                                 nickname,
                                 email,
-                                password ->
+                                password,
+                                regionId ->
 
                             authViewModel.signUp(
                                 nickname,
                                 email,
-                                password
+                                password,
+                                regionId
                             )
                         },
 
@@ -429,8 +458,8 @@ fun AppNavigation() {
                             showRouteMenu = true
                         },
 
-                        onViewRouteClick = {
-                            // TODO: 진행 중인 여행 루트 상세
+                        onViewRouteClick = { routeId, title ->
+                            navigateToCourseDetail(navController, routeId, title)
                         },
 
                         onPingClick = {
@@ -918,8 +947,12 @@ fun AppNavigation() {
                             )
                         },
 
-                        onCourseClick = {
-                            // TODO
+                        onCourseClick = { routeId ->
+
+                            navigateToPingLogDetail(
+                                navController,
+                                routeId
+                            )
                         },
 
                         onMoreClick = {
@@ -1021,6 +1054,35 @@ fun AppNavigation() {
                                 pingId,
                                 placeName
                             )
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // Ping 로그 상세보기 (로그 커뮤니티 카드 클릭)
+                // ========================================================
+
+                composable(
+                    PING_LOG_DETAIL_ROUTE,
+
+                    arguments = listOf(
+                        navArgument("routeId") {
+                            type = NavType.LongType
+                        }
+                    )
+
+                ) { backStackEntry ->
+
+                    val routeId =
+                        backStackEntry.arguments
+                            ?.getLong("routeId")
+                            ?: 0L
+
+                    PingLogDetailScreen(
+                        routeId = routeId,
+                        onBackClick = {
+                            navController.popBackStack()
                         }
                     )
                 }
@@ -1189,66 +1251,132 @@ fun AppNavigation() {
                     val context =
                         LocalContext.current
 
+                    // 👈 새로 추가: 진입 시 이미 등록된 후기가 있는지 먼저 확인
+                    LaunchedEffect(pingId) {
+                        pingViewModel.loadExistingReview(pingId)
+                    }
 
-                    PingLogReviewScreen(
+                    val existingReview = pingViewModel.existingReview
+                    val isCheckingExisting = pingViewModel.isCheckingExistingReview
 
-                        placeName = placeName,
+                    if (isCheckingExisting) {
 
-                        onBackClick = {
-
-                            navController.popBackStack()
-                        },
-
-                        onSubmit = { content, rating, tags ->
-
-                            pingViewModel.submitReview(
-
-                                pingId = pingId,
-
-                                rating = rating,
-
-                                content = content,
-
-                                tags = tags,
-
-                                onSuccess = {
-
-                                    Toast.makeText(
-                                        context,
-                                        "후기가 등록되었습니다!",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-
-                                    navController.popBackStack()
-                                }
-                            )
-                        },
-
-                        onSubmitAndNext = { content, rating, tags ->
-
-                            pingViewModel.submitReview(
-
-                                pingId = pingId,
-
-                                rating = rating,
-
-                                content = content,
-
-                                tags = tags,
-
-                                onSuccess = {
-
-                                    Toast.makeText(
-                                        context,
-                                        "후기가 등록되었습니다!",
-                                        Toast.LENGTH_SHORT
-                                    ).show()
-
-                                    navController.popBackStack()
-                                }
-                            )
+                        // 확인 끝나기 전까지는 빈 화면(잠깐 대기) - 초기값이 안 채워진 채로
+                        // 화면이 먼저 그려지는 걸 방지하기 위함
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            androidx.compose.material3.CircularProgressIndicator()
                         }
-                    )
+                    } else {
+
+                        PingLogReviewScreen(
+
+                            placeName = placeName,
+
+                            initialRating = existingReview?.rating,
+
+                            initialContent = existingReview?.reviewComment,
+
+                            initialTags = existingReview?.tags ?: emptyList(),
+
+                            isEditMode = existingReview != null,
+
+                            onBackClick = {
+
+                                navController.popBackStack()
+                            },
+
+                            onSubmit = { content, rating, tags ->
+
+                                if (existingReview != null) {
+
+                                    pingViewModel.updateReview(
+
+                                        pingId = pingId,
+
+                                        rating = rating,
+
+                                        content = content,
+
+                                        tags = tags,
+
+                                        onSuccess = {
+
+                                            Toast.makeText(
+                                                context,
+                                                "후기가 수정되었습니다!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+
+                                            navController.popBackStack()
+                                        }
+                                    )
+                                } else {
+
+                                    pingViewModel.submitReview(
+
+                                        pingId = pingId,
+
+                                        rating = rating,
+
+                                        content = content,
+
+                                        tags = tags,
+
+                                        onSuccess = {
+
+                                            Toast.makeText(
+                                                context,
+                                                "후기가 등록되었습니다!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+
+                                            navController.popBackStack()
+                                        }
+                                    )
+                                }
+                            },
+
+                            onSubmitAndNext = { content, rating, tags ->
+
+                                if (existingReview != null) {
+
+                                    pingViewModel.updateReview(
+                                        pingId = pingId,
+                                        rating = rating,
+                                        content = content,
+                                        tags = tags,
+                                        onSuccess = {
+                                            Toast.makeText(
+                                                context,
+                                                "후기가 수정되었습니다!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            navController.popBackStack()
+                                        }
+                                    )
+                                } else {
+
+                                    pingViewModel.submitReview(
+                                        pingId = pingId,
+                                        rating = rating,
+                                        content = content,
+                                        tags = tags,
+                                        onSuccess = {
+                                            Toast.makeText(
+                                                context,
+                                                "후기가 등록되었습니다!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            navController.popBackStack()
+                                        }
+                                    )
+                                }
+                            }
+                        )
+                    }
                 }
 
 

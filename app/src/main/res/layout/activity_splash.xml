@@ -12,4 +12,14 @@
         android:src="@drawable/splash1"
         android:scaleType="fitCenter" />
 
+    <ImageView
+        android:id="@+id/ivLogoSplash"
+        android:layout_width="210dp"
+        android:layout_height="74dp"
+        android:layout_below="@id/ivDinoSplash"
+        android:layout_centerHorizontal="true"
+        android:layout_marginTop="16dp"
+        android:src="@drawable/logo"
+        android:scaleType="fitCenter" />
+
 </RelativeLayout>
