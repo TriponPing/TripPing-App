@@ -26,7 +26,8 @@ fun PingScreen(
     onPingLogClick: (pingId: Long, placeName: String) -> Unit = { _, _ -> },
     onRouteCardClick: (routeId: Long, title: String) -> Unit = { _, _ -> },
     onCourseClick: (Long) -> Unit = {},
-    onMoreClick: () -> Unit = {} // 👈 "바로가기" 클릭 시 실행될 콜백 (Ping 다녀온 여행 화면으로 이동)
+    onMoreClick: () -> Unit = {}, // 👈 "바로가기" 클릭 시 실행될 콜백 (Ping 다녀온 여행 화면으로 이동)
+    onRegisterRegionPingClick: (regionId: String, regionName: String) -> Unit = { _, _ -> } // 👈 새로 추가: "지역핑 등록하기"
 ) {
     var selectedTab by remember { mutableStateOf(PingTab.RECORD) }
 
@@ -54,7 +55,8 @@ fun PingScreen(
                 )
                 // 로그 탭 컴포저블은 PingLogContent.kt 걸 사용
                 PingTab.LOG -> PingLogContent(
-                    onCourseClick = onCourseClick
+                    onCourseClick = onCourseClick,
+                    onRegisterRegionPingClick = onRegisterRegionPingClick
                 )
             }
         }

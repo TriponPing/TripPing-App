@@ -58,6 +58,8 @@ private const val UNREGISTERED_SPOT_ID = -1L
 @Composable
 fun PingPlaceSearchScreen(
     viewModel: PlaceSearchViewModel = viewModel(),
+    // 👈 새로 추가: 지역핑 등록 흐름에서만 넘어옴 - 새 장소를 등록할 때 이 지역 소속으로 같이 저장하기 위함
+    regionId: String? = null,
     onPlaceSelected: (PlaceSearchResponse) -> Unit
 ) {
     val places by viewModel.places.collectAsState()
@@ -252,7 +254,8 @@ fun PingPlaceSearchScreen(
                                                 name = place.name,
                                                 category = categoryLabel,
                                                 latitude = place.latitude,
-                                                longitude = place.longitude
+                                                longitude = place.longitude,
+                                                regionId = regionId
                                             )
                                         )
                                         registeredPlace = created
