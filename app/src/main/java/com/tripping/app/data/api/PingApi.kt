@@ -40,6 +40,13 @@ interface PingApi {
         @Body request: AddTripSpotRequest
     ): AddTripSpotResponse
 
+    // 👈 새로 추가: 여행 기록(방문 스팟) 삭제 - 실수로 잘못 찍은 기록 지우기
+    @DELETE("trips/{routeId}/spots/{actualRouteSpotId}")
+    suspend fun deleteTripSpot(
+        @Path("routeId") routeId: Long,
+        @Path("actualRouteSpotId") actualRouteSpotId: Long
+    )
+
     // 👈 새로 추가: 기존 후기 조회 - 화면 진입 시 등록/수정 모드 판단용 (없으면 404 예외 발생함)
     @GET("pings/{pingId}/review")
     suspend fun getPingReview(@Path("pingId") pingId: Long): PingReviewResponse

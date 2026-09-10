@@ -162,6 +162,24 @@ class PingViewModel : ViewModel() {
         }
     }
 
+    /** 핑 카드 "···" -> 삭제. "기록"(진행중) 탭과 "코스 상세"(완료된 여행) 화면 양쪽에서 씀 */
+    fun deleteTripSpot(routeId: Long, actualRouteSpotId: Long) {
+        viewModelScope.launch {
+            isLoading = true
+            errorMessage = null
+            try {
+                RetrofitClient.pingApi.deleteTripSpot(routeId, actualRouteSpotId)
+                // 로컬 목록에서 바로 제거 - 재조회 없이 즉시 반영 (둘 중 실제로 들어있는 목록만 걸러짐)
+                ongoingTripSpots = ongoingTripSpots.filter { it.actualRouteSpotId != actualRouteSpotId }
+                tripSpots = tripSpots.filter { it.actualRouteSpotId != actualRouteSpotId }
+            } catch (e: Exception) {
+                errorMessage = e.localizedMessage ?: "기록 삭제 중 오류가 발생했습니다."
+            } finally {
+                isLoading = false
+            }
+        }
+    }
+
     /** 코스 상세 화면 진입 시: 완료된 여행(routeId)의 확정된 방문 스팟(ACTUAL_ROUTE_SPOT)을 불러옴 */
     fun loadTripSpots(routeId: Long) {
         viewModelScope.launch {
