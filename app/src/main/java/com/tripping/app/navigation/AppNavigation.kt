@@ -43,6 +43,7 @@ import com.tripping.app.ui.screen.MyPageScreen
 import com.tripping.app.ui.screen.NearbyCoursesScreen
 import com.tripping.app.ui.screen.PingCourseDetailScreen
 import com.tripping.app.ui.screen.PingHistoryScreen
+import com.tripping.app.ui.screen.PingLogDetailScreen
 import com.tripping.app.ui.screen.PingLogReviewScreen
 import com.tripping.app.ui.screen.PingPlaceSearchScreen
 import com.tripping.app.ui.screen.PingScreen
@@ -86,6 +87,10 @@ private const val PING_LOG_REVIEW_ROUTE =
 private const val PING_HISTORY_ROUTE =
     "ping_history"
 
+// 👈 새로 추가: 로그 커뮤니티 카드 클릭 -> 로그 상세보기(경유지 + 후기)
+private const val PING_LOG_DETAIL_ROUTE =
+    "ping_log_detail/{routeId}"
+
 private const val ROUTE_CREATE_ROUTE =
     "route_create"
 
@@ -107,6 +112,7 @@ private val bottomBarRoutes = mapOf(
     PING_ADD_ONGOING_PLACE_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
     PING_LOG_REVIEW_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
     PING_HISTORY_ROUTE to AppBottomNavTab.PING,
+    PING_LOG_DETAIL_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
 
     "mypage" to AppBottomNavTab.MY,
     "trip_history" to AppBottomNavTab.MY,
@@ -154,6 +160,17 @@ private fun navigateToPingCourseDetail(
 ) {
     navController.navigate(
         "ping_course_detail/$routeId?title=${Uri.encode(title)}"
+    )
+}
+
+
+// Ping "로그" 탭 카드 → 로그 상세보기
+private fun navigateToPingLogDetail(
+    navController: NavController,
+    routeId: Long
+) {
+    navController.navigate(
+        "ping_log_detail/$routeId"
     )
 }
 
@@ -927,8 +944,12 @@ fun AppNavigation() {
                             )
                         },
 
-                        onCourseClick = {
-                            // TODO
+                        onCourseClick = { routeId ->
+
+                            navigateToPingLogDetail(
+                                navController,
+                                routeId
+                            )
                         },
 
                         onMoreClick = {
@@ -1030,6 +1051,35 @@ fun AppNavigation() {
                                 pingId,
                                 placeName
                             )
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // Ping 로그 상세보기 (로그 커뮤니티 카드 클릭)
+                // ========================================================
+
+                composable(
+                    PING_LOG_DETAIL_ROUTE,
+
+                    arguments = listOf(
+                        navArgument("routeId") {
+                            type = NavType.LongType
+                        }
+                    )
+
+                ) { backStackEntry ->
+
+                    val routeId =
+                        backStackEntry.arguments
+                            ?.getLong("routeId")
+                            ?: 0L
+
+                    PingLogDetailScreen(
+                        routeId = routeId,
+                        onBackClick = {
+                            navController.popBackStack()
                         }
                     )
                 }
