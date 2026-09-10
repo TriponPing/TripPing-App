@@ -230,4 +230,9 @@ class RouteCreateViewModel : ViewModel() {
         return datePart.replace(".", "-").trim('-')
     }
 
+    fun startEditingRoute(initialPlaces: List<RoutePlaceItem>) {
+        _editablePlaces.value = initialPlaces
+        loadSavedPlaces()
+    }
+
 }
