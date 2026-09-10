@@ -375,6 +375,9 @@ fun AppNavigation() {
                     val signUpState by
                     authViewModel.signUpState.collectAsState()
 
+                    val regions by
+                    authViewModel.regions.collectAsState()
+
 
                     LaunchedEffect(signUpState) {
 
@@ -387,15 +390,24 @@ fun AppNavigation() {
 
                     SignUpScreen(
 
+                        regions = regions,
+
+                        onLoadRegions = {
+
+                            authViewModel.loadRegions()
+                        },
+
                         onSignUpClick = {
                                 nickname,
                                 email,
-                                password ->
+                                password,
+                                regionId ->
 
                             authViewModel.signUp(
                                 nickname,
                                 email,
-                                password
+                                password,
+                                regionId
                             )
                         },
 
