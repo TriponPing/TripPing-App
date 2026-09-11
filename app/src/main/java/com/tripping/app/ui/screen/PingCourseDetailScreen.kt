@@ -6,7 +6,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -26,7 +28,7 @@ fun PingCourseDetailScreen(
     viewModel: PingViewModel = viewModel(),
     onBackClick: () -> Unit,
     onAddPingClick: () -> Unit,
-    onPingLogClick: (Long) -> Unit
+    onPingLogClick: (pingId: Long, placeName: String) -> Unit
 ) {
     // 이 코스(routeId)의 확정된 방문 스팟(ACTUAL_ROUTE_SPOT)을 불러옴
     LaunchedEffect(routeId) {
@@ -43,7 +45,7 @@ fun PingCourseDetailScreen(
         }
 
         PingItem(
-            id = spot.spotId ?: index.toLong(),
+            id = spot.actualRouteSpotId ?: (spot.spotId ?: index.toLong()),
             placeName = spot.spotName ?: "이름 없음",
             time = formattedTime,
             status = PingStatus.DONE // 이미 확정된(다녀온) 방문 기록이라 전부 완료 상태
@@ -51,6 +53,8 @@ fun PingCourseDetailScreen(
     }
 
     val canAddMorePing = pingsFromDb.size < 4
+
+    var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
 
     Column(
         modifier = Modifier
@@ -89,7 +93,11 @@ fun PingCourseDetailScreen(
                 }
 
                 items(pingsFromDb) { ping ->
-                    PingCard(ping = ping, onLinkClick = { onPingLogClick(ping.id) })
+                    PingCard(
+                        ping = ping,
+                        onLinkClick = { onPingLogClick(ping.id, ping.placeName) },
+                        onDeleteClick = { pendingDeleteId = ping.id }
+                    )
                     Spacer(modifier = Modifier.height(10.dp))
                 }
             }
@@ -107,5 +115,28 @@ fun PingCourseDetailScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         }
+    }
+
+    val deleteTargetId = pendingDeleteId
+    if (deleteTargetId != null) {
+        AlertDialog(
+            onDismissRequest = { pendingDeleteId = null },
+            text = {
+                Text(text = "이 기록을 삭제하시겠습니까?", fontSize = 15.sp)
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    viewModel.deleteTripSpot(routeId, deleteTargetId)
+                    pendingDeleteId = null
+                }) {
+                    Text(text = "확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteId = null }) {
+                    Text(text = "취소")
+                }
+            }
+        )
     }
 }

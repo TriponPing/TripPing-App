@@ -22,16 +22,22 @@
             android:name="com.naver.maps.map.NCP_KEY_ID"
             android:value="lc2jzo6cm8" />
 
+        <!-- 앱 진입 시 스플래시(마스코트+로고) 먼저 보여주고 MainActivity로 넘어감 -->
         <activity
-            android:name=".MainActivity"
+            android:name=".SplashActivity"
             android:exported="true"
-            android:label="@string/app_name"
-            android:theme="@style/Theme.Tripping"
-            android:windowSoftInputMode="adjustResize">
+            android:theme="@style/Theme.Tripping">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.Tripping"
+            android:windowSoftInputMode="adjustResize" />
     </application>
 </manifest>

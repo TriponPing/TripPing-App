@@ -22,11 +22,12 @@ private enum class PingTab { RECORD, LOG }
 
 @Composable
 fun PingScreen(
-    onAddPingClick: () -> Unit = {},
-    onPingLogClick: (Long) -> Unit = {},
+    onAddPingClick: (routeId: Long) -> Unit = {},
+    onPingLogClick: (pingId: Long, placeName: String) -> Unit = { _, _ -> },
     onRouteCardClick: (routeId: Long, title: String) -> Unit = { _, _ -> },
     onCourseClick: (Long) -> Unit = {},
-    onMoreClick: () -> Unit = {} // 👈 추가된 부분: 바로가기 클릭 시 실행될 콜백
+    onMoreClick: () -> Unit = {}, // 👈 "바로가기" 클릭 시 실행될 콜백 (Ping 다녀온 여행 화면으로 이동)
+    onRegisterRegionPingClick: (regionId: String, regionName: String) -> Unit = { _, _ -> } // 👈 새로 추가: "지역핑 등록하기"
 ) {
     var selectedTab by remember { mutableStateOf(PingTab.RECORD) }
 
@@ -50,11 +51,12 @@ fun PingScreen(
                     onAddPingClick = onAddPingClick,
                     onPingLogClick = onPingLogClick,
                     onRouteCardClick = onRouteCardClick,
-                    onMoreClick = onMoreClick // 다녀온 여행 더보기 부분
+                    onMoreClick = onMoreClick // 👈 그대로 외부(AppNavigation)로 전달 - Ping 다녀온 여행 화면으로 이동
                 )
                 // 로그 탭 컴포저블은 PingLogContent.kt 걸 사용
                 PingTab.LOG -> PingLogContent(
-                    onCourseClick = onCourseClick
+                    onCourseClick = onCourseClick,
+                    onRegisterRegionPingClick = onRegisterRegionPingClick
                 )
             }
         }

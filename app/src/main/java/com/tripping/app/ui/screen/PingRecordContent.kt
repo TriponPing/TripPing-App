@@ -9,7 +9,11 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -36,10 +40,10 @@ private val EmptyTextColor = Color(0xFFE6E6E6)
 internal fun PingRecordContent(
     modifier: Modifier = Modifier,
     viewModel: PingViewModel = viewModel(),
-    onAddPingClick: () -> Unit,
-    onPingLogClick: (Long) -> Unit,
+    onAddPingClick: (routeId: Long) -> Unit,
+    onPingLogClick: (pingId: Long, placeName: String) -> Unit,
     onRouteCardClick: (routeId: Long, title: String) -> Unit,
-    onMoreClick: () -> Unit // 👈 추가된 부분: 바로가기 클릭 시 실행될 콜백
+    onMoreClick: () -> Unit = {} // 👈 "바로가기" 클릭 시 실행될 콜백 (다녀온 여행 목록으로 이동 등)
 ) {
     LaunchedEffect(Unit) {
         viewModel.loadPingTabData()
@@ -47,29 +51,29 @@ internal fun PingRecordContent(
 
     val recentTrip = viewModel.recentTrip       // 아래쪽 카드용: 가장 최근 "다녀온" 여행 요약
     val hasOngoingTrip = viewModel.hasOngoingTrip
-    val pingDtos = viewModel.ongoingPings        // 위쪽 타임라인용: "진행중" 여행의 핑 목록
+    val ongoingRouteId = viewModel.ongoingRouteId
+    val ongoingSpots = viewModel.ongoingTripSpots  // 위쪽 타임라인용: "진행중" 여행의 전체 일정 (ACTUAL_ROUTE_SPOT)
 
-    // 서버 응답 데이터를 UI 모델로 변환 (pingTime 안전하게 포맷팅)
-    val pingsFromDb = pingDtos.map { dto ->
+    // 서버 응답 데이터를 UI 모델로 변환 (visitTime 안전하게 포맷팅)
+    val pingsFromDb = ongoingSpots.mapIndexed { index, spot ->
         val formattedTime = try {
-            if (dto.pingTime.length >= 16) dto.pingTime.substring(11, 16) else dto.pingTime
+            spot.visitTime?.let { if (it.length >= 16) it.substring(11, 16) else it } ?: "시간 미정"
         } catch (e: Exception) {
             "시간 미정"
         }
 
         PingItem(
-            id = dto.pingId,
-            placeName = dto.placeName,
+            id = spot.actualRouteSpotId ?: (spot.spotId ?: index.toLong()),
+            placeName = spot.spotName ?: "이름 없음",
             time = formattedTime,
-            status = when (dto.isConfirmed) {
-                true -> PingStatus.DONE
-                else -> PingStatus.CURRENT
-            }
+            status = PingStatus.DONE
         )
     }
 
     val hasTrip = hasOngoingTrip
-    val canAddMorePing = pingsFromDb.size < 4
+
+    // 실수로 지울 수 있어서(다른 삭제 액션들과 동일하게) 확인 팝업을 한 번 거침
+    var pendingDeleteId by remember { mutableStateOf<Long?>(null) }
 
     LazyColumn(
         modifier = modifier
@@ -94,15 +98,17 @@ internal fun PingRecordContent(
             }
 
             items(pingsFromDb) { ping ->
-                PingCard(ping = ping, onLinkClick = { onPingLogClick(ping.id) })
+                PingCard(
+                    ping = ping,
+                    onLinkClick = { onPingLogClick(ping.id, ping.placeName) },
+                    onDeleteClick = { pendingDeleteId = ping.id }
+                )
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
-            if (canAddMorePing) {
-                item {
-                    AddPingButton(onClick = onAddPingClick)
-                    Spacer(modifier = Modifier.height(12.dp))
-                }
+            item {
+                AddPingButton(onClick = { ongoingRouteId?.let { onAddPingClick(it) } })
+                Spacer(modifier = Modifier.height(12.dp))
             }
         }
 
@@ -115,14 +121,8 @@ internal fun PingRecordContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "기록을 추가하고 싶은 여행이 있나요?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                // 👈 수정된 부분: 바로가기 텍스트에 clickable 추가
-                Text(
-                    text = "바로가기",
-                    fontSize = 13.sp,
-                    color = GrayText,
-                    modifier = Modifier.clickable { onMoreClick() }
-                )
+                Text(text = "기록을 추가하고 싶은 핑로그가 있나요?", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+                Text(text = "바로가기", fontSize = 13.sp, color = GrayText, modifier = Modifier.clickable { onMoreClick() })
             }
             Spacer(modifier = Modifier.height(12.dp))
 
@@ -137,6 +137,29 @@ internal fun PingRecordContent(
                 )
             }
         }
+    }
+
+    val deleteTargetId = pendingDeleteId
+    if (deleteTargetId != null) {
+        AlertDialog(
+            onDismissRequest = { pendingDeleteId = null },
+            text = {
+                Text(text = "이 기록을 삭제하시겠습니까?", fontSize = 15.sp)
+            },
+            confirmButton = {
+                TextButton(onClick = {
+                    ongoingRouteId?.let { viewModel.deleteTripSpot(it, deleteTargetId) }
+                    pendingDeleteId = null
+                }) {
+                    Text(text = "확인")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDeleteId = null }) {
+                    Text(text = "취소")
+                }
+            }
+        )
     }
 }
 
@@ -193,7 +216,7 @@ internal fun TimelineDots(pings: List<PingItem>) {
 }
 
 @Composable
-internal fun PingCard(ping: PingItem, onLinkClick: () -> Unit) {
+internal fun PingCard(ping: PingItem, onLinkClick: () -> Unit, onDeleteClick: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -215,7 +238,26 @@ internal fun PingCard(ping: PingItem, onLinkClick: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Text(text = ping.placeName, fontWeight = FontWeight.Bold, fontSize = 16.sp)
-                Text(text = "···", fontSize = 14.sp, color = GrayText, fontWeight = FontWeight.Bold)
+
+                var menuExpanded by remember { mutableStateOf(false) }
+                Box {
+                    Text(
+                        text = "···",
+                        fontSize = 14.sp,
+                        color = GrayText,
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.clickable { menuExpanded = true }
+                    )
+                    DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+                        DropdownMenuItem(
+                            text = { Text("삭제") },
+                            onClick = {
+                                menuExpanded = false
+                                onDeleteClick()
+                            }
+                        )
+                    }
+                }
             }
 
             Text(text = ping.time, fontWeight = FontWeight.Bold, fontSize = 14.sp)

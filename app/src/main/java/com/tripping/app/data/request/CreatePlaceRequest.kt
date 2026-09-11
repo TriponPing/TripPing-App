@@ -5,5 +5,6 @@ data class CreatePlaceRequest(
     val name: String,
     val category: String,
     val latitude: Double,
-    val longitude: Double
+    val longitude: Double,
+    val regionId: String? = null // 지역핑 등록 흐름에서 새 장소를 만들 때만 채워서 보냄
 )

@@ -43,6 +43,8 @@ import com.tripping.app.ui.screen.MyPageScreen
 import com.tripping.app.ui.screen.NearbyCoursesScreen
 import com.tripping.app.ui.screen.PingCourseDetailScreen
 import com.tripping.app.ui.screen.PingHistoryScreen
+import com.tripping.app.ui.screen.PingLogDetailScreen
+import com.tripping.app.ui.screen.PingLogReviewScreen
 import com.tripping.app.ui.screen.PingPlaceSearchScreen
 import com.tripping.app.ui.screen.PingScreen
 import com.tripping.app.ui.screen.PlaceSearchScreen
@@ -59,10 +61,13 @@ import com.tripping.app.ui.screen.RouteMapEditScreen
 import com.tripping.app.ui.screen.RoutePlaceSearchScreen
 import com.tripping.app.ui.screen.RecommendedRoute
 import com.tripping.app.ui.screen.PlaceDetailScreen
+import com.tripping.app.ui.screen.RegionPingRegisterScreen
+import com.tripping.app.data.response.PlaceSearchResponse
 
 
 import com.tripping.app.viewmodel.AuthState
 import com.tripping.app.viewmodel.AuthViewModel
+import com.tripping.app.viewmodel.CommunityViewModel
 
 
 private const val COURSE_DETAIL_ROUTE = "course_detail/{tripId}?title={title}"
@@ -74,8 +79,28 @@ private const val PING_COURSE_DETAIL_ROUTE =
 private const val PING_ADD_PLACE_ROUTE =
     "ping_add_place/{routeId}"
 
+// 👈 새로 추가: 진행중인 여행 "+" 버튼 -> 이 라우트로 이동해서 장소 검색 후 실시간 핑 등록
+private const val PING_ADD_ONGOING_PLACE_ROUTE =
+    "ping_add_ongoing_place/{routeId}"
+
+// 👈 새로 추가: "핑로그 기록/수정 하러가기" -> 후기 작성 화면
+private const val PING_LOG_REVIEW_ROUTE =
+    "ping_log_review/{pingId}?placeName={placeName}"
+
 private const val PING_HISTORY_ROUTE =
     "ping_history"
+
+// 👈 새로 추가: 로그 커뮤니티 카드 클릭 -> 로그 상세보기(경유지 + 후기)
+private const val PING_LOG_DETAIL_ROUTE =
+    "ping_log_detail/{routeId}"
+
+// 👈 새로 추가: "지역핑 등록하기" -> 장소 선택(지도) 화면 (PingPlaceSearchScreen 재사용)
+private const val REGION_PING_PLACE_ROUTE =
+    "region_ping_place/{regionId}?regionName={regionName}"
+
+// 👈 새로 추가: 장소 선택 후 -> 평점/후기 입력 화면
+private const val REGION_PING_FORM_ROUTE =
+    "region_ping_form/{spotId}/{spotName}/{address}/{latitude}/{longitude}?regionName={regionName}"
 
 private const val ROUTE_CREATE_ROUTE =
     "route_create"
@@ -97,7 +122,12 @@ private val bottomBarRoutes = mapOf(
     "ping" to AppBottomNavTab.PING,
     PING_COURSE_DETAIL_ROUTE to AppBottomNavTab.PING,
     PING_ADD_PLACE_ROUTE to AppBottomNavTab.PING,
+    PING_ADD_ONGOING_PLACE_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
+    PING_LOG_REVIEW_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
     PING_HISTORY_ROUTE to AppBottomNavTab.PING,
+    PING_LOG_DETAIL_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
+    REGION_PING_PLACE_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
+    REGION_PING_FORM_ROUTE to AppBottomNavTab.PING, // 👈 새로 추가
 
     "mypage" to AppBottomNavTab.MY,
     "trip_history" to AppBottomNavTab.MY,
@@ -106,7 +136,7 @@ private val bottomBarRoutes = mapOf(
     TRIP_START_ROUTE to AppBottomNavTab.MY,
     "settings" to AppBottomNavTab.MY,
 
-    "popular_keywords" to AppBottomNavTab.HOME,
+    "popular_keywords?keyword={keyword}" to AppBottomNavTab.HOME,
     "nearby_courses" to AppBottomNavTab.HOME,
     "popular_routes" to AppBottomNavTab.HOME,
     "popular_places" to AppBottomNavTab.HOME
@@ -149,6 +179,17 @@ private fun navigateToPingCourseDetail(
 }
 
 
+// Ping "로그" 탭 카드 → 로그 상세보기
+private fun navigateToPingLogDetail(
+    navController: NavController,
+    routeId: Long
+) {
+    navController.navigate(
+        "ping_log_detail/$routeId"
+    )
+}
+
+
 // Ping 코스 상세 → 장소 추가
 private fun navigateToPingAddPlace(
     navController: NavController,
@@ -156,6 +197,57 @@ private fun navigateToPingAddPlace(
 ) {
     navController.navigate(
         "ping_add_place/$routeId"
+    )
+}
+
+
+// 👈 새로 추가: Ping 진행중인 여행 → 장소 추가(실시간 핑)
+private fun navigateToPingAddOngoingPlace(
+    navController: NavController,
+    routeId: Long
+) {
+    navController.navigate(
+        "ping_add_ongoing_place/$routeId"
+    )
+}
+
+
+// 👈 새로 추가: "핑로그 기록/수정 하러가기" → 후기 작성 화면
+private fun navigateToPingLogReview(
+    navController: NavController,
+    pingId: Long,
+    placeName: String
+) {
+    navController.navigate(
+        "ping_log_review/$pingId?placeName=${Uri.encode(placeName)}"
+    )
+}
+
+
+// 👈 새로 추가: "지역핑 등록하기" → 장소 선택 화면
+private fun navigateToRegionPingPlace(
+    navController: NavController,
+    regionId: String,
+    regionName: String
+) {
+    navController.navigate(
+        "region_ping_place/$regionId?regionName=${Uri.encode(regionName)}"
+    )
+}
+
+// 👈 새로 추가: 장소 선택 완료 → 평점/후기 입력 화면
+private fun navigateToRegionPingForm(
+    navController: NavController,
+    regionName: String,
+    place: com.tripping.app.data.response.PlaceSearchResponse
+) {
+    // 방금 새로 등록한 장소는 서버가 address를 null로 내려줄 수 있음(요청 DTO에 주소가 없음) ->
+    // PlaceSearchResponse.address 타입은 String(non-null)이지만 Gson은 null을 그대로 넣어버려서
+    // 방어적으로 null 처리 안 하면 네비게이션 인자 번들 생성 중 IllegalArgumentException으로 앱이 죽음.
+    val safeName = place.name ?: ""
+    val safeAddress = place.address ?: ""
+    navController.navigate(
+        "region_ping_form/${place.spotId}/${Uri.encode(safeName)}/${Uri.encode(safeAddress)}/${place.latitude}/${place.longitude}?regionName=${Uri.encode(regionName)}"
     )
 }
 
@@ -343,6 +435,9 @@ fun AppNavigation() {
                     val signUpState by
                     authViewModel.signUpState.collectAsState()
 
+                    val regions by
+                    authViewModel.regions.collectAsState()
+
 
                     LaunchedEffect(signUpState) {
 
@@ -355,15 +450,24 @@ fun AppNavigation() {
 
                     SignUpScreen(
 
+                        regions = regions,
+
+                        onLoadRegions = {
+
+                            authViewModel.loadRegions()
+                        },
+
                         onSignUpClick = {
                                 nickname,
                                 email,
-                                password ->
+                                password,
+                                regionId ->
 
                             authViewModel.signUp(
                                 nickname,
                                 email,
-                                password
+                                password,
+                                regionId
                             )
                         },
 
@@ -394,8 +498,8 @@ fun AppNavigation() {
                             showRouteMenu = true
                         },
 
-                        onViewRouteClick = {
-                            // TODO: 진행 중인 여행 루트 상세
+                        onViewRouteClick = { routeId, title ->
+                            navigateToCourseDetail(navController, routeId, title)
                         },
 
                         onPingClick = {
@@ -420,10 +524,10 @@ fun AppNavigation() {
                             )
                         },
 
-                        onSeeAllKeywords = {
+                        onSeeAllKeywords = { keyword ->
 
                             navController.navigate(
-                                "popular_keywords"
+                                "popular_keywords?keyword=${Uri.encode(keyword ?: "")}"
                             )
                         },
 
@@ -507,16 +611,28 @@ fun AppNavigation() {
                 // 인기 키워드
                 // ========================================================
 
-                composable("popular_keywords") {
+                composable(
+                    "popular_keywords?keyword={keyword}",
+                    arguments = listOf(
+                        navArgument("keyword") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        }
+                    )
+                ) { backStackEntry ->
+
+                    val keywordArg = backStackEntry.arguments?.getString("keyword").orEmpty()
 
                     PopularKeywordsScreen(
+
+                        initialKeyword = keywordArg.ifBlank { null },
 
                         onBackClick = {
                             navController.popBackStack()
                         },
 
-                        onCourseClick = {
-                            // TODO
+                        onCourseClick = { routeId ->
+                            navController.navigate("route_detail/$routeId")
                         }
                     )
                 }
@@ -553,8 +669,8 @@ fun AppNavigation() {
                             navController.popBackStack()
                         },
 
-                        onCourseClick = {
-                            // TODO
+                        onCourseClick = { routeId ->
+                            navController.navigate("route_detail/$routeId")
                         }
                     )
                 }
@@ -572,8 +688,8 @@ fun AppNavigation() {
                             navController.popBackStack()
                         },
 
-                        onPlaceClick = {
-                            // TODO
+                        onPlaceClick = { spotId ->
+                            navController.navigate("place_detail/$spotId")
                         }
                     )
                 }
@@ -751,10 +867,13 @@ fun AppNavigation() {
                         },
 
                         onGoToPing = {
+                                id,
+                                pingTitle ->
 
-                            navigateToTab(
+                            navigateToPingCourseDetail(
                                 navController,
-                                "ping"
+                                id,
+                                pingTitle
                             )
                         }
                     )
@@ -810,10 +929,13 @@ fun AppNavigation() {
                         },
 
                         onGoToPing = {
+                                id,
+                                pingTitle ->
 
-                            navigateToTab(
+                            navigateToPingCourseDetail(
                                 navController,
-                                "ping"
+                                id,
+                                pingTitle
                             )
                         }
                     )
@@ -844,12 +966,20 @@ fun AppNavigation() {
 
                     PingScreen(
 
-                        onAddPingClick = {
-                            // TODO
+                        onAddPingClick = { routeId ->
+
+                            navigateToPingAddOngoingPlace(
+                                navController,
+                                routeId
+                            )
                         },
 
-                        onPingLogClick = { pingId ->
-                            // TODO
+                        onPingLogClick = { pingId, placeName ->
+                            navigateToPingLogReview(
+                                navController,
+                                pingId,
+                                placeName
+                            )
                         },
 
                         onRouteCardClick = {
@@ -863,14 +993,27 @@ fun AppNavigation() {
                             )
                         },
 
-                        onCourseClick = {
-                            // TODO
+                        onCourseClick = { routeId ->
+
+                            navigateToPingLogDetail(
+                                navController,
+                                routeId
+                            )
                         },
 
                         onMoreClick = {
 
                             navigateToPingHistory(
                                 navController
+                            )
+                        },
+
+                        onRegisterRegionPingClick = { regionId, regionName ->
+
+                            navigateToRegionPingPlace(
+                                navController,
+                                regionId,
+                                regionName
                             )
                         }
                     )
@@ -960,8 +1103,158 @@ fun AppNavigation() {
                             )
                         },
 
-                        onPingLogClick = {
-                            // TODO
+                        onPingLogClick = { pingId, placeName ->
+                            navigateToPingLogReview(
+                                navController,
+                                pingId,
+                                placeName
+                            )
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // Ping 로그 상세보기 (로그 커뮤니티 카드 클릭)
+                // ========================================================
+
+                composable(
+                    PING_LOG_DETAIL_ROUTE,
+
+                    arguments = listOf(
+                        navArgument("routeId") {
+                            type = NavType.LongType
+                        }
+                    )
+
+                ) { backStackEntry ->
+
+                    val routeId =
+                        backStackEntry.arguments
+                            ?.getLong("routeId")
+                            ?: 0L
+
+                    PingLogDetailScreen(
+                        routeId = routeId,
+                        onBackClick = {
+                            navController.popBackStack()
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 👈 새로 추가: 지역핑 등록 - 1단계(장소 선택, PingPlaceSearchScreen 재사용)
+                // ========================================================
+
+                composable(
+                    REGION_PING_PLACE_ROUTE,
+
+                    arguments = listOf(
+                        navArgument("regionId") {
+                            type = NavType.StringType
+                        },
+                        navArgument("regionName") {
+                            type = NavType.StringType
+                            defaultValue = "내 지역"
+                        }
+                    )
+
+                ) { backStackEntry ->
+
+                    val regionName =
+                        backStackEntry.arguments
+                            ?.getString("regionName")
+                            ?: "내 지역"
+
+                    val regionId =
+                        backStackEntry.arguments
+                            ?.getString("regionId")
+
+                    PingPlaceSearchScreen(
+                        regionId = regionId,
+                        onPlaceSelected = { place ->
+                            navigateToRegionPingForm(
+                                navController,
+                                regionName,
+                                place
+                            )
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 👈 새로 추가: 지역핑 등록 - 2단계(평점/후기 입력)
+                // ========================================================
+
+                composable(
+                    REGION_PING_FORM_ROUTE,
+
+                    arguments = listOf(
+                        navArgument("spotId") {
+                            type = NavType.LongType
+                        },
+                        navArgument("spotName") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        },
+                        navArgument("address") {
+                            type = NavType.StringType
+                            defaultValue = ""
+                        },
+                        navArgument("latitude") {
+                            type = NavType.StringType
+                            defaultValue = "0.0"
+                        },
+                        navArgument("longitude") {
+                            type = NavType.StringType
+                            defaultValue = "0.0"
+                        },
+                        navArgument("regionName") {
+                            type = NavType.StringType
+                            defaultValue = "내 지역"
+                        }
+                    )
+
+                ) { backStackEntry ->
+
+                    val spotId = backStackEntry.arguments?.getLong("spotId") ?: 0L
+                    val spotName = backStackEntry.arguments?.getString("spotName") ?: ""
+                    val address = backStackEntry.arguments?.getString("address") ?: ""
+                    val latitude = backStackEntry.arguments?.getString("latitude")?.toDoubleOrNull() ?: 0.0
+                    val longitude = backStackEntry.arguments?.getString("longitude")?.toDoubleOrNull() ?: 0.0
+                    val regionName = backStackEntry.arguments?.getString("regionName") ?: "내 지역"
+
+                    val communityViewModel: CommunityViewModel = viewModel()
+                    val context = LocalContext.current
+
+                    RegionPingRegisterScreen(
+                        regionName = regionName,
+                        spotName = spotName,
+                        address = address,
+                        latitude = latitude,
+                        longitude = longitude,
+                        isSubmitting = communityViewModel.isRegisteringRegionPing,
+                        errorMessage = communityViewModel.regionPingErrorMessage,
+                        onBackClick = {
+                            navController.popBackStack()
+                        },
+                        onSubmit = { rating, reviewComment ->
+                            communityViewModel.registerRegionPing(
+                                spotId = spotId,
+                                rating = rating,
+                                reviewComment = reviewComment,
+                                onSuccess = {
+                                    Toast.makeText(
+                                        context,
+                                        "지역핑이 등록되었습니다!",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+                                    // 장소 선택 화면까지 건너뛰고 "로그" 화면으로 바로 복귀
+                                    navController.popBackStack(REGION_PING_PLACE_ROUTE, true)
+                                }
+                            )
                         }
                     )
                 }
@@ -1024,6 +1317,246 @@ fun AppNavigation() {
                             )
                         }
                     )
+                }
+
+
+                // ========================================================
+                // 👈 새로 추가: Ping 진행중인 여행 장소 추가 (실시간 핑 등록)
+                // ========================================================
+
+                composable(
+                    PING_ADD_ONGOING_PLACE_ROUTE,
+
+                    arguments = listOf(
+
+                        navArgument("routeId") {
+                            type = NavType.LongType
+                        }
+                    )
+
+                ) { backStackEntry ->
+
+
+                    val routeId =
+                        backStackEntry.arguments
+                            ?.getLong("routeId")
+                            ?: 0L
+
+                    val pingViewModel:
+                            com.tripping.app.viewmodel.PingViewModel =
+                        viewModel()
+
+                    val context =
+                        LocalContext.current
+
+                    // 👈 새로 추가: 지금까지 찍은 핑들을 지도에 선으로 이어서 보여주기 위해 미리 불러옴
+                    LaunchedEffect(routeId) {
+                        pingViewModel.loadTripSpotsForMap(routeId)
+                    }
+
+                    PingPlaceSearchScreen(
+
+                        existingRouteSpots = pingViewModel.ongoingTripSpots,
+
+                        onPlaceSelected = { place ->
+
+                            // 👈 수정: createPing(WIDGET_PING)에 저장하면 "기록" 탭 타임라인이
+                            // 읽는 ACTUAL_ROUTE_SPOT에는 안 보여서, 완료된 여행 쪽과 똑같이
+                            // addSpotToTrip(ACTUAL_ROUTE_SPOT)을 쓰도록 맞춤 - 추가한 장소가
+                            // 기록 화면에 바로 보이게 됨
+                            pingViewModel.addSpotToTrip(
+
+                                routeId = routeId,
+
+                                spotId = place.spotId,
+
+                                latitude = place.latitude,
+
+                                longitude = place.longitude,
+
+                                onSuccess = {
+
+                                    Toast.makeText(
+                                        context,
+                                        "핑이 등록되었습니다!",
+                                        Toast.LENGTH_SHORT
+                                    ).show()
+
+                                    navController.popBackStack()
+                                }
+                            )
+                        }
+                    )
+                }
+
+
+                // ========================================================
+                // 👈 새로 추가: Ping 로그 후기 작성/수정
+                // ========================================================
+
+                composable(
+                    PING_LOG_REVIEW_ROUTE,
+
+                    arguments = listOf(
+
+                        navArgument("pingId") {
+                            type = NavType.LongType
+                        },
+
+                        navArgument("placeName") {
+
+                            type = NavType.StringType
+
+                            defaultValue = ""
+                        }
+                    )
+
+                ) { backStackEntry ->
+
+
+                    val pingId =
+                        backStackEntry.arguments
+                            ?.getLong("pingId")
+                            ?: 0L
+
+                    val placeName =
+                        backStackEntry.arguments
+                            ?.getString("placeName")
+                            ?: "핑로그"
+
+                    val pingViewModel:
+                            com.tripping.app.viewmodel.PingViewModel =
+                        viewModel()
+
+                    val context =
+                        LocalContext.current
+
+                    // 👈 새로 추가: 진입 시 이미 등록된 후기가 있는지 먼저 확인
+                    LaunchedEffect(pingId) {
+                        pingViewModel.loadExistingReview(pingId)
+                    }
+
+                    val existingReview = pingViewModel.existingReview
+                    val isCheckingExisting = pingViewModel.isCheckingExistingReview
+
+                    if (isCheckingExisting) {
+
+                        // 확인 끝나기 전까지는 빈 화면(잠깐 대기) - 초기값이 안 채워진 채로
+                        // 화면이 먼저 그려지는 걸 방지하기 위함
+                        Box(
+                            modifier = Modifier.fillMaxSize(),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            androidx.compose.material3.CircularProgressIndicator()
+                        }
+                    } else {
+
+                        PingLogReviewScreen(
+
+                            placeName = placeName,
+
+                            initialRating = existingReview?.rating,
+
+                            initialContent = existingReview?.reviewComment,
+
+                            initialTags = existingReview?.tags ?: emptyList(),
+
+                            isEditMode = existingReview != null,
+
+                            onBackClick = {
+
+                                navController.popBackStack()
+                            },
+
+                            onSubmit = { content, rating, tags ->
+
+                                if (existingReview != null) {
+
+                                    pingViewModel.updateReview(
+
+                                        pingId = pingId,
+
+                                        rating = rating,
+
+                                        content = content,
+
+                                        tags = tags,
+
+                                        onSuccess = {
+
+                                            Toast.makeText(
+                                                context,
+                                                "후기가 수정되었습니다!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+
+                                            navController.popBackStack()
+                                        }
+                                    )
+                                } else {
+
+                                    pingViewModel.submitReview(
+
+                                        pingId = pingId,
+
+                                        rating = rating,
+
+                                        content = content,
+
+                                        tags = tags,
+
+                                        onSuccess = {
+
+                                            Toast.makeText(
+                                                context,
+                                                "후기가 등록되었습니다!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+
+                                            navController.popBackStack()
+                                        }
+                                    )
+                                }
+                            },
+
+                            onSubmitAndNext = { content, rating, tags ->
+
+                                if (existingReview != null) {
+
+                                    pingViewModel.updateReview(
+                                        pingId = pingId,
+                                        rating = rating,
+                                        content = content,
+                                        tags = tags,
+                                        onSuccess = {
+                                            Toast.makeText(
+                                                context,
+                                                "후기가 수정되었습니다!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            navController.popBackStack()
+                                        }
+                                    )
+                                } else {
+
+                                    pingViewModel.submitReview(
+                                        pingId = pingId,
+                                        rating = rating,
+                                        content = content,
+                                        tags = tags,
+                                        onSuccess = {
+                                            Toast.makeText(
+                                                context,
+                                                "후기가 등록되었습니다!",
+                                                Toast.LENGTH_SHORT
+                                            ).show()
+                                            navController.popBackStack()
+                                        }
+                                    )
+                                }
+                            }
+                        )
+                    }
                 }
 
 
