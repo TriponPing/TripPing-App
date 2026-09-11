@@ -111,11 +111,11 @@ private val bottomBarRoutes = mapOf(
     "home" to AppBottomNavTab.HOME,
 
     "placeSearch" to AppBottomNavTab.SEARCH,
-    "placeSearch" to AppBottomNavTab.SEARCH,
     "route_detail/{routeId}" to AppBottomNavTab.SEARCH,
     "place_detail/{spotId}" to AppBottomNavTab.SEARCH,
 
     ROUTE_CREATE_ROUTE to AppBottomNavTab.ROUTE,
+    "route_recommend" to AppBottomNavTab.ROUTE,
     "route_map_edit" to AppBottomNavTab.ROUTE,
     "route_map_applied" to AppBottomNavTab.ROUTE,
 

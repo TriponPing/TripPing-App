@@ -122,7 +122,7 @@ fun RouteMapEditScreen(
         BackButtonRow(onClick = onBackClick)
         HorizontalDivider(color = LightGrayBorder, thickness = 1.dp)
 
-        RouteStepIndicator(currentStep = 3)
+        RouteStepIndicator(currentStep = 2)
 
         // ===== 지도 + 저장한 장소 버튼 + 탭한 장소 카드 =====
         Box(modifier = Modifier.weight(1f)) {
