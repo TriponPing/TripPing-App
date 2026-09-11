@@ -224,6 +224,11 @@ class RouteCreateViewModel : ViewModel() {
         }
     }
 
+    fun startEditingRoute(initialPlaces: List<RoutePlaceItem>) {
+        _editablePlaces.value = initialPlaces
+        loadSavedPlaces()
+    }
+
     // "2024.06.01 (토)" 같은 표시용 날짜를 "2024-06-01"(ISO) 형식으로 변환
     private fun toIsoDate(raw: String?): String {
         val datePart = raw?.substringBefore(" ")?.trim() ?: return ""
