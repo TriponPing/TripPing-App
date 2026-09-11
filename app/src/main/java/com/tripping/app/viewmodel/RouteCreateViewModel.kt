@@ -114,7 +114,7 @@ class RouteCreateViewModel : ViewModel() {
                                 RoutePlaceItem(
                                     order = spot.visitOrder,
                                     name = spot.name,
-                                    tags = listOf(spot.category),
+                                    tags = listOf(com.tripping.app.viewmodel.PlaceCategory.labelOf(spot.category)),
                                     latitude = spot.latitude,
                                     longitude = spot.longitude,
                                     spotId = spot.spotId
@@ -142,7 +142,7 @@ class RouteCreateViewModel : ViewModel() {
                     RoutePlaceItem(
                         order = 0,
                         name = r.name,
-                        tags = listOf(r.category),
+                        tags = listOf(com.tripping.app.viewmodel.PlaceCategory.labelOf(r.category)),
                         latitude = r.latitude,
                         longitude = r.longitude,
                         spotId = r.spotId

@@ -327,7 +327,8 @@ fun AppNavigation() {
 
                     // ⭐ 루트 버튼: 이미 열려있으면 닫고, 닫혀있으면 염 (토글)
                     onRouteClick = {
-                        showRouteMenu = !showRouteMenu
+                        showRouteMenu = false
+                        navController.navigate(ROUTE_CREATE_ROUTE)
                     },
 
                     onPingClick = {

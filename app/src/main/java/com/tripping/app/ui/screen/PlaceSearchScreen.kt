@@ -42,8 +42,21 @@ import androidx.compose.material.icons.filled.KeyboardArrowUp
 private val regionInfo: Map<String, Pair<String?, LatLng?>> = linkedMapOf(
     "전체" to (null to null),
     "서울" to ("R01" to LatLng(37.5665, 126.9780)),
-    "부산" to ("R02" to LatLng(35.1796, 129.0756)),
+    "경기" to ("R05" to LatLng(37.4138, 127.5183)),
     "강원" to ("R03" to LatLng(37.8228, 128.1555)),
+    "인천" to ("R06" to LatLng(37.4563, 126.7052)),
+    "대전" to ("R09" to LatLng(36.3504, 127.3845)),
+    "세종" to ("R11" to LatLng(36.4801, 127.2890)),
+    "충북" to ("R12" to LatLng(36.6357, 127.4917)),
+    "충남" to ("R13" to LatLng(36.6588, 126.6728)),
+    "부산" to ("R02" to LatLng(35.1796, 129.0756)),
+    "대구" to ("R07" to LatLng(35.8714, 128.6014)),
+    "울산" to ("R10" to LatLng(35.5384, 129.3114)),
+    "경북" to ("R16" to LatLng(36.4919, 128.8889)),
+    "경남" to ("R17" to LatLng(35.4606, 128.2132)),
+    "전북" to ("R14" to LatLng(35.7175, 127.1530)),
+    "전남" to ("R15" to LatLng(34.8161, 126.4629)),
+    "광주" to ("R08" to LatLng(35.1595, 126.8526)),
     "제주" to ("R04" to LatLng(33.4996, 126.5312))
 )
 private val regionOptions = regionInfo.keys.toList()
