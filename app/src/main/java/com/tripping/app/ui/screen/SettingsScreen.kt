@@ -68,7 +68,9 @@ fun SettingsScreen(
     var showNicknameDialog by remember { mutableStateOf(false) }
     var nicknameInput by remember { mutableStateOf("") }
 
-    // 프로필 사진 - 갤러리에서 고른 사진 로컬 미리보기 (TODO: 백엔드에 프로필 사진 업로드 API 생기면 여기서 실제 업로드 연결)
+    // 👈 수정: 갤러리에서 고른 사진이 로컬 미리보기로만 남고 실제로 저장/적용이 안 되던 버그.
+    // 아직 별도 이미지 업로드 API가 없어서, 사진을 리사이즈+압축한 뒤 base64 데이터 URI로
+    // 인코딩해서 PATCH /users/me의 profileImage 문자열로 그대로 저장함.
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var pickedProfileImage by remember { mutableStateOf<ImageBitmap?>(null) }
@@ -80,8 +82,12 @@ fun SettingsScreen(
                 val bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
                     BitmapFactory.decodeStream(stream)
                 }
-                withContext(Dispatchers.Main) {
-                    pickedProfileImage = bitmap?.asImageBitmap()
+                if (bitmap != null) {
+                    val dataUri = encodeProfileImage(bitmap)
+                    withContext(Dispatchers.Main) {
+                        pickedProfileImage = bitmap.asImageBitmap() // 업로드 반영 전까지 바로 보이는 미리보기
+                        viewModel.updateProfileImage(dataUri)
+                    }
                 }
             }
         }
@@ -128,10 +134,11 @@ fun SettingsScreen(
                             .background(Color(0xFFE8EEF5)),
                         contentAlignment = Alignment.Center
                     ) {
-                        val picked = pickedProfileImage
-                        if (picked != null) {
+                        // 방금 고른 사진(업로드 반영 전 즉시 미리보기)이 있으면 그걸, 없으면 서버에 저장된 사진을 보여줌
+                        val displayedImage = pickedProfileImage ?: decodeProfileImage(profile?.profileImage)
+                        if (displayedImage != null) {
                             Image(
-                                bitmap = picked,
+                                bitmap = displayedImage,
                                 contentDescription = "프로필 사진",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
@@ -377,4 +384,40 @@ private fun BadgeItem(badge: BadgeResponse, onClick: () -> Unit) {
 @Composable
 fun SettingsScreenPreview() {
     SettingsScreen()
+}
+
+// 👈 새로 추가: 프로필 사진 업로드 API가 따로 없어서, 갤러리에서 고른 사진을 리사이즈+압축해
+// base64 데이터 URI 문자열로 만들어 PATCH /users/me에 그대로 저장하기 위한 인코더.
+// (마이페이지 프로필 아바타에서도 decodeProfileImage()로 이 문자열을 그대로 되돌림)
+private const val PROFILE_IMAGE_MAX_SIZE = 256
+
+internal fun encodeProfileImage(bitmap: android.graphics.Bitmap): String {
+    val scale = minOf(1f, PROFILE_IMAGE_MAX_SIZE.toFloat() / maxOf(bitmap.width, bitmap.height))
+    val resized = if (scale < 1f) {
+        android.graphics.Bitmap.createScaledBitmap(
+            bitmap,
+            (bitmap.width * scale).toInt().coerceAtLeast(1),
+            (bitmap.height * scale).toInt().coerceAtLeast(1),
+            true
+        )
+    } else {
+        bitmap
+    }
+    val outputStream = java.io.ByteArrayOutputStream()
+    resized.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, outputStream)
+    val base64 = android.util.Base64.encodeToString(outputStream.toByteArray(), android.util.Base64.NO_WRAP)
+    return "data:image/jpeg;base64,$base64"
+}
+
+// encodeProfileImage()로 만든 데이터 URI(또는 순수 base64 문자열)를 다시 ImageBitmap으로 디코딩.
+// 형식이 안 맞거나 비어있으면 null - 호출부에서 플레이스홀더 아이콘으로 대체함.
+internal fun decodeProfileImage(data: String?): ImageBitmap? {
+    if (data.isNullOrBlank()) return null
+    return try {
+        val base64Part = if (data.contains(",")) data.substringAfter(",") else data
+        val bytes = android.util.Base64.decode(base64Part, android.util.Base64.DEFAULT)
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+    } catch (e: Exception) {
+        null
+    }
 }
