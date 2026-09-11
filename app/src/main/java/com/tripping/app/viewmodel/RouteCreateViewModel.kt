@@ -114,7 +114,7 @@ class RouteCreateViewModel : ViewModel() {
                                 RoutePlaceItem(
                                     order = spot.visitOrder,
                                     name = spot.name,
-                                    tags = listOf(spot.category),
+                                    tags = listOf(com.tripping.app.viewmodel.PlaceCategory.labelOf(spot.category)),
                                     latitude = spot.latitude,
                                     longitude = spot.longitude,
                                     spotId = spot.spotId
@@ -142,7 +142,7 @@ class RouteCreateViewModel : ViewModel() {
                     RoutePlaceItem(
                         order = 0,
                         name = r.name,
-                        tags = listOf(r.category),
+                        tags = listOf(com.tripping.app.viewmodel.PlaceCategory.labelOf(r.category)),
                         latitude = r.latitude,
                         longitude = r.longitude,
                         spotId = r.spotId
@@ -222,6 +222,11 @@ class RouteCreateViewModel : ViewModel() {
                 onError(e.message ?: "여행을 시작하지 못했어요")
             }
         }
+    }
+
+    fun startEditingRoute(initialPlaces: List<RoutePlaceItem>) {
+        _editablePlaces.value = initialPlaces
+        loadSavedPlaces()
     }
 
     // "2024.06.01 (토)" 같은 표시용 날짜를 "2024-06-01"(ISO) 형식으로 변환

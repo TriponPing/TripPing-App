@@ -1,5 +1,6 @@
 package com.tripping.app.ui.screen
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,24 +12,31 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccessTime
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.LocationOn
-import androidx.compose.material.icons.filled.Park
+import androidx.compose.material.icons.filled.MyLocation
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.material.icons.filled.KeyboardArrowLeft
-import androidx.compose.foundation.Image
-import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.viewinterop.AndroidView
+import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import com.naver.maps.geometry.LatLng
+import com.naver.maps.map.CameraUpdate
+import com.naver.maps.map.MapView
 import com.tripping.app.R
 import com.tripping.app.data.request.RouteRecommendRequest
 import java.text.SimpleDateFormat
@@ -39,22 +47,48 @@ private val AccentBlue = Color(0xFF0074CE)
 private val GrayText = Color(0xFF818181)
 private val LightGrayBorder = Color(0xFFE0E0E0)
 
-private val regionOptions = listOf("서울", "강원", "부산", "제주")
+// regionId가 있는 것만 실제 필터가 걸려요. 없는 지역은 목록엔 뜨지만 필터 없이 전체 조회돼요.
+// TODO: 백엔드 region 테이블에 나머지 지역 코드 추가되면 여기도 채워넣기
+private val regionNameToId = mapOf(
+    "서울" to "R01",
+    "부산" to "R02",
+    "강원" to "R03",
+    "제주" to "R04",
+    "경기" to "R05",
+    "인천" to "R06",
+    "대구" to "R07",
+    "광주" to "R08",
+    "대전" to "R09",
+    "울산" to "R10",
+    "세종" to "R11",
+    "충북" to "R12",
+    "충남" to "R13",
+    "전북" to "R14",
+    "전남" to "R15",
+    "경북" to "R16",
+    "경남" to "R17"
+)
+
+private val regionOptions = listOf(
+    "서울", "경기", "강원", "인천", "대전", "세종",
+    "충북", "충남", "부산", "대구", "울산",
+    "경북", "경남", "전북", "전남", "광주", "제주"
+)
+
+// 지역명 -> 출발장소 지도 초기 중심 좌표 (코드 없는 지역은 일단 서울로 fallback)
+private val regionCenters = mapOf(
+    "서울" to LatLng(37.5665, 126.9780),
+    "부산" to LatLng(35.1796, 129.0756),
+    "강원" to LatLng(37.8228, 128.1555),
+    "제주" to LatLng(33.4996, 126.5312)
+)
+
 private val companionOptions = listOf("혼자", "친구", "가족", "연인")
 private val transportOptions = listOf("도보", "대중교통", "자동차")
 private val timeOptions = (0..23).map { "%02d:00".format(it) }
 
 private val dateFormatter = SimpleDateFormat("yyyy.MM.dd (E)", Locale.KOREAN)
 private val apiDateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
-
-private val regionNameToId = mapOf(
-    "서울" to "R01",
-    "부산" to "R02",
-    "강원" to "R03",
-    "제주" to "R04"
-
-    // TODO: 강원, 제주 코드는 Supabase region 테이블에 데이터 추가되면 채워넣기
-)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,9 +112,8 @@ fun RouteCreateScreen(
     var endTimeMenuExpanded by remember { mutableStateOf(false) }
     var startPlace by remember { mutableStateOf("") }
 
-    var showStartPlaceDialog by remember { mutableStateOf(false) }
-    var showStartDatePicker by remember { mutableStateOf(false) }
-    var showEndDatePicker by remember { mutableStateOf(false) }
+    var showDateRangePicker by remember { mutableStateOf(false) }
+    var showStartPlaceMapPicker by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
     Column(
@@ -160,7 +193,8 @@ fun RouteCreateScreen(
                 }
                 DropdownMenu(
                     expanded = regionMenuExpanded,
-                    onDismissRequest = { regionMenuExpanded = false }
+                    onDismissRequest = { regionMenuExpanded = false },
+                    modifier = Modifier.heightIn(max = 320.dp)
                 ) {
                     regionOptions.forEach { option ->
                         DropdownMenuItem(
@@ -177,12 +211,13 @@ fun RouteCreateScreen(
 
         Spacer(modifier = Modifier.height(12.dp))
 
-        // ===== 여행 날짜 =====
+        // ===== 여행 날짜 (출발/종료를 한번에 이어서 선택) =====
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp)
                 .border(1.dp, LightGrayBorder, RoundedCornerShape(12.dp))
+                .clickable { showDateRangePicker = true }
                 .padding(16.dp)
         ) {
             Text(text = "여행 날짜", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
@@ -190,21 +225,9 @@ fun RouteCreateScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = GrayText, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = startDateDisplay,
-                    fontSize = 15.sp,
-                    color = Color.Black,
-                    modifier = Modifier.clickable { showStartDatePicker = true }
-                )
+                Text(text = startDateDisplay, fontSize = 15.sp, color = Color.Black)
                 Text(text = "  ~  ", fontSize = 15.sp, color = GrayText)
-                Text(
-                    text = endDateDisplay,
-                    fontSize = 15.sp,
-                    color = Color.Black,
-                    modifier = Modifier
-                        .weight(1f)
-                        .clickable { showEndDatePicker = true }
-                )
+                Text(text = endDateDisplay, fontSize = 15.sp, color = Color.Black, modifier = Modifier.weight(1f))
                 Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = GrayText)
             }
         }
@@ -324,13 +347,13 @@ fun RouteCreateScreen(
 
         Spacer(modifier = Modifier.height(20.dp))
 
-        // 출발 장소
+        // 출발 장소 (지도에서 선택)
         InputRow(
             icon = Icons.Filled.LocationOn,
             label = "출발 장소",
-            value = startPlace.ifBlank { "장소를 선택해주세요" },
+            value = startPlace.ifBlank { "지도에서 출발 장소를 선택해주세요" },
             valueColor = if (startPlace.isBlank()) GrayText else Color.Black,
-            onClick = { showStartPlaceDialog = true }
+            onClick = { showStartPlaceMapPicker = true }
         )
 
         Spacer(modifier = Modifier.height(28.dp))
@@ -393,61 +416,200 @@ fun RouteCreateScreen(
         Spacer(modifier = Modifier.height(24.dp))
     }
 
-    // ===== 출발 장소 텍스트 입력 다이얼로그 =====
-    if (showStartPlaceDialog) {
-        TextInputDialog(
-            title = "출발 장소 입력",
-            placeholder = "장소명을 입력해주세요",
-            initialValue = startPlace,
-            onConfirm = { startPlace = it },
-            onDismiss = { showStartPlaceDialog = false }
+    // ===== 여행 날짜 범위 선택 다이얼로그 (출발~종료 이어서 한번에) =====
+    if (showDateRangePicker) {
+        KoreanLocaleProvider {
+            val rangeState = rememberDateRangePickerState(
+                initialSelectedStartDateMillis = startDateMillis,
+                initialSelectedEndDateMillis = endDateMillis
+            )
+            Dialog(onDismissRequest = { showDateRangePicker = false }) {
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color.White,
+                    modifier = Modifier.fillMaxWidth(0.95f)
+                ) {
+                    Column {
+                        DateRangePicker(
+                            state = rangeState,
+                            modifier = Modifier.weight(1f, fill = false),
+                            title = {
+                                Text(
+                                    text = "여행 날짜를 선택해주세요",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(start = 24.dp, top = 16.dp)
+                                )
+                            },
+                            headline = {
+                                Column(modifier = Modifier.padding(start = 24.dp, end = 12.dp, bottom = 8.dp)) {
+                                    val startText = rangeState.selectedStartDateMillis?.let { dateFormatter.format(Date(it)) } ?: "출발일"
+                                    val endText = rangeState.selectedEndDateMillis?.let { dateFormatter.format(Date(it)) } ?: "종료일"
+                                    Text(text = "$startText  ~  $endText", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(text = "날짜를 클릭해 수정해주세요", fontSize = 13.sp, color = GrayText)
+                                }
+                            }
+                        )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            TextButton(onClick = { showDateRangePicker = false }) { Text("취소") }
+                            TextButton(
+                                onClick = {
+                                    rangeState.selectedStartDateMillis?.let { startDateMillis = it }
+                                    rangeState.selectedEndDateMillis?.let { endDateMillis = it }
+                                    showDateRangePicker = false
+                                }
+                            ) { Text("확인") }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    // ===== 출발 장소 지도 선택 =====
+    if (showStartPlaceMapPicker) {
+        StartPlaceMapPickerDialog(
+            initialCenter = region?.let { regionCenters[it] } ?: regionCenters.getValue("서울"),
+            onConfirm = { placeText ->
+                startPlace = placeText
+                showStartPlaceMapPicker = false
+            },
+            onDismiss = { showStartPlaceMapPicker = false }
         )
     }
+}
 
-    // ===== 날짜 선택 다이얼로그들 =====
-    if (showStartDatePicker) {
-        KoreanLocaleProvider {
-            val datePickerState = rememberDatePickerState()
-            DatePickerDialog(
-                onDismissRequest = { showStartDatePicker = false },
-                confirmButton = {
-                    TextButton(onClick = {
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            startDateMillis = millis
-                        }
-                        showStartDatePicker = false
-                    }) { Text("확인") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showStartDatePicker = false }) { Text("취소") }
-                }
+// 지도를 드래그해서 화면 중앙 핀으로 출발 장소를 고르는 다이얼로그.
+// 아직 역지오코딩(좌표 -> 주소명) API 연동 전이라, 일단 좌표를 텍스트로 보여줘요.
+// TODO: 네이버 Reverse Geocoding API 연동되면 "위도, 경도" 대신 실제 주소/장소명으로 교체
+@Composable
+private fun StartPlaceMapPickerDialog(
+    initialCenter: LatLng,
+    onConfirm: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    var currentCenter by remember { mutableStateOf(initialCenter) }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Column(modifier = Modifier.fillMaxSize().background(Color.White)) {
+            // 상단 바
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 14.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                DatePicker(state = datePickerState)
+                Icon(
+                    Icons.Filled.Close,
+                    contentDescription = "닫기",
+                    tint = Color.Black,
+                    modifier = Modifier.size(24.dp).clickable { onDismiss() }
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(text = "출발 장소 선택", fontSize = 18.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            }
+            HorizontalDivider(color = LightGrayBorder, thickness = 1.dp)
+
+            // 지도 + 화면 중앙 고정 핀
+            Box(modifier = Modifier.weight(1f).fillMaxWidth()) {
+                DraggableCenterPinMap(
+                    modifier = Modifier.fillMaxSize(),
+                    initialCenter = initialCenter,
+                    onCenterChanged = { currentCenter = it }
+                )
+
+                Icon(
+                    Icons.Filled.LocationOn,
+                    contentDescription = "선택 위치",
+                    tint = AccentBlue,
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .size(40.dp)
+                        .padding(bottom = 40.dp) // 핀 뾰족한 끝이 실제 중심 좌표를 가리키도록 살짝 위로
+                )
+            }
+
+            // 하단 안내 + 확인 버튼
+            Column(modifier = Modifier.padding(16.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Filled.MyLocation, contentDescription = null, tint = GrayText, modifier = Modifier.size(16.dp))
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "위도 %.5f, 경도 %.5f".format(currentCenter.latitude, currentCenter.longitude),
+                        fontSize = 13.sp,
+                        color = GrayText
+                    )
+                }
+                Spacer(modifier = Modifier.height(12.dp))
+                Button(
+                    onClick = {
+                        val placeText = "위도 %.5f, 경도 %.5f".format(currentCenter.latitude, currentCenter.longitude)
+                        onConfirm(placeText)
+                    },
+                    modifier = Modifier.fillMaxWidth().height(52.dp),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentBlue)
+                ) {
+                    Text(text = "이 위치로 선택", fontSize = 16.sp, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
+}
 
-    if (showEndDatePicker) {
-        KoreanLocaleProvider {
-            val datePickerState = rememberDatePickerState()
-            DatePickerDialog(
-                onDismissRequest = { showEndDatePicker = false },
-                confirmButton = {
-                    TextButton(onClick = {
-                        datePickerState.selectedDateMillis?.let { millis ->
-                            endDateMillis = millis
-                        }
-                        showEndDatePicker = false
-                    }) { Text("확인") }
-                },
-                dismissButton = {
-                    TextButton(onClick = { showEndDatePicker = false }) { Text("취소") }
-                }
-            ) {
-                DatePicker(state = datePickerState)
+@Composable
+private fun DraggableCenterPinMap(
+    modifier: Modifier = Modifier,
+    initialCenter: LatLng,
+    onCenterChanged: (LatLng) -> Unit
+) {
+    val context = LocalContext.current
+    val mapView = remember { MapView(context) }
+    val lifecycleOwner = LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            when (event) {
+                Lifecycle.Event.ON_CREATE -> mapView.onCreate(null)
+                Lifecycle.Event.ON_START -> mapView.onStart()
+                Lifecycle.Event.ON_RESUME -> mapView.onResume()
+                Lifecycle.Event.ON_PAUSE -> mapView.onPause()
+                Lifecycle.Event.ON_STOP -> mapView.onStop()
+                Lifecycle.Event.ON_DESTROY -> mapView.onDestroy()
+                else -> {}
             }
         }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
+
+    var didInit by remember { mutableStateOf(false) }
+
+    AndroidView(
+        modifier = modifier,
+        factory = { mapView },
+        update = { view ->
+            view.getMapAsync { naverMap ->
+                if (!didInit) {
+                    naverMap.moveCamera(CameraUpdate.scrollTo(initialCenter))
+                    didInit = true
+                }
+                // 지도가 멈출 때마다(드래그 끝났을 때) 화면 정중앙 좌표를 콜백으로 보고
+                naverMap.addOnCameraIdleListener {
+                    onCenterChanged(naverMap.cameraPosition.target)
+                }
+            }
+        }
+    )
 }
 
 @Composable

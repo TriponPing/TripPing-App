@@ -20,8 +20,7 @@ class PopularTripDetailViewModel : ViewModel() {
     val errorMessage: StateFlow<String?> = _errorMessage
 
     // 이 루트가 이미 저장(북마크)돼 있는지. 상세조회 API엔 이 정보가 없어서
-    // 마이페이지 "저장한 여행" 목록(GET /users/me/routes/saved)을 불러와 tripId로 대조해서
-    // 복원함. HomeViewModel.savedRouteIds/loadSavedRouteIds와 동일한 패턴.
+    // 마이페이지 "저장한 여행" 목록(GET /users/me/routes/saved)을 불러와 tripId로 대조해서 복원함.
     private val _isSaved = MutableStateFlow(false)
     val isSaved: StateFlow<Boolean> = _isSaved
 
@@ -54,8 +53,6 @@ class PopularTripDetailViewModel : ViewModel() {
     }
 
     // 저장 안 된 상태면 POST로 저장, 저장된 상태면 DELETE로 저장 취소.
-    // _isSaved를 기준으로 판단해서 보내므로 버튼 연타로 같은 요청이 중복으로 나가지 않고,
-    // 서버(MyPageRouteService.saveRoute)도 이미 저장돼 있으면 다시 넣지 않아 멱등하게 처리됨.
     fun toggleSaveRoute(routeId: Long) {
         if (_isSaved.value) unsaveRoute(routeId) else saveRoute(routeId)
     }

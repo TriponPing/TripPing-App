@@ -111,11 +111,13 @@ private val bottomBarRoutes = mapOf(
     "home" to AppBottomNavTab.HOME,
 
     "placeSearch" to AppBottomNavTab.SEARCH,
-    "placeSearch" to AppBottomNavTab.SEARCH,
     "route_detail/{routeId}" to AppBottomNavTab.SEARCH,
     "place_detail/{spotId}" to AppBottomNavTab.SEARCH,
 
     ROUTE_CREATE_ROUTE to AppBottomNavTab.ROUTE,
+    "route_recommend" to AppBottomNavTab.ROUTE,
+    "route_map_edit" to AppBottomNavTab.ROUTE,
+    "route_map_applied" to AppBottomNavTab.ROUTE,
 
     "ping" to AppBottomNavTab.PING,
     PING_COURSE_DETAIL_ROUTE to AppBottomNavTab.PING,
@@ -325,7 +327,8 @@ fun AppNavigation() {
 
                     // ⭐ 루트 버튼: 이미 열려있으면 닫고, 닫혀있으면 염 (토글)
                     onRouteClick = {
-                        showRouteMenu = !showRouteMenu
+                        showRouteMenu = false
+                        navController.navigate(ROUTE_CREATE_ROUTE)
                     },
 
                     onPingClick = {
@@ -1588,8 +1591,8 @@ fun AppNavigation() {
                             navController.popBackStack()
                         },
                         onApplyClick = { selectedRoute ->
-                            routeCreateViewModel.selectRoute(selectedRoute)
-                            navController.navigate("route_map_applied")
+                            routeCreateViewModel.startEditingRoute(selectedRoute.places)
+                            navController.navigate("route_map_edit")
                         },
                         onSkipClick = {
                             routeCreateViewModel.startEmptyRoute()
@@ -1650,9 +1653,6 @@ fun AppNavigation() {
                         initialRegionText = regionId,
                         routePlaces = places,
                         onRoutePlacesChange = { routeCreateViewModel.updateEditablePlaces(it) },
-                        onSearchBarClick = {
-                            navController.navigate("route_place_search")
-                        },
                         onAddPlace = { routeCreateViewModel.addPlaceToRoute(it) },
                         savedPlaces = saved,
                         onBackClick = {
@@ -1734,11 +1734,8 @@ fun AppNavigation() {
                     },
 
                     onViewRoute = {
-
                         showRouteMenu = false
-
-                        // TODO:
-                        // 루트 보기 화면 연결 예정
+                        navigateToTab(navController, "mypage")
                     }
                 )
             }
