@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
@@ -23,6 +24,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -43,8 +45,9 @@ import kotlinx.coroutines.withContext
 // ===== 마이페이지 설정 화면 (마이페이지 오른쪽 위 톱니바퀴) =====
 // 프로필(닉네임/레벨)은 실제 API(GET·PATCH /users/me) 연동됨.
 // 뱃지("뱃지"/"꺼낼 뱃지")도 실제 API(GET /users/me/badges, PUT /users/me/badges/featured) 연동됨.
-// 단, 뱃지 종류 자체(카탈로그)는 실제 기획이 아직 없어서 지금은 비어있음(BadgeCatalog 참고) -
-// 조회/저장/꺼내기 기능만 먼저 만들어둔 상태고, 실제 뱃지가 추가되면 그대로 여기 뜸.
+// 뱃지 카탈로그는 10종 고정(백엔드 BadgeCatalog 참고) - 달성 여부(earned)는 저장된 값이 아니라
+// 실제 활동 데이터(핑 개수, 완주 여행, 지역핑, 태그, 저장 등) 기준으로 매번 새로 계산됨.
+// 못 딴 뱃지는 잠금 상태로 보여주고, 눌러보면 달성 조건(퀘스트)을 안내함.
 
 private val ColorBackground = Color(0xFFF8F8FC)
 private val ColorAccentBlue = Color(0xFF0074CE) // 앱 전반에서 쓰는 포인트 블루
@@ -67,6 +70,7 @@ fun SettingsScreen(
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showNicknameDialog by remember { mutableStateOf(false) }
     var nicknameInput by remember { mutableStateOf("") }
+    var questBadgeInfo by remember { mutableStateOf<BadgeResponse?>(null) } // 잠긴 뱃지 눌렀을 때 조건 안내용
 
     // 👈 수정: 갤러리에서 고른 사진이 로컬 미리보기로만 남고 실제로 저장/적용이 안 되던 버그.
     // 아직 별도 이미지 업로드 API가 없어서, 사진을 리사이즈+압축한 뒤 base64 데이터 URI로
@@ -215,13 +219,21 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // ===== 뱃지 - 늘어날 때마다 이 공간이 알아서 줄바꿈하면서 정렬됨 =====
-            // 체크 표시된 뱃지 = 아래 "꺼낼 뱃지"에 노출 중인 뱃지. 눌러서 켜고 끌 수 있음.
+            // ===== 뱃지 - 전체 카탈로그를 항상 보여주되, 아직 못 딴 뱃지는 잠금(흑백+자물쇠)으로 표시해서
+            // 어떻게 하면 딸 수 있는지(퀘스트) 미리 보여줌. 딴 뱃지만 눌러서 "꺼낼 뱃지"로 켜고 끌 수 있음. =====
             Text(text = "뱃지", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
             Spacer(modifier = Modifier.height(12.dp))
             if (badges.isEmpty()) {
-                Text(text = "아직 획득한 뱃지가 없어요", fontSize = 12.sp, color = ColorTextSecondary)
+                Text(text = "불러오는 중...", fontSize = 12.sp, color = ColorTextSecondary)
             } else {
+                if (badges.none { it.earned }) {
+                    Text(
+                        text = "아직 획득한 뱃지가 없어요 · 아래 뱃지를 눌러 조건을 확인해보세요",
+                        fontSize = 12.sp,
+                        color = ColorTextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -230,7 +242,13 @@ fun SettingsScreen(
                     badges.forEach { badge ->
                         BadgeItem(
                             badge = badge,
-                            onClick = { viewModel.toggleFeaturedBadge(badge.code) }
+                            onClick = {
+                                if (badge.earned) {
+                                    viewModel.toggleFeaturedBadge(badge.code)
+                                } else {
+                                    questBadgeInfo = badge
+                                }
+                            }
                         )
                     }
                 }
@@ -313,6 +331,19 @@ fun SettingsScreen(
         )
     }
 
+    questBadgeInfo?.let { badge ->
+        AlertDialog(
+            onDismissRequest = { questBadgeInfo = null },
+            title = { Text(text = "${badge.emoji} ${badge.label}", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+            text = { Text(text = badge.conditionDesc, fontSize = 14.sp, color = ColorTextSecondary) },
+            confirmButton = {
+                TextButton(onClick = { questBadgeInfo = null }) {
+                    Text(text = "확인")
+                }
+            }
+        )
+    }
+
     if (showNicknameDialog) {
         AlertDialog(
             onDismissRequest = { showNicknameDialog = false },
@@ -357,7 +388,8 @@ private fun BadgeItem(badge: BadgeResponse, onClick: () -> Unit) {
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(ColorBadgeCircleBg),
+                    .background(ColorBadgeCircleBg)
+                    .alpha(if (badge.earned) 1f else 0.35f), // 못 딴 뱃지는 흐리게(잠금) 표시
                 contentAlignment = Alignment.Center
             ) {
                 Text(text = badge.emoji, fontSize = 20.sp)
@@ -373,13 +405,25 @@ private fun BadgeItem(badge: BadgeResponse, onClick: () -> Unit) {
                         .clip(CircleShape)
                         .background(Color.White)
                 )
+            } else if (!badge.earned) {
+                Icon(
+                    imageVector = Icons.Filled.Lock,
+                    contentDescription = "미획득 뱃지",
+                    tint = ColorTextSecondary,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .padding(2.dp)
+                )
             }
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = badge.label,
             fontSize = 10.sp,
-            color = ColorTextSecondary,
+            color = if (badge.earned) ColorTextSecondary else ColorTextSecondary.copy(alpha = 0.5f),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             maxLines = 1
         )
