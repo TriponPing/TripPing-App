@@ -171,7 +171,9 @@ private fun MyPageProfileSection(nickname: String?, level: String?, profileImage
                 .background(Color(0xFFE8EEF5)),
             contentAlignment = Alignment.Center
         ) {
-            val decoded = decodeProfileImage(profileImage)
+            // 👈 수정: 매 recomposition마다 base64 디코딩을 반복하며 메인 스레드가 렉먹던 문제
+            // - remember로 캐싱해서 profileImage 값이 실제로 바뀔 때만 다시 디코딩
+            val decoded = remember(profileImage) { decodeProfileImage(profileImage) }
             if (decoded != null) {
                 Image(
                     bitmap = decoded,

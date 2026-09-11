@@ -134,8 +134,14 @@ fun SettingsScreen(
                             .background(Color(0xFFE8EEF5)),
                         contentAlignment = Alignment.Center
                     ) {
+                        // 👈 수정: decodeProfileImage()가 매 recomposition마다(예: 닉네임 입력창에 한 글자
+                        // 칠 때마다) 다시 실행돼서 base64 디코딩+이미지 압축해제를 반복하며 메인 스레드가
+                        // 렉먹던 문제 - 한글처럼 여러 키 입력이 짧은 시간 안에 조합돼야 하는 IME 입력이
+                        // 이 렉 때문에 끊겨서 아예 안 써지는 것처럼 보였음. remember로 캐싱해서 profile
+                        // 값이 실제로 바뀔 때만 다시 디코딩하도록 수정.
                         // 방금 고른 사진(업로드 반영 전 즉시 미리보기)이 있으면 그걸, 없으면 서버에 저장된 사진을 보여줌
-                        val displayedImage = pickedProfileImage ?: decodeProfileImage(profile?.profileImage)
+                        val decodedServerImage = remember(profile?.profileImage) { decodeProfileImage(profile?.profileImage) }
+                        val displayedImage = pickedProfileImage ?: decodedServerImage
                         if (displayedImage != null) {
                             Image(
                                 bitmap = displayedImage,
