@@ -3,6 +3,7 @@ package com.tripping.app.ui.component
 import android.graphics.PointF
 import android.os.Bundle
 import android.view.View
+import android.view.ViewGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -42,8 +43,18 @@ fun NaverMapContainer(
     val lifecycleOwner = LocalLifecycleOwner.current
     val currentOnMapReady by rememberUpdatedState(onMapReady)
 
+    // 👈 수정: 검색창처럼 지도 위에 떠있는 Compose 텍스트 필드가 있는 화면(나의 여행 지도 등)에서
+    // 한글이 아예 입력이 안 되던 버그. 지도(MapView)와 그 내부 뷰들이 기본적으로 포커스를
+    // 받을 수 있는 상태라서, IME가 한글 자모를 조합하는 도중에 시스템이 포커스를 지도 쪽으로
+    // 가져가버려 조합 중이던 글자가 그대로 날아갔던 것으로 보임. 영어/숫자는 키 하나에 바로
+    // 글자가 확정돼서 문제가 안 보였을 뿐. 지도는 키보드 포커스가 필요 없으니 아예 막아버림.
     val mapView = remember {
-        MapView(context).apply { id = View.generateViewId() }
+        MapView(context).apply {
+            id = View.generateViewId()
+            isFocusable = false
+            isFocusableInTouchMode = false
+            descendantFocusability = ViewGroup.FOCUS_BLOCK_DESCENDANTS
+        }
     }
 
     DisposableEffect(lifecycleOwner, mapView) {
