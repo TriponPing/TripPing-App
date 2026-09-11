@@ -865,10 +865,13 @@ fun AppNavigation() {
                         },
 
                         onGoToPing = {
+                                id,
+                                pingTitle ->
 
-                            navigateToTab(
+                            navigateToPingCourseDetail(
                                 navController,
-                                "ping"
+                                id,
+                                pingTitle
                             )
                         }
                     )
@@ -924,10 +927,13 @@ fun AppNavigation() {
                         },
 
                         onGoToPing = {
+                                id,
+                                pingTitle ->
 
-                            navigateToTab(
+                            navigateToPingCourseDetail(
                                 navController,
-                                "ping"
+                                id,
+                                pingTitle
                             )
                         }
                     )

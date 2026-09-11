@@ -207,21 +207,23 @@ fun MyMapDetailScreen(
                 ) {
                     searchResults.forEach { result ->
                         val icon = if (result.type.equals("SAVED", true)) "🔖" else "📍"
+                        // 👈 수정: 이름이 없어서 날짜만 뜨던 것 -> 대표 스팟 이름(=이 앱에서 쓰는 "여행 이름")을 같이 표시
+                        val label = result.spotName?.takeIf { it.isNotBlank() }
+                            ?.let { "$it · ${result.travelDate}" }
+                            ?: result.travelDate
                         Text(
-                            text = "$icon ${result.travelDate}",
+                            text = "$icon $label",
                             fontSize = 13.sp,
                             color = ColorTextPrimary,
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .clickable {
-                                    val pin = pins.find { it.tripId == result.tripId && it.type.equals(result.type, true) }
-                                    if (pin != null) {
-                                        clickedName = pin.representativeSpotName
-                                        val la = pin.latitude
-                                        val lo = pin.longitude
-                                        if (la != null && lo != null) {
-                                            naverMap?.moveCamera(CameraUpdate.scrollAndZoomTo(LatLng(la, lo), 14.0))
-                                        }
+                                    // 👈 수정: 검색 응답이 이미 좌표를 갖고 있어서 pins 목록에서 다시 찾을 필요 없음
+                                    clickedName = result.spotName
+                                    val la = result.latitude
+                                    val lo = result.longitude
+                                    if (la != null && lo != null) {
+                                        naverMap?.moveCamera(CameraUpdate.scrollAndZoomTo(LatLng(la, lo), 14.0))
                                     }
                                     searchQuery = ""
                                 }

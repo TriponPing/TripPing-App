@@ -27,7 +27,8 @@ import com.tripping.app.viewmodel.MyPageViewModel
 // ===== "여행 바로 시작하기" 다음 페이지 =====
 // CourseDetailScreen이랑 같은 tripId 데이터(GET /users/me/trips/{tripId})를 재사용해서
 // 큰 지도 + 우측 하단 미니 지도 미리보기 카드 + "여행 계획 수정하기" 버튼을 보여줌.
-// "여행 계획 수정하기"는 아직 전용 화면이 없어서, 일단 Ping 기록 화면으로 이동시켜줌.
+// "여행 계획 수정하기"는 아직 전용 화면이 없어서, 일단 Ping 탭의 코스 상세(PingCourseDetailScreen)로
+// 이동시켜줌 - 이때 이 여행(tripId=routeId)의 핑 기록이 바로 보이게 함.
 
 private val ColorAccentBlue = Color(0xFF0074CE)
 private val ColorBackground = Color(0xFFF8F8FC)
@@ -37,7 +38,7 @@ fun TripStartScreen(
     tripId: Long,
     fallbackTitle: String? = null,
     onBackClick: () -> Unit = {},
-    onGoToPing: () -> Unit = {},
+    onGoToPing: (Long, String) -> Unit = { _, _ -> },
     viewModel: MyPageViewModel = viewModel()
 ) {
     LaunchedEffect(tripId) {
@@ -122,7 +123,7 @@ fun TripStartScreen(
                     modifier = Modifier
                         .clip(RoundedCornerShape(20.dp))
                         .background(ColorAccentBlue)
-                        .clickable { onGoToPing() }
+                        .clickable { onGoToPing(tripId, title) }
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                 ) {
                     Text(text = "여행 계획 수정하기", fontSize = 13.sp, fontWeight = FontWeight.Bold, color = Color.White)

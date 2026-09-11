@@ -278,6 +278,23 @@ class MyPageViewModel : ViewModel() {
         }
     }
 
+    /** 👈 새로 추가: 프로필 사진 수정 - 설정 화면 연필 아이콘. 아직 별도 이미지 업로드 API가
+     * 없어서, 고른 사진을 base64 데이터 URI로 인코딩한 문자열을 그대로 profileImage에 저장함. */
+    fun updateProfileImage(dataUri: String) {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.myPageApi.updateProfile(ProfileUpdateRequest(profileImage = dataUri))
+                if (response.isSuccessful) {
+                    _profile.value = response.body()
+                } else {
+                    _errorMessage.value = "프로필 사진 수정에 실패했습니다. (${response.code()})"
+                }
+            } catch (e: Exception) {
+                _errorMessage.value = e.message ?: "네트워크 오류가 발생했습니다."
+            }
+        }
+    }
+
     /** 설정 화면 진입 시 뱃지 목록 조회 */
     fun loadBadges() {
         viewModelScope.launch {

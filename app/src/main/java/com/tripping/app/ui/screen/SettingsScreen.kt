@@ -15,6 +15,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.OutlinedTextField
@@ -23,6 +24,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -43,8 +45,9 @@ import kotlinx.coroutines.withContext
 // ===== 마이페이지 설정 화면 (마이페이지 오른쪽 위 톱니바퀴) =====
 // 프로필(닉네임/레벨)은 실제 API(GET·PATCH /users/me) 연동됨.
 // 뱃지("뱃지"/"꺼낼 뱃지")도 실제 API(GET /users/me/badges, PUT /users/me/badges/featured) 연동됨.
-// 단, 뱃지 종류 자체(카탈로그)는 실제 기획이 아직 없어서 지금은 비어있음(BadgeCatalog 참고) -
-// 조회/저장/꺼내기 기능만 먼저 만들어둔 상태고, 실제 뱃지가 추가되면 그대로 여기 뜸.
+// 뱃지 카탈로그는 10종 고정(백엔드 BadgeCatalog 참고) - 달성 여부(earned)는 저장된 값이 아니라
+// 실제 활동 데이터(핑 개수, 완주 여행, 지역핑, 태그, 저장 등) 기준으로 매번 새로 계산됨.
+// 못 딴 뱃지는 잠금 상태로 보여주고, 눌러보면 달성 조건(퀘스트)을 안내함.
 
 private val ColorBackground = Color(0xFFF8F8FC)
 private val ColorAccentBlue = Color(0xFF0074CE) // 앱 전반에서 쓰는 포인트 블루
@@ -67,8 +70,11 @@ fun SettingsScreen(
     var showLogoutDialog by remember { mutableStateOf(false) }
     var showNicknameDialog by remember { mutableStateOf(false) }
     var nicknameInput by remember { mutableStateOf("") }
+    var questBadgeInfo by remember { mutableStateOf<BadgeResponse?>(null) } // 잠긴 뱃지 눌렀을 때 조건 안내용
 
-    // 프로필 사진 - 갤러리에서 고른 사진 로컬 미리보기 (TODO: 백엔드에 프로필 사진 업로드 API 생기면 여기서 실제 업로드 연결)
+    // 👈 수정: 갤러리에서 고른 사진이 로컬 미리보기로만 남고 실제로 저장/적용이 안 되던 버그.
+    // 아직 별도 이미지 업로드 API가 없어서, 사진을 리사이즈+압축한 뒤 base64 데이터 URI로
+    // 인코딩해서 PATCH /users/me의 profileImage 문자열로 그대로 저장함.
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     var pickedProfileImage by remember { mutableStateOf<ImageBitmap?>(null) }
@@ -80,8 +86,12 @@ fun SettingsScreen(
                 val bitmap = context.contentResolver.openInputStream(uri)?.use { stream ->
                     BitmapFactory.decodeStream(stream)
                 }
-                withContext(Dispatchers.Main) {
-                    pickedProfileImage = bitmap?.asImageBitmap()
+                if (bitmap != null) {
+                    val dataUri = encodeProfileImage(bitmap)
+                    withContext(Dispatchers.Main) {
+                        pickedProfileImage = bitmap.asImageBitmap() // 업로드 반영 전까지 바로 보이는 미리보기
+                        viewModel.updateProfileImage(dataUri)
+                    }
                 }
             }
         }
@@ -128,10 +138,17 @@ fun SettingsScreen(
                             .background(Color(0xFFE8EEF5)),
                         contentAlignment = Alignment.Center
                     ) {
-                        val picked = pickedProfileImage
-                        if (picked != null) {
+                        // 👈 수정: decodeProfileImage()가 매 recomposition마다(예: 닉네임 입력창에 한 글자
+                        // 칠 때마다) 다시 실행돼서 base64 디코딩+이미지 압축해제를 반복하며 메인 스레드가
+                        // 렉먹던 문제 - 한글처럼 여러 키 입력이 짧은 시간 안에 조합돼야 하는 IME 입력이
+                        // 이 렉 때문에 끊겨서 아예 안 써지는 것처럼 보였음. remember로 캐싱해서 profile
+                        // 값이 실제로 바뀔 때만 다시 디코딩하도록 수정.
+                        // 방금 고른 사진(업로드 반영 전 즉시 미리보기)이 있으면 그걸, 없으면 서버에 저장된 사진을 보여줌
+                        val decodedServerImage = remember(profile?.profileImage) { decodeProfileImage(profile?.profileImage) }
+                        val displayedImage = pickedProfileImage ?: decodedServerImage
+                        if (displayedImage != null) {
                             Image(
-                                bitmap = picked,
+                                bitmap = displayedImage,
                                 contentDescription = "프로필 사진",
                                 contentScale = ContentScale.Crop,
                                 modifier = Modifier
@@ -202,13 +219,21 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // ===== 뱃지 - 늘어날 때마다 이 공간이 알아서 줄바꿈하면서 정렬됨 =====
-            // 체크 표시된 뱃지 = 아래 "꺼낼 뱃지"에 노출 중인 뱃지. 눌러서 켜고 끌 수 있음.
+            // ===== 뱃지 - 전체 카탈로그를 항상 보여주되, 아직 못 딴 뱃지는 잠금(흑백+자물쇠)으로 표시해서
+            // 어떻게 하면 딸 수 있는지(퀘스트) 미리 보여줌. 딴 뱃지만 눌러서 "꺼낼 뱃지"로 켜고 끌 수 있음. =====
             Text(text = "뱃지", fontSize = 16.sp, fontWeight = FontWeight.Bold, color = ColorTextPrimary)
             Spacer(modifier = Modifier.height(12.dp))
             if (badges.isEmpty()) {
-                Text(text = "아직 획득한 뱃지가 없어요", fontSize = 12.sp, color = ColorTextSecondary)
+                Text(text = "불러오는 중...", fontSize = 12.sp, color = ColorTextSecondary)
             } else {
+                if (badges.none { it.earned }) {
+                    Text(
+                        text = "아직 획득한 뱃지가 없어요 · 아래 뱃지를 눌러 조건을 확인해보세요",
+                        fontSize = 12.sp,
+                        color = ColorTextSecondary
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -217,7 +242,13 @@ fun SettingsScreen(
                     badges.forEach { badge ->
                         BadgeItem(
                             badge = badge,
-                            onClick = { viewModel.toggleFeaturedBadge(badge.code) }
+                            onClick = {
+                                if (badge.earned) {
+                                    viewModel.toggleFeaturedBadge(badge.code)
+                                } else {
+                                    questBadgeInfo = badge
+                                }
+                            }
                         )
                     }
                 }
@@ -300,6 +331,19 @@ fun SettingsScreen(
         )
     }
 
+    questBadgeInfo?.let { badge ->
+        AlertDialog(
+            onDismissRequest = { questBadgeInfo = null },
+            title = { Text(text = "${badge.emoji} ${badge.label}", fontSize = 16.sp, fontWeight = FontWeight.Bold) },
+            text = { Text(text = badge.conditionDesc, fontSize = 14.sp, color = ColorTextSecondary) },
+            confirmButton = {
+                TextButton(onClick = { questBadgeInfo = null }) {
+                    Text(text = "확인")
+                }
+            }
+        )
+    }
+
     if (showNicknameDialog) {
         AlertDialog(
             onDismissRequest = { showNicknameDialog = false },
@@ -344,7 +388,8 @@ private fun BadgeItem(badge: BadgeResponse, onClick: () -> Unit) {
                 modifier = Modifier
                     .size(48.dp)
                     .clip(CircleShape)
-                    .background(ColorBadgeCircleBg),
+                    .background(ColorBadgeCircleBg)
+                    .alpha(if (badge.earned) 1f else 0.35f), // 못 딴 뱃지는 흐리게(잠금) 표시
                 contentAlignment = Alignment.Center
             ) {
                 Text(text = badge.emoji, fontSize = 20.sp)
@@ -360,13 +405,25 @@ private fun BadgeItem(badge: BadgeResponse, onClick: () -> Unit) {
                         .clip(CircleShape)
                         .background(Color.White)
                 )
+            } else if (!badge.earned) {
+                Icon(
+                    imageVector = Icons.Filled.Lock,
+                    contentDescription = "미획득 뱃지",
+                    tint = ColorTextSecondary,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(16.dp)
+                        .clip(CircleShape)
+                        .background(Color.White)
+                        .padding(2.dp)
+                )
             }
         }
         Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = badge.label,
             fontSize = 10.sp,
-            color = ColorTextSecondary,
+            color = if (badge.earned) ColorTextSecondary else ColorTextSecondary.copy(alpha = 0.5f),
             textAlign = androidx.compose.ui.text.style.TextAlign.Center,
             maxLines = 1
         )
@@ -377,4 +434,40 @@ private fun BadgeItem(badge: BadgeResponse, onClick: () -> Unit) {
 @Composable
 fun SettingsScreenPreview() {
     SettingsScreen()
+}
+
+// 👈 새로 추가: 프로필 사진 업로드 API가 따로 없어서, 갤러리에서 고른 사진을 리사이즈+압축해
+// base64 데이터 URI 문자열로 만들어 PATCH /users/me에 그대로 저장하기 위한 인코더.
+// (마이페이지 프로필 아바타에서도 decodeProfileImage()로 이 문자열을 그대로 되돌림)
+private const val PROFILE_IMAGE_MAX_SIZE = 256
+
+internal fun encodeProfileImage(bitmap: android.graphics.Bitmap): String {
+    val scale = minOf(1f, PROFILE_IMAGE_MAX_SIZE.toFloat() / maxOf(bitmap.width, bitmap.height))
+    val resized = if (scale < 1f) {
+        android.graphics.Bitmap.createScaledBitmap(
+            bitmap,
+            (bitmap.width * scale).toInt().coerceAtLeast(1),
+            (bitmap.height * scale).toInt().coerceAtLeast(1),
+            true
+        )
+    } else {
+        bitmap
+    }
+    val outputStream = java.io.ByteArrayOutputStream()
+    resized.compress(android.graphics.Bitmap.CompressFormat.JPEG, 70, outputStream)
+    val base64 = android.util.Base64.encodeToString(outputStream.toByteArray(), android.util.Base64.NO_WRAP)
+    return "data:image/jpeg;base64,$base64"
+}
+
+// encodeProfileImage()로 만든 데이터 URI(또는 순수 base64 문자열)를 다시 ImageBitmap으로 디코딩.
+// 형식이 안 맞거나 비어있으면 null - 호출부에서 플레이스홀더 아이콘으로 대체함.
+internal fun decodeProfileImage(data: String?): ImageBitmap? {
+    if (data.isNullOrBlank()) return null
+    return try {
+        val base64Part = if (data.contains(",")) data.substringAfter(",") else data
+        val bytes = android.util.Base64.decode(base64Part, android.util.Base64.DEFAULT)
+        BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+    } catch (e: Exception) {
+        null
+    }
 }

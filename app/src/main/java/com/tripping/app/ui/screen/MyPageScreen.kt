@@ -94,6 +94,7 @@ fun MyPageScreen(
         MyPageProfileSection(
             nickname = profile?.nickname,
             level = profile?.level,
+            profileImage = profile?.profileImage,
             featuredBadges = badges.filter { it.featured }
         )
         MyPageTabRow(selectedTab = selectedTab, onTabSelected = { selectedTab = it })
@@ -154,7 +155,7 @@ private fun MyPageTopBar(onOpenSettings: () -> Unit) {
 
 // ===== 프로필 영역 (아바타 + 이름 + 레벨 + 뱃지) =====
 @Composable
-private fun MyPageProfileSection(nickname: String?, level: String?, featuredBadges: List<BadgeResponse>) {
+private fun MyPageProfileSection(nickname: String?, level: String?, profileImage: String?, featuredBadges: List<BadgeResponse>) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -162,7 +163,7 @@ private fun MyPageProfileSection(nickname: String?, level: String?, featuredBadg
             .padding(horizontal = 20.dp, vertical = 16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // 아바타 (TODO: 실제 프로필 이미지로 교체 - GET /users/me의 profileImage)
+        // 👈 수정: 실제 프로필 이미지로 교체 (설정 화면에서 저장한 profileImage를 그대로 디코딩)
         Box(
             modifier = Modifier
                 .size(64.dp)
@@ -170,7 +171,19 @@ private fun MyPageProfileSection(nickname: String?, level: String?, featuredBadg
                 .background(Color(0xFFE8EEF5)),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = "👤", fontSize = 28.sp)
+            // 👈 수정: 매 recomposition마다 base64 디코딩을 반복하며 메인 스레드가 렉먹던 문제
+            // - remember로 캐싱해서 profileImage 값이 실제로 바뀔 때만 다시 디코딩
+            val decoded = remember(profileImage) { decodeProfileImage(profileImage) }
+            if (decoded != null) {
+                Image(
+                    bitmap = decoded,
+                    contentDescription = "프로필 사진",
+                    contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                    modifier = Modifier.fillMaxSize()
+                )
+            } else {
+                Text(text = "👤", fontSize = 28.sp)
+            }
         }
 
         Spacer(modifier = Modifier.width(12.dp))
@@ -396,10 +409,10 @@ private fun SavedPlaceCard(place: SavedPlaceCardResponse, onCancelSave: () -> Un
                 Text(text = place.category, fontSize = 12.sp, color = ColorTextSecondary)
             }
         }
-        Icon(
-            imageVector = Icons.Outlined.BookmarkBorder,
-            contentDescription = "저장 취소",
-            tint = ColorTextPrimary,
+        // 👈 수정: 이 탭에 뜨는 건 전부 이미 저장된 장소라서, 저장 안 된 상태처럼 보이는
+        // 빈 아이콘(BookmarkBorder) 대신 채워진 북마크로 표시 (홈 화면과 동일한 아이콘/색)
+        BookmarkIcon(
+            filled = true,
             modifier = Modifier
                 .size(20.dp)
                 .clickable { onCancelSave() }
