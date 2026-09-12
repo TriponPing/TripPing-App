@@ -29,11 +29,18 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -69,8 +76,7 @@ private val HomeScreenHorizontalPadding = 28.dp
 @Composable
 fun HomeScreen(
     onStartRouteClick: () -> Unit = {},
-    // 진행 중인 여행의 "루트보기" 버튼 - routeId와 대표 장소 이름(코스 상세 화면 타이틀용)을 넘김
-    onViewRouteClick: (routeId: Long, title: String) -> Unit = { _, _ -> },
+    onViewRouteClick: () -> Unit = {},
     onPingClick: () -> Unit = {},
     onSeeAllPopularRoutes: () -> Unit = {},
     onSeeAllPopularPlaces: () -> Unit = {},
@@ -78,6 +84,8 @@ fun HomeScreen(
     onSeeAllKeywords: (String?) -> Unit = {},
     onSeeAllNearbyCourses: () -> Unit = {},
     onCourseClick: (Int) -> Unit = {},
+    onPopularRouteClick: (Long) -> Unit = {},
+    onPlaceClick: (Long) -> Unit = {},
     viewModel: HomeViewModel = viewModel()
 ) {
     // [1번 섹션] 진행 중인 여행 - 실제 API(GET /trips/current-summary) 연동됨
@@ -127,9 +135,7 @@ fun HomeScreen(
             if (trip != null) {
                 ActiveTripCard(
                     trip = trip,
-                    onViewRouteClick = {
-                        onViewRouteClick(trip.actualRouteId, trip.visitedPlaceNames.firstOrNull() ?: "여행 기록")
-                    },
+                    onViewRouteClick = onViewRouteClick,
                     onPingClick = onPingClick
                 )
             } else {
@@ -143,7 +149,11 @@ fun HomeScreen(
         item {
             val topRoute = popularTrips.firstOrNull()
             if (topRoute != null) {
-                Box(modifier = Modifier.padding(horizontal = HomeScreenHorizontalPadding, vertical = 4.dp)) {
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = HomeScreenHorizontalPadding, vertical = 4.dp)
+                        .clickable { onPopularRouteClick(topRoute.routeId) }
+                ) {
                     PopularRouteCard(topRoute)
                 }
             } else {
@@ -160,7 +170,7 @@ fun HomeScreen(
 
         item { SectionHeader(title = "지금 떠오르는 인기 장소", showSeeAll = true, onSeeAllClick = onSeeAllPopularPlaces) }
         item { Spacer(modifier = Modifier.height(20.dp)) }
-        item { PopularPlacesRow(places = popularPlaces) }
+        item { PopularPlacesRow(places = popularPlaces, onPlaceClick = onPlaceClick) }
         item { Spacer(modifier = Modifier.height(22.dp)) }
 
         item {
@@ -419,6 +429,10 @@ private fun SectionHeader(
 // 저장되는 데이터가 없어서(팀 논의 결과) 라벨 자체를 뺐음 - 지어내지 않음.
 @Composable
 private fun PopularRouteCard(route: PopularTripResponse) {
+    val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
+    val labelStyle = remember { TextStyle(fontSize = 15.sp, fontWeight = FontWeight.SemiBold) }
+
     Box(modifier = Modifier.fillMaxWidth().height(164.dp)) {
         val photoModifier = Modifier
             .fillMaxWidth()
@@ -441,7 +455,7 @@ private fun PopularRouteCard(route: PopularTripResponse) {
             )
         }
 
-        // 사진 위 정거장 점 + 연결선 - 아래 이름 행(가로 패딩 15dp)과 같은 기준으로 맞춰야 점과 이름이 정렬됨
+        // 사진 위 정거장 점 + 연결선 - 점 위치는 0%/50%/100%로 고정(대칭 유지, 이름 길이와 무관).
         if (route.stopNames.isNotEmpty()) {
             Box(
                 modifier = Modifier
@@ -481,14 +495,16 @@ private fun PopularRouteCard(route: PopularTripResponse) {
                 .padding(horizontal = 9.dp, vertical = 17.dp)
         ) {
             if (route.stopNames.isNotEmpty()) {
-                // 이 행만 좌우 6dp를 더 줘서(기본 9dp + 6dp = 15dp) 위 점 행과 동일한 가로 기준으로 정렬함
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp),
-                    horizontalArrangement = if (route.stopNames.size > 1) Arrangement.SpaceBetween else Arrangement.Center
-                ) {
-                    route.stopNames.forEach { stop ->
-                        Text(text = stop, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HomeTextPrimary)
+                // 이 영역만 좌우 6dp를 더 줘서(기본 9dp + 6dp = 15dp) 위 점 행과 동일한 가로 기준으로 정렬함.
+                BoxWithConstraints(modifier = Modifier.fillMaxWidth().padding(horizontal = 6.dp)) {
+                    val availableWidthPx = with(density) { maxWidth.roundToPx() }
+                    // 점은 고정 위치(0/50/100%)이므로, 이름은 그 고정 위치를 기준으로 한 슬롯 폭에
+                    // 맞게 "단어(공백) 단위로만" 줄임 - 글자 중간을 "..."으로 자르지 않고, 다 안
+                    // 들어가는 마지막 단어는 통째로 버림 (예: "광장시장 마약김밥" -> "광장시장").
+                    val displayLabels = remember(route.stopNames, availableWidthPx) {
+                        wordTruncatedStopLabels(route.stopNames, availableWidthPx, textMeasurer, labelStyle)
                     }
+                    FixedCenterLabelsRow(labels = displayLabels, modifier = Modifier.fillMaxWidth())
                 }
             } else {
                 Text(
@@ -511,6 +527,89 @@ private fun PopularRouteCard(route: PopularTripResponse) {
     }
 }
 
+// 정거장 이름을, 위 점 행과 동일한 고정 중심 위치(0%/50%/100%) 기준 슬롯 폭에 맞춰 "단어 단위"로
+// 줄인 문자열 리스트로 미리 계산함. 슬롯에 다 안 들어가면 뒤 단어부터 통째로 버리고(글자 중간을
+// 안 자름), 단어가 하나뿐이라 더 줄일 경계가 없으면 원본을 그대로 둬서 Text의 ellipsis(안전망)에 맡김.
+private fun wordTruncatedStopLabels(
+    labels: List<String>,
+    availableWidthPx: Int,
+    textMeasurer: TextMeasurer,
+    style: TextStyle
+): List<String> {
+    if (labels.isEmpty() || availableWidthPx <= 0) return labels
+    val count = labels.size
+    val fairShare = availableWidthPx / count.coerceAtLeast(1)
+
+    fun targetCenterX(index: Int): Float =
+        if (count <= 1) availableWidthPx / 2f else availableWidthPx * index / (count - 1).toFloat()
+
+    fun measureWidth(text: String): Int =
+        textMeasurer.measure(text = text, style = style, maxLines = 1).size.width
+
+    return labels.mapIndexed { index, label ->
+        val center = targetCenterX(index)
+        // 이 점을 기준으로 좌우 대칭을 유지한 채 들어갈 수 있는 최대 폭. 가장자리 점(첫/끝)은 이 값이
+        // 작아지므로, 정거장 개수만큼 공평하게 나눈 폭(fairShare) 아래로는 안 줄어들게 최소치를 보장함.
+        val symmetricMax = 2f * minOf(center, availableWidthPx - center)
+        val maxWidthPx = maxOf(symmetricMax.toInt(), fairShare)
+
+        if (measureWidth(label) <= maxWidthPx) {
+            label
+        } else {
+            val words = label.trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+            if (words.size <= 1 || measureWidth(words[0]) > maxWidthPx) {
+                label
+            } else {
+                var result = words[0]
+                for (i in 1 until words.size) {
+                    val candidate = "$result ${words[i]}"
+                    if (measureWidth(candidate) <= maxWidthPx) result = candidate else break
+                }
+                result
+            }
+        }
+    }
+}
+
+// 이미 슬롯 폭에 맞게 준비된 이름들을, 점 행과 동일한 고정 중심 위치(0%/50%/100%)에 맞춰 배치하는
+// 커스텀 레이아웃 - Row+SpaceBetween은 글자 폭이 다 달라서 "중심"이 안 맞으므로 직접 계산함.
+@Composable
+private fun FixedCenterLabelsRow(labels: List<String>, modifier: Modifier = Modifier) {
+    Layout(
+        modifier = modifier,
+        content = {
+            labels.forEach { label ->
+                Text(
+                    text = label,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = HomeTextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+        }
+    ) { measurables, constraints ->
+        val count = measurables.size
+        val totalWidth = constraints.maxWidth
+
+        fun targetCenterX(index: Int) =
+            if (count <= 1) totalWidth / 2f else totalWidth * index / (count - 1).toFloat()
+
+        val placeables = measurables.map { it.measure(Constraints(maxWidth = totalWidth)) }
+        val height = placeables.maxOfOrNull { it.height } ?: 0
+
+        layout(totalWidth, height) {
+            placeables.forEachIndexed { index, placeable ->
+                val center = targetCenterX(index)
+                val x = (center - placeable.width / 2f)
+                    .coerceIn(0f, (totalWidth - placeable.width).toFloat().coerceAtLeast(0f))
+                placeable.placeRelative(x.toInt(), 0)
+            }
+        }
+    }
+}
+
 // 백엔드는 저장(찜) 개수(savedCount)만 내려줘서, 표시용 문구("3.2만명 인기" / "12명 인기")로 프론트에서 포맷팅함.
 private fun formatPopularityLabel(savedCount: Long): String {
     return if (savedCount >= 10000) {
@@ -523,7 +622,7 @@ private fun formatPopularityLabel(savedCount: Long): String {
 // 저장 수 순위(1위부터) 그대로 나열 - /places/popular가 이미 저장 수 내림차순으로 내려줌.
 // 장소별 실제 사진은 아직 없어서, 자리(순서)별 고정 이미지를 그대로 유지함.
 @Composable
-private fun PopularPlacesRow(places: List<PopularPlaceResponse>) {
+private fun PopularPlacesRow(places: List<PopularPlaceResponse>, onPlaceClick: (Long) -> Unit = {}) {
     val images = listOf(
         R.drawable.home_place_haeundae,
         R.drawable.home_place_cafe_street,
@@ -536,7 +635,10 @@ private fun PopularPlacesRow(places: List<PopularPlaceResponse>) {
     ) {
         items(places.size) { index ->
             val place = places[index]
-            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(78.dp)) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.width(78.dp).clickable { onPlaceClick(place.spotId) }
+            ) {
                 Image(
                     painter = painterResource(images.getOrElse(index) { R.drawable.home_place_haeundae }),
                     contentDescription = null,
