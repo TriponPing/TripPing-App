@@ -56,7 +56,7 @@ fun PlaceDetailScreen(
     val detail by viewModel.detail.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val errorMessage by viewModel.errorMessage.collectAsState()
-    var isSaved by remember { mutableStateOf(false) }
+    val isSaved by viewModel.isSaved.collectAsState()
 
     LaunchedEffect(placeId) { viewModel.loadDetail(placeId) }
 
@@ -77,7 +77,7 @@ fun PlaceDetailScreen(
                     detail = detail!!,
                     isSaved = isSaved,
                     onBackClick = onBackClick,
-                    onSaveClick = { isSaved = !isSaved }, // TODO: 실제 장소 저장(북마크) API 연동
+                    onSaveClick = { viewModel.toggleSavePlace(placeId) },
                     onRouteCardClick = onRouteCardClick
                 )
             }
@@ -172,8 +172,8 @@ private fun PlaceDetailContent(
 
             Spacer(modifier = Modifier.height(28.dp))
 
-            // ===== 이 장소 통계 (지금은 장소 설명을 여기 넣음) =====
-            Text(text = "이 장소 통계", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            // ===== 이 장소 설명 =====
+            Text(text = "이 장소 설명", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color.Black)
             Spacer(modifier = Modifier.height(12.dp))
             Box(
                 modifier = Modifier

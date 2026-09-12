@@ -85,4 +85,8 @@ interface MyPageApi {
 
     @PUT("users/me/badges/featured")
     suspend fun updateFeaturedBadges(@Body request: UpdateFeaturedBadgesRequest): Response<List<BadgeResponse>>
+
+    // 장소 북마크 저장 (place 도메인 API, spotId 기준)
+    @POST("places/{placeId}/saved/me")
+    suspend fun savePlace(@Path("placeId") placeId: Long): Response<Unit>
 }
