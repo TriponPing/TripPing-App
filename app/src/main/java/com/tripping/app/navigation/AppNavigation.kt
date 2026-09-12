@@ -499,8 +499,8 @@ fun AppNavigation() {
                             showRouteMenu = true
                         },
 
-                        onViewRouteClick = { routeId, title ->
-                            navigateToCourseDetail(navController, routeId, title)
+                        onViewRouteClick = {
+                            navigateToTab(navController, "ping")
                         },
 
                         onPingClick = {
@@ -541,6 +541,12 @@ fun AppNavigation() {
 
                         onCourseClick = {
                             // TODO: 코스 상세
+                        },
+                        onPopularRouteClick = { routeId ->
+                            navController.navigate("route_detail/$routeId")
+                        },
+                        onPlaceClick = { spotId ->
+                            navController.navigate("place_detail/$spotId")
                         }
                     )
                 }

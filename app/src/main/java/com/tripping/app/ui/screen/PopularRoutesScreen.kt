@@ -3,9 +3,11 @@ package com.tripping.app.ui.screen
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -24,6 +26,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -136,6 +139,8 @@ private fun PopularRouteListCard(
                 fontSize = 15.sp,
                 fontWeight = FontWeight.Bold,
                 color = HomeTextPrimary,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
             BookmarkIcon(filled = isSaved, modifier = Modifier.clickable { onBookmarkClick() })
@@ -153,9 +158,21 @@ private fun PopularRouteListCard(
 
             Column(modifier = Modifier.weight(1f)) {
                 if (trip.stopNames.isNotEmpty()) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    // 방문 장소 이름이 길면(실데이터에서 흔함) 줄바꿈 없는 Row가 카드 폭을 넘어서
+                    // 레이아웃이 깨지므로 가로 스크롤 처리 (HomeCourseCardView와 동일한 패턴)
+                    Row(
+                        modifier = Modifier.horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
                         trip.stopNames.forEachIndexed { index, stop ->
-                            Text(text = stop, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HomeTextPrimary)
+                            Text(
+                                text = stop,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                color = HomeTextPrimary,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
                             if (index != trip.stopNames.lastIndex) {
                                 Text(text = "  →  ", fontSize = 13.sp, color = HomeTextPrimary)
                             }
