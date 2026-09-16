@@ -10,7 +10,9 @@ import retrofit2.converter.scalars.ScalarsConverterFactory
 
 object RetrofitClient {
 
-    private const val BASE_URL = "http://10.0.2.2:8080/"
+    // 👈 수정: 에뮬레이터 전용 주소(10.0.2.2)에서 Railway에 배포한 실제 서버 주소로 변경.
+    // 이제 실제 기기(원스토어 심사자 포함)에서도 로그인/회원가입 등 API 호출이 정상적으로 동작함.
+    private const val BASE_URL = "https://tripping-backend-production.up.railway.app/"
 
     private lateinit var cookieJar: SessionCookieJar
 
