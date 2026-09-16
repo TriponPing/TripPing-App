@@ -4,7 +4,9 @@ package com.tripping.app.data.api
 import com.tripping.app.data.request.AddTripSpotRequest
 import com.tripping.app.data.request.CreatePingRequest
 import com.tripping.app.data.request.PingReviewRequest
+import com.tripping.app.data.request.ReorderTripSpotsRequest
 import com.tripping.app.data.response.AddTripSpotResponse
+import com.tripping.app.data.response.ConfirmNextPingResponse
 import com.tripping.app.data.response.CurrentTripResponse
 import com.tripping.app.data.response.PingDto
 import com.tripping.app.data.response.PingResponse
@@ -45,6 +47,17 @@ interface PingApi {
     suspend fun deleteTripSpot(
         @Path("routeId") routeId: Long,
         @Path("actualRouteSpotId") actualRouteSpotId: Long
+    )
+
+    // 👈 새로 추가: 계획된 순서대로 다음 핑 찍기(큐) - 홈 "Ping 찍기" 버튼용
+    @POST("routes/{routeId}/pings/next")
+    suspend fun confirmNextPing(@Path("routeId") routeId: Long): ConfirmNextPingResponse
+
+    // 👈 새로 추가: Ping "기록" 탭에서 꾹 눌러 드래그로 바꾼 순서 저장
+    @PATCH("trips/{routeId}/spots/order")
+    suspend fun reorderTripSpots(
+        @Path("routeId") routeId: Long,
+        @Body request: ReorderTripSpotsRequest
     )
 
     // 👈 새로 추가: 기존 후기 조회 - 화면 진입 시 등록/수정 모드 판단용 (없으면 404 예외 발생함)

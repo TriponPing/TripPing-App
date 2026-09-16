@@ -41,6 +41,7 @@ import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.overlay.OverlayImage
 import com.naver.maps.map.overlay.PathOverlay
 import com.tripping.app.R
+import java.util.Locale
 
 private val AccentBlue = Color(0xFF0074CE)
 private val AccentPurple = Color(0xFF7B5AF7)
@@ -207,6 +208,9 @@ private fun NaverRouteMapView(
         factory = { mapView },
         update = { view ->
             view.getMapAsync { naverMap ->
+                // 👈 수정: locale 지정 안 하면 기기 시스템 언어를 따라가서 지도 위 장소 이름(POI)이
+                // 영어로 나올 수 있음 - 한국어로 고정.
+                naverMap.locale = Locale.KOREA
                 drawRoute(naverMap, places, markers, pathOverlayState)
             }
         }

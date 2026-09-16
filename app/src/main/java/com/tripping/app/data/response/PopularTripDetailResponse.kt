@@ -5,6 +5,7 @@ package com.tripping.app.data.response
 //  이건 "탐색에서 보는 남의 공개 루트 상세")
 data class PopularTripDetailResponse(
     val routeId: Long,
+    val title: String?,
     val writerNickname: String,
     val writerProfileImage: String?,
     val writerLevel: String?,

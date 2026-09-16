@@ -45,6 +45,7 @@ import com.tripping.app.R
 import com.tripping.app.data.api.RetrofitClient
 import com.tripping.app.data.request.CreatePlaceRequest
 import com.tripping.app.data.response.PlaceSearchResponse
+import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.launch
 
@@ -98,7 +99,6 @@ fun RouteMapEditScreen(
     onBackClick: () -> Unit = {},
     onNextClick: (String) -> Unit = {}
 ) {
-    var showTitleDialog by remember { mutableStateOf(false) }
     var routeTitle by remember { mutableStateOf("") }
     var showSavedPlacesPanel by remember { mutableStateOf(false) }
     val initialCenter = remember(initialRegionText) { RegionMapCenters.findCenter(initialRegionText) }
@@ -123,6 +123,28 @@ fun RouteMapEditScreen(
         HorizontalDivider(color = LightGrayBorder, thickness = 1.dp)
 
         RouteStepIndicator(currentStep = 2)
+
+        // ===== 루트 제목 입력 =====
+        Column(modifier = Modifier.fillMaxWidth().padding(start = 20.dp, end = 20.dp, bottom = 12.dp)) {
+            Text(text = "루트 제목", fontSize = 15.sp, fontWeight = FontWeight.Bold, color = Color.Black)
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(text = "루트를 기억하기 쉬운 이름을 입력해주세요", fontSize = 12.sp, color = GrayText)
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedTextField(
+                value = routeTitle,
+                onValueChange = { routeTitle = it },
+                placeholder = { Text("예: 제주도 힐링 여행", fontSize = 14.sp, color = GrayText) },
+                singleLine = true,
+                shape = RoundedCornerShape(10.dp),
+                colors = OutlinedTextFieldDefaults.colors(
+                    unfocusedContainerColor = GrayBg,
+                    focusedContainerColor = GrayBg,
+                    unfocusedBorderColor = Color.Transparent,
+                    focusedBorderColor = AccentBlue
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
 
         // ===== 지도 + 저장한 장소 버튼 + 탭한 장소 카드 =====
         Box(modifier = Modifier.weight(1f)) {
@@ -255,7 +277,10 @@ fun RouteMapEditScreen(
         }
 
         Button(
-            onClick = { showTitleDialog = true },
+            onClick = {
+                val finalTitle = routeTitle.ifBlank { "내가 만든 루트" }
+                onNextClick(finalTitle)
+            },
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 20.dp, vertical = 12.dp)
@@ -265,34 +290,6 @@ fun RouteMapEditScreen(
         ) {
             Text(text = "다음", fontSize = 16.sp, fontWeight = FontWeight.Bold)
         }
-    }
-
-    if (showTitleDialog) {
-        AlertDialog(
-            onDismissRequest = { showTitleDialog = false },
-            title = { Text("루트 제목", fontWeight = FontWeight.Bold) },
-            text = {
-                OutlinedTextField(
-                    value = routeTitle,
-                    onValueChange = { routeTitle = it },
-                    placeholder = { Text("루트 제목을 입력해주세요") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        val finalTitle = routeTitle.ifBlank { "내가 만든 루트" }
-                        showTitleDialog = false
-                        onNextClick(finalTitle)
-                    }
-                ) { Text("확인") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showTitleDialog = false }) { Text("취소") }
-            }
-        )
     }
 }
 
@@ -379,6 +376,9 @@ private fun NaverEditableMapView(
         factory = { mapView },
         update = { view ->
             view.getMapAsync { naverMap ->
+                // 👈 수정: locale 지정 안 하면 기기 시스템 언어를 따라가서 지도 위 장소 이름(POI)이
+                // 영어로 나올 수 있음 - 한국어로 고정.
+                naverMap.locale = Locale.KOREA
                 redrawMarkers(naverMap, places, markers, pathOverlayState)
 
                 // 네이버 지도 자체 POI(카페/식당 아이콘 등) 탭 -> 아직 우리 DB에 없는 장소로 취급

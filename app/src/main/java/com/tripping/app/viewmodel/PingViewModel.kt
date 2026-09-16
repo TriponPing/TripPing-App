@@ -10,6 +10,7 @@ import com.tripping.app.data.api.RetrofitClient
 import com.tripping.app.data.request.AddTripSpotRequest
 import com.tripping.app.data.request.CreatePingRequest
 import com.tripping.app.data.request.PingReviewRequest
+import com.tripping.app.data.request.ReorderTripSpotsRequest
 import com.tripping.app.data.response.PingDto
 import com.tripping.app.data.response.PingReviewResponse
 import com.tripping.app.data.response.TripDetailResponse
@@ -176,6 +177,26 @@ class PingViewModel : ViewModel() {
         }
     }
 
+    /** Ping "기록" 탭에서 꾹 눌러 드래그로 순서를 바꾼 뒤 새 순서 전체를 저장.
+     * 화면은 드래그하는 즉시(낙관적으로) 새 순서를 보여주고, 실패하면 원래 순서로 되돌림. */
+    fun reorderTripSpots(routeId: Long, newOrder: List<TripDetailResponse.SpotDetail>) {
+        val previous = ongoingTripSpots
+        ongoingTripSpots = newOrder
+        viewModelScope.launch {
+            try {
+                RetrofitClient.pingApi.reorderTripSpots(
+                    routeId = routeId,
+                    request = ReorderTripSpotsRequest(
+                        actualRouteSpotIds = newOrder.mapNotNull { it.actualRouteSpotId }
+                    )
+                )
+            } catch (e: Exception) {
+                ongoingTripSpots = previous // 저장 실패 - 드래그 이전 순서로 되돌림
+                errorMessage = e.localizedMessage ?: "순서 변경 중 오류가 발생했습니다."
+            }
+        }
+    }
+
     /** 핑 카드 "···" -> 삭제. "기록"(진행중) 탭과 "코스 상세"(완료된 여행) 화면 양쪽에서 씀 */
     fun deleteTripSpot(routeId: Long, actualRouteSpotId: Long) {
         viewModelScope.launch {
@@ -231,12 +252,14 @@ class PingViewModel : ViewModel() {
         }
     }
 
-    /** 핑 후기 등록 - 별점(필수)/후기 텍스트/태그를 서버 스펙에 맞게 전송 */
+    /** 핑 후기 등록 - 별점(필수)/후기 텍스트/태그/사진을 서버 스펙에 맞게 전송.
+     * photoUrl은 화면에서 미리 uploadReviewPhoto()로 업로드해서 받아온 URL을 그대로 넘겨받음. */
     fun submitReview(
         pingId: Long,
         rating: Int,
         content: String,
         tags: List<String> = emptyList(),
+        photoUrl: String? = null,
         onSuccess: () -> Unit = {}
     ) {
         viewModelScope.launch {
@@ -248,7 +271,7 @@ class PingViewModel : ViewModel() {
                     pingId = pingId,
                     request = PingReviewRequest(
                         rating = rating,
-                        photoUrl = null,
+                        photoUrl = photoUrl,
                         reviewComment = content.ifBlank { null },
                         tags = tags
                     )
@@ -269,6 +292,7 @@ class PingViewModel : ViewModel() {
         rating: Int,
         content: String,
         tags: List<String> = emptyList(),
+        photoUrl: String? = null,
         onSuccess: () -> Unit = {}
     ) {
         viewModelScope.launch {
@@ -280,7 +304,7 @@ class PingViewModel : ViewModel() {
                     pingId = pingId,
                     request = PingReviewRequest(
                         rating = rating,
-                        photoUrl = null,
+                        photoUrl = photoUrl,
                         reviewComment = content.ifBlank { null },
                         tags = tags
                     )
@@ -291,6 +315,29 @@ class PingViewModel : ViewModel() {
                 errorMessage = e.localizedMessage ?: "후기 수정 중 오류가 발생했습니다."
             } finally {
                 isLoading = false
+            }
+        }
+    }
+
+    // ===== 👈 새로 추가: 후기 사진 업로드 상태 =====
+    var isUploadingPhoto by mutableStateOf(false)
+        private set
+
+    /** 후기 작성 화면에서 사진을 고르면 바로 서버에 올려서 URL을 받아둠(제출은 나중에 따로 함) */
+    fun uploadReviewPhoto(
+        part: okhttp3.MultipartBody.Part,
+        onSuccess: (String) -> Unit,
+        onError: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            isUploadingPhoto = true
+            try {
+                val response = RetrofitClient.uploadApi.uploadImage(part)
+                onSuccess(response.url)
+            } catch (e: Exception) {
+                onError(e.localizedMessage ?: "사진 업로드 중 오류가 발생했습니다.")
+            } finally {
+                isUploadingPhoto = false
             }
         }
     }

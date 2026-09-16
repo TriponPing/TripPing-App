@@ -30,6 +30,11 @@ class HomeViewModel : ViewModel() {
     private val _popularTrips = MutableStateFlow<List<PopularTripResponse>>(emptyList())
     val popularTrips: StateFlow<List<PopularTripResponse>> = _popularTrips
 
+    // 👈 새로 추가: "내 주변 코스" - 진행 중인 여행의 마지막으로 찍은 핑 위치 기준으로 채워짐
+    // (loadCurrentTrip()에서 좌표가 있으면 자동으로 같이 불러옴). 찍은 핑이 없으면 빈 목록.
+    private val _nearbyCourses = MutableStateFlow<List<PopularTripResponse>>(emptyList())
+    val nearbyCourses: StateFlow<List<PopularTripResponse>> = _nearbyCourses
+
     // 내가 저장한 루트 id 집합. "이 루트를 이미 저장했는지" 조회하는 API가 따로 없어서,
     // 화면 진입 시 GET /users/me/routes/saved 목록을 통째로 불러와 tripId만 뽑아 초기화함.
     private val _savedRouteIds = MutableStateFlow<Set<Long>>(emptySet())
@@ -85,9 +90,66 @@ class HomeViewModel : ViewModel() {
             try {
                 val response = RetrofitClient.homeApi.getCurrentTripSummary()
                 // 200이면 진행 중인 여행 있음, 204(body == null)면 없음 -> 둘 다 정상 상태
-                _currentTrip.value = if (response.isSuccessful) response.body() else null
+                val trip = if (response.isSuccessful) response.body() else null
+                _currentTrip.value = trip
+
+                // 👈 수정: "내 주변 코스"를 기기 현재 위치가 아니라 마지막으로 찍은 핑 위치 기준으로
+                // 보여주기로 함. 진행 중인 여행이 없거나 아직 찍은 핑이 없으면(좌표 null) 비워둠.
+                val lastLat = trip?.lastPingLatitude
+                val lastLng = trip?.lastPingLongitude
+                if (lastLat != null && lastLng != null) {
+                    loadNearbyCourses(lastLat, lastLng)
+                } else {
+                    _nearbyCourses.value = emptyList()
+                }
             } catch (e: Exception) {
                 _errorMessage.value = e.message ?: "진행 중인 여행을 불러오지 못했습니다."
+            }
+        }
+    }
+
+    // 👈 새로 추가: 기준 좌표(마지막으로 찍은 핑) 근처의 공개 루트를 거리순으로 불러옴.
+    fun loadNearbyCourses(lat: Double, lng: Double) {
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.homeApi.getNearbyTrips(lat = lat, lng = lng)
+                _nearbyCourses.value = if (response.isSuccessful) response.body()?.content ?: emptyList() else emptyList()
+            } catch (e: Exception) {
+                // 목록형 섹션이라 실패해도 빈 목록으로 두고 에러 배너는 안 띄움
+                _nearbyCourses.value = emptyList()
+            }
+        }
+    }
+
+    // 👈 새로 추가: 홈 "Ping 찍기" 버튼 - 매번 장소를 고르지 않고, 계획된 방문 순서(visit_order)
+    // 대로 큐처럼 다음 장소 하나를 바로 확정해서 찍음. 성공하면 요약을 다시 불러와
+    // 카운트/스테퍼가 바로 "다음 핑"을 반영하도록 함.
+    fun confirmNextPing(onResult: (message: String, success: Boolean) -> Unit = { _, _ -> }) {
+        val routeId = _currentTrip.value?.actualRouteId
+        if (routeId == null) {
+            onResult("진행 중인 여행이 없어요.", false)
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.pingApi.confirmNextPing(routeId)
+                loadCurrentTrip() // 방금 찍은 핑이 카운트/스테퍼에 바로 반영되도록 다시 불러옴
+                val placeName = response.spotName ?: "다음 장소"
+                val message = if (response.hasNext) {
+                    "\"$placeName\" 핑을 찍었어요! 다음은 \"${response.nextSpotName ?: "다음 장소"}\"예요."
+                } else {
+                    "\"$placeName\" 핑을 찍었어요! 이 루트의 마지막 장소예요."
+                }
+                onResult(message, true)
+            } catch (e: retrofit2.HttpException) {
+                val message = if (e.code() == 409) {
+                    "찍을 수 있는 다음 장소가 없어요. 계획된 장소를 모두 찍었어요."
+                } else {
+                    e.message() ?: "핑을 찍지 못했어요."
+                }
+                onResult(message, false)
+            } catch (e: Exception) {
+                onResult(e.localizedMessage ?: "핑을 찍지 못했어요.", false)
             }
         }
     }

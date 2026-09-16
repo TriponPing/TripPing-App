@@ -1,10 +1,15 @@
-// [파일 설명] 핑 하나(방문 장소)에 대한 후기 작성 화면 UI. 별점, 텍스트 후기, 그리고 칩(chip) 형태의 태그 입력 UI를 포함한 화면.
+// [파일 설명] 핑 하나(방문 장소)에 대한 후기 작성 화면 UI. 별점, 사진 첨부, 텍스트 후기, 그리고 칩(chip) 형태의 태그 입력 UI를 포함한 화면.
 package com.tripping.app.ui.screen
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -16,9 +21,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import coil.compose.AsyncImage
+import com.tripping.app.viewmodel.PingViewModel
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody.Companion.asRequestBody
 
 // ===== 색상 =====
 private val BluePrimary = Color(0xFF4A72C4)
@@ -30,19 +42,74 @@ private val TagChipBg = Color(0xFFE9EEF8)
 private const val MAX_REVIEW_LENGTH = 500
 private const val MAX_TAGS = 3
 
+// 👈 새로 추가: 갤러리에서 고른 사진(Uri)을 서버로 보낼 수 있는 멀티파트 파일로 변환.
+// 캐시 폴더에 임시 파일로 복사한 뒤 그 파일을 바디로 감싸는 방식(스트림 직접 전송은 Retrofit Part 구성이 번거로움).
+private fun uriToMultipartPart(context: android.content.Context, uri: Uri): MultipartBody.Part? {
+    return try {
+        val contentResolver = context.contentResolver
+        val mimeType = contentResolver.getType(uri) ?: "image/jpeg"
+        val extension = when {
+            mimeType.contains("png") -> "png"
+            mimeType.contains("webp") -> "webp"
+            mimeType.contains("heic") -> "heic"
+            mimeType.contains("heif") -> "heif"
+            else -> "jpg"
+        }
+        val tempFile = java.io.File.createTempFile("review_photo_", ".$extension", context.cacheDir)
+        contentResolver.openInputStream(uri)?.use { input ->
+            tempFile.outputStream().use { output -> input.copyTo(output) }
+        }
+        val requestBody = tempFile.asRequestBody(mimeType.toMediaTypeOrNull())
+        MultipartBody.Part.createFormData("file", tempFile.name, requestBody)
+    } catch (e: Exception) {
+        null
+    }
+}
+
 @Composable
 fun PingLogReviewScreen(
     placeName: String,
     initialRating: Int? = null,
     initialContent: String? = null,
     initialTags: List<String> = emptyList(),
+    initialPhotoUrl: String? = null,
     isEditMode: Boolean = false,
+    pingViewModel: PingViewModel,
     onBackClick: () -> Unit,
-    onSubmit: (content: String, rating: Int, tags: List<String>) -> Unit,
-    onSubmitAndNext: (content: String, rating: Int, tags: List<String>) -> Unit
+    onSubmit: (content: String, rating: Int, tags: List<String>, photoUrl: String?) -> Unit,
+    onSubmitAndNext: (content: String, rating: Int, tags: List<String>, photoUrl: String?) -> Unit
 ) {
     var reviewText by remember { mutableStateOf(initialContent ?: "") }
     var rating by remember { mutableIntStateOf(initialRating ?: 5) } // 기존 후기 있으면 그 값, 없으면 기본 5점
+
+    val context = LocalContext.current
+
+    // 👈 새로 추가: 사진 첨부 상태. localPreviewUri는 방금 고른 사진(업로드 중 미리보기용),
+    // photoUrl은 서버 업로드가 끝나서 실제 등록/수정에 쓸 URL (수정 모드면 기존 사진으로 시작).
+    var localPreviewUri by remember { mutableStateOf<Uri?>(null) }
+    var photoUrl by remember { mutableStateOf(initialPhotoUrl) }
+    val isUploadingPhoto = pingViewModel.isUploadingPhoto
+
+    val photoPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.PickVisualMedia()
+    ) { uri ->
+        if (uri != null) {
+            localPreviewUri = uri
+            val part = uriToMultipartPart(context, uri)
+            if (part != null) {
+                pingViewModel.uploadReviewPhoto(
+                    part = part,
+                    onSuccess = { url -> photoUrl = url },
+                    onError = { message ->
+                        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                        localPreviewUri = null
+                    }
+                )
+            } else {
+                localPreviewUri = null
+            }
+        }
+    }
 
     // 👈 새로 추가: 칩 형태 태그 입력용 상태 (기존 태그가 있으면 미리 채워둠)
     var tagInput by remember { mutableStateOf("") }
@@ -197,6 +264,72 @@ fun PingLogReviewScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
 
+            // ===== 👈 새로 추가: 사진 첨부 영역 =====
+            Text(text = "사진", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            val displayPhoto: Any? = localPreviewUri ?: photoUrl
+
+            if (displayPhoto != null) {
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                ) {
+                    AsyncImage(
+                        model = displayPhoto,
+                        contentDescription = "첨부한 사진",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                    if (isUploadingPhoto) {
+                        Box(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .background(Color.Black.copy(alpha = 0.4f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .padding(4.dp)
+                            .size(20.dp)
+                            .clip(RoundedCornerShape(10.dp))
+                            .background(Color.Black.copy(alpha = 0.6f))
+                            .clickable(enabled = !isUploadingPhoto) {
+                                localPreviewUri = null
+                                photoUrl = null
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(text = "×", color = Color.White, fontSize = 12.sp)
+                    }
+                }
+            } else {
+                Box(
+                    modifier = Modifier
+                        .size(100.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                        .background(GrayBg)
+                        .clickable {
+                            photoPickerLauncher.launch(
+                                PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly)
+                            )
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(text = "+", fontSize = 28.sp, color = GrayText)
+                }
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
             // ===== 텍스트 후기 영역 =====
             Text(text = "Ping 로그 후기", fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(8.dp))
@@ -244,13 +377,13 @@ fun PingLogReviewScreen(
                 .padding(horizontal = 20.dp, vertical = 16.dp)
                 .height(52.dp)
                 .clip(RoundedCornerShape(12.dp))
-                .background(BluePrimary)
-                .clickable {
+                .background(if (isUploadingPhoto) GrayText else BluePrimary)
+                .clickable(enabled = !isUploadingPhoto) {
                     // 직접 추가한 태그 칩 + 본문 속 #해시태그를 합쳐서 최대 3개까지만 전송
                     val finalTags = (tags + extractHashtagsFromBody(reviewText))
                         .distinct()
                         .take(MAX_TAGS)
-                    onSubmit(reviewText, rating, finalTags)
+                    onSubmit(reviewText, rating, finalTags, photoUrl)
                 },
             contentAlignment = Alignment.Center
         ) {

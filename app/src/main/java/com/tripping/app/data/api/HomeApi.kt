@@ -1,6 +1,7 @@
 package com.tripping.app.data.api
 
 import com.tripping.app.data.response.CurrentTripSummaryResponse
+import com.tripping.app.data.response.PageResponse
 import com.tripping.app.data.response.PopularKeywordResponse
 import com.tripping.app.data.response.PopularPlaceResponse
 import com.tripping.app.data.response.PopularTripResponse
@@ -39,6 +40,16 @@ interface HomeApi {
     suspend fun getPopularPlaces(
         @Query("limit") limit: Int = 30
     ): Response<List<PopularPlaceResponse>>
+
+    // 👈 새로 추가: "내 주변 코스" - 진행 중인 여행이 있으면 마지막으로 찍은 핑 좌표, 없으면 기기 현재 위치로 호출
+    @GET("trips/nearby")
+    suspend fun getNearbyTrips(
+        @Query("lat") lat: Double,
+        @Query("lng") lng: Double,
+        @Query("radiusKm") radiusKm: Double? = null,
+        @Query("page") page: Int = 0,
+        @Query("size") size: Int = 10
+    ): Response<PageResponse<PopularTripResponse>>
 
     @GET("places/saved/me/ids")
     suspend fun getSavedPlaceIds(): Response<List<Long>>

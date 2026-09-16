@@ -98,6 +98,7 @@ fun HomeScreen(
     val popularTrips by viewModel.popularTrips.collectAsState()
     val popularKeywords by viewModel.popularKeywords.collectAsState()
     val popularPlaces by viewModel.popularPlaces.collectAsState()
+    val context = androidx.compose.ui.platform.LocalContext.current
     LaunchedEffect(Unit) {
         viewModel.loadCurrentTrip()
         viewModel.loadNickname()
@@ -106,20 +107,22 @@ fun HomeScreen(
         viewModel.loadPopularPlaces(limit = 4)
     }
 
-    // TODO: 내 주변 코스 API 나오면 mock 데이터 교체
-    val nearbyCourses = remember {
-        listOf(
+    // 👈 수정: mock 데이터 대신 "마지막으로 찍은 핑" 주변의 실제 공개 루트로 교체
+    // (currentTrip.lastPingLatitude/Longitude가 있을 때만 채워짐 - loadCurrentTrip()에서 같이 불러옴)
+    val nearbyTripsRaw by viewModel.nearbyCourses.collectAsState()
+    val nearbyCourses = remember(nearbyTripsRaw) {
+        nearbyTripsRaw.map { trip ->
             HomeCourseCard(
-                id = 1,
-                authorName = "등록자 이름",
-                courseName = "A 코스",
-                stops = listOf("강남", "코엑스", "석촌호수"),
-                tags = emptyList(),
-                pingCount = 5,
-                distanceKm = 4.8,
-                bookmarkCount = 31
+                id = trip.routeId.toInt(),
+                authorName = null, // 내 주변 코스 카드는 원래부터 작성자 행을 숨기는 디자인
+                courseName = trip.title ?: "여행 루트",
+                stops = trip.stopNames,
+                tags = trip.tags.map { HomeKeyword(text = "#$it") },
+                pingCount = trip.pingCount.toInt(),
+                distanceKm = trip.distanceKm ?: 0.0,
+                bookmarkCount = trip.savedCount.toInt()
             )
-        )
+        }
     }
 
     LazyColumn(
@@ -136,7 +139,14 @@ fun HomeScreen(
                 ActiveTripCard(
                     trip = trip,
                     onViewRouteClick = onViewRouteClick,
-                    onPingClick = onPingClick
+                    // 👈 수정: 예전엔 Ping 탭으로 이동만 시켰는데, 이제 눌렀을 때 바로 계획된
+                    // 다음 장소를 핑으로 찍고(큐), 홈 화면에서 바로 카운트/스테퍼가 갱신되는 걸
+                    // 볼 수 있게 함(화면 이동 없음). "루트보기" 버튼은 그대로 Ping 탭으로 이동.
+                    onPingClick = {
+                        viewModel.confirmNextPing { message, _ ->
+                            android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                    }
                 )
             } else {
                 StartTripCard(onStartRouteClick = onStartRouteClick)
@@ -201,16 +211,35 @@ fun HomeScreen(
         }
         item { Spacer(modifier = Modifier.height(23.dp)) }
 
-        item { SectionHeader(title = "내 주변 코스", showSeeAll = true, onSeeAllClick = onSeeAllNearbyCourses) }
+        item {
+            // 👈 수정: 진행 중인 여행에서 핑을 하나라도 찍었으면 "마지막 핑 주변 코스"로 제목을 바꿔서
+            // 지금 보여주는 코스 목록이 기기 현재 위치가 아니라 마지막으로 찍은 핑 기준이라는 걸 알려줌.
+            val nearbySectionTitle = if (currentTrip?.lastPingLatitude != null) "마지막 핑 주변 코스" else "내 주변 코스"
+            SectionHeader(title = nearbySectionTitle, showSeeAll = true, onSeeAllClick = onSeeAllNearbyCourses)
+        }
         item { Spacer(modifier = Modifier.height(20.dp)) }
-        items(nearbyCourses) { course ->
-            Box(modifier = Modifier.padding(horizontal = HomeScreenHorizontalPadding)) {
-                HomeCourseCardView(
-                    course = course,
-                    showArrows = currentTrip != null,
-                    titleFontSize = 15.sp,
-                    onClick = { onCourseClick(course.id) }
+        if (nearbyCourses.isEmpty()) {
+            item {
+                Text(
+                    text = if (currentTrip?.lastPingLatitude != null) "마지막 핑 주변에 아직 등록된 코스가 없어요"
+                           else "Ping을 찍으면 그 주변 코스를 보여드려요",
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = HomeGrayText,
+                    modifier = Modifier.padding(horizontal = HomeScreenHorizontalPadding)
                 )
+            }
+        } else {
+            // 👈 수정: 홈에는 미리보기로 3개까지만 보여주고, 전체 목록은 "더보기"(NearbyCoursesScreen)에서 봄
+            items(nearbyCourses.take(3)) { course ->
+                Box(modifier = Modifier.padding(horizontal = HomeScreenHorizontalPadding)) {
+                    HomeCourseCardView(
+                        course = course,
+                        showArrows = currentTrip != null,
+                        titleFontSize = 15.sp,
+                        onClick = { onCourseClick(course.id) }
+                    )
+                }
             }
         }
         item { Spacer(modifier = Modifier.height(24.dp)) }
@@ -316,7 +345,11 @@ private fun ActiveTripCard(
             )
             Spacer(modifier = Modifier.width(8.dp))
             if (trip.visitedPlaceNames.isNotEmpty()) {
-                TripStepper(stops = trip.visitedPlaceNames, modifier = Modifier.weight(1f))
+                TripStepper(
+                    stops = trip.visitedPlaceNames,
+                    confirmedCount = trip.confirmedCount,
+                    modifier = Modifier.weight(1f)
+                )
             } else {
                 Text(
                     text = "아직 등록된 Ping이 없어요",
@@ -335,35 +368,66 @@ private fun ActiveTripCard(
     }
 }
 
-// 정거장 점(파란 링 + 흰 중심) + 연결선. 피그마상 방문 여부에 따른 색 구분은 없음(전부 동일 스타일).
+// 정거장 점(파란 링 + 흰 중심) + 연결선.
+// 👈 수정: 이름이 길면(예: "Seoul Metropolitan Government") 한 글자씩 세로로 줄바꿈되던 문제
+// 수정 - 정거장 하나당 고정 너비 칸에 한 줄 + 말줄임(...)으로 표시하고, 전체는 가로 스크롤 가능하게 함
+// (HomeCourseCardView의 스탑 목록과 같은 패턴). 또한 confirmedCount 기준으로 이미 찍은 핑은
+// 파란색 글씨로, 다음에 찍을 핑은 굵게 강조(포커스)해서 보여줌.
+private val TripStepperStopWidth = 76.dp
+
 @Composable
-private fun TripStepper(stops: List<String>, modifier: Modifier = Modifier) {
-    Column(modifier = modifier) {
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Box(
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .padding(horizontal = 13.dp)
-                    .fillMaxWidth()
-                    .height(3.dp)
-                    .background(HomeAccentBlue)
-            )
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                repeat(stops.size) { StepDot() }
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-            stops.forEach { stop ->
-                Text(text = stop, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = HomeTextPrimary)
+private fun TripStepper(stops: List<String>, confirmedCount: Long = 0, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.horizontalScroll(rememberScrollState()),
+        verticalAlignment = Alignment.Top
+    ) {
+        stops.forEachIndexed { index, stop ->
+            val isConfirmed = index < confirmedCount
+            val isNext = index.toLong() == confirmedCount
+            Column(
+                modifier = Modifier.width(TripStepperStopWidth),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    StepDot(highlighted = isNext)
+                    if (index != stops.lastIndex) {
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(3.dp)
+                                .background(HomeAccentBlue)
+                        )
+                    }
+                }
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stop,
+                    fontSize = 13.sp,
+                    fontWeight = if (isNext) FontWeight.ExtraBold else FontWeight.SemiBold,
+                    color = if (isConfirmed) HomeAccentBlue else HomeTextPrimary,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
     }
 }
 
 @Composable
-private fun StepDot() {
-    Box(modifier = Modifier.size(27.dp).clip(CircleShape).background(HomeAccentBlue), contentAlignment = Alignment.Center) {
+private fun StepDot(highlighted: Boolean = false) {
+    Box(
+        modifier = Modifier
+            .size(if (highlighted) 31.dp else 27.dp)
+            .clip(CircleShape)
+            .background(HomeAccentBlue)
+            .then(
+                if (highlighted) Modifier.border(2.dp, Color(0xFFD95A5A), CircleShape)
+                else Modifier
+            ),
+        contentAlignment = Alignment.Center
+    ) {
         Box(modifier = Modifier.size(11.dp).clip(CircleShape).background(Color.White))
     }
 }
@@ -620,10 +684,11 @@ private fun formatPopularityLabel(savedCount: Long): String {
 }
 
 // 저장 수 순위(1위부터) 그대로 나열 - /places/popular가 이미 저장 수 내림차순으로 내려줌.
-// 장소별 실제 사진은 아직 없어서, 자리(순서)별 고정 이미지를 그대로 유지함.
+// 👈 수정: 이제 백엔드가 저장 많이 된 루트의 이 장소 후기 사진(photoUrl)을 내려줌 - 있으면 그 실제
+// 사진을, 아직 사진 등록된 후기가 없는 장소면(photoUrl == null) 예전처럼 자리별 고정 이미지로 대체함.
 @Composable
 private fun PopularPlacesRow(places: List<PopularPlaceResponse>, onPlaceClick: (Long) -> Unit = {}) {
-    val images = listOf(
+    val fallbackImages = listOf(
         R.drawable.home_place_haeundae,
         R.drawable.home_place_cafe_street,
         R.drawable.home_place_yeouido,
@@ -639,12 +704,21 @@ private fun PopularPlacesRow(places: List<PopularPlaceResponse>, onPlaceClick: (
                 horizontalAlignment = Alignment.CenterHorizontally,
                 modifier = Modifier.width(78.dp).clickable { onPlaceClick(place.spotId) }
             ) {
-                Image(
-                    painter = painterResource(images.getOrElse(index) { R.drawable.home_place_haeundae }),
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
-                    modifier = Modifier.size(78.dp).clip(RoundedCornerShape(8.dp))
-                )
+                if (place.photoUrl != null) {
+                    AsyncImage(
+                        model = place.photoUrl,
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(78.dp).clip(RoundedCornerShape(8.dp))
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(fallbackImages.getOrElse(index) { R.drawable.home_place_haeundae }),
+                        contentDescription = null,
+                        contentScale = ContentScale.Crop,
+                        modifier = Modifier.size(78.dp).clip(RoundedCornerShape(8.dp))
+                    )
+                }
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = place.name,

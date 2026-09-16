@@ -138,13 +138,28 @@ private fun RouteDetailContent(
                     .background(Color(0xFFEEEEEE), CircleShape),
                 contentAlignment = Alignment.Center
             ) {
-                if (!detail.writerProfileImage.isNullOrBlank()) {
-                    AsyncImage(
-                        model = detail.writerProfileImage,
-                        contentDescription = "프로필 사진",
-                        contentScale = ContentScale.Crop,
-                        modifier = Modifier.fillMaxSize().background(Color.Transparent, CircleShape)
-                    )
+                val writerProfileImage = detail.writerProfileImage
+                if (!writerProfileImage.isNullOrBlank()) {
+                    // 👈 수정: 프로필 사진은 지금 base64 데이터(data:image/...)로 저장되는데
+                    // Coil의 AsyncImage에 그대로 넘기면 URL로 착각해서 요청하다가 무조건 실패함
+                    // (그래서 안 불러와졌던 것). 마이페이지/설정 화면과 동일하게 직접 디코딩해서 그림.
+                    // 혹시 나중에 진짜 URL 형태로 바뀌어도 디코딩 실패 시 AsyncImage로 대체되게 함.
+                    val decodedBitmap = remember(writerProfileImage) { decodeProfileImage(writerProfileImage) }
+                    if (decodedBitmap != null) {
+                        androidx.compose.foundation.Image(
+                            bitmap = decodedBitmap,
+                            contentDescription = "프로필 사진",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize().background(Color.Transparent, CircleShape)
+                        )
+                    } else {
+                        AsyncImage(
+                            model = writerProfileImage,
+                            contentDescription = "프로필 사진",
+                            contentScale = ContentScale.Crop,
+                            modifier = Modifier.fillMaxSize().background(Color.Transparent, CircleShape)
+                        )
+                    }
                 }
             }
 

@@ -34,6 +34,7 @@ import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.overlay.OverlayImage
 import com.tripping.app.R
+import java.util.Locale
 import com.tripping.app.data.response.PlaceSearchResponse
 
 private val AccentBlue = Color(0xFF0074CE)
@@ -246,6 +247,9 @@ private fun NaverSearchMapView(
         factory = { mapView },
         update = { view ->
             view.getMapAsync { naverMap ->
+                // 👈 수정: locale 지정 안 하면 기기 시스템 언어를 따라가서 지도 위 장소 이름(POI)이
+                // 영어로 나올 수 있음 - 한국어로 고정.
+                naverMap.locale = Locale.KOREA
                 marker.value?.map = null
                 marker.value = null
 

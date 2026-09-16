@@ -68,6 +68,8 @@ fun SettingsScreen(
     val badges by viewModel.badges.collectAsState()
 
     var showLogoutDialog by remember { mutableStateOf(false) }
+    // 👈 새로 추가: 회원가입 때만 보이던 개인정보처리방침을 가입 이후에도 다시 볼 수 있게 설정 화면에도 노출
+    var showPrivacyDialog by remember { mutableStateOf(false) }
     var showNicknameDialog by remember { mutableStateOf(false) }
     var nicknameInput by remember { mutableStateOf("") }
     var questBadgeInfo by remember { mutableStateOf<BadgeResponse?>(null) } // 잠긴 뱃지 눌렀을 때 조건 안내용
@@ -296,6 +298,18 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(48.dp))
 
             Text(
+                text = "개인정보처리방침",
+                fontSize = 13.sp,
+                color = ColorTextSecondary,
+                modifier = Modifier
+                    .align(Alignment.CenterHorizontally)
+                    .clickable { showPrivacyDialog = true }
+                    .padding(vertical = 4.dp)
+            )
+
+            Spacer(modifier = Modifier.height(8.dp))
+
+            Text(
                 text = "로그아웃",
                 fontSize = 13.sp,
                 color = ColorTextSecondary,
@@ -307,6 +321,10 @@ fun SettingsScreen(
 
             Spacer(modifier = Modifier.height(24.dp))
         }
+    }
+
+    if (showPrivacyDialog) {
+        PrivacyPolicyDialog(onDismiss = { showPrivacyDialog = false })
     }
 
     if (showLogoutDialog) {

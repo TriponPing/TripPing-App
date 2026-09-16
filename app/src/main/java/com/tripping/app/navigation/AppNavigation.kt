@@ -1468,14 +1468,18 @@ fun AppNavigation() {
 
                             initialTags = existingReview?.tags ?: emptyList(),
 
+                            initialPhotoUrl = existingReview?.photoUrl,
+
                             isEditMode = existingReview != null,
+
+                            pingViewModel = pingViewModel,
 
                             onBackClick = {
 
                                 navController.popBackStack()
                             },
 
-                            onSubmit = { content, rating, tags ->
+                            onSubmit = { content, rating, tags, photoUrl ->
 
                                 if (existingReview != null) {
 
@@ -1488,6 +1492,8 @@ fun AppNavigation() {
                                         content = content,
 
                                         tags = tags,
+
+                                        photoUrl = photoUrl,
 
                                         onSuccess = {
 
@@ -1511,6 +1517,8 @@ fun AppNavigation() {
                                         content = content,
 
                                         tags = tags,
+
+                                        photoUrl = photoUrl,
 
                                         onSuccess = {
 
@@ -1526,7 +1534,7 @@ fun AppNavigation() {
                                 }
                             },
 
-                            onSubmitAndNext = { content, rating, tags ->
+                            onSubmitAndNext = { content, rating, tags, photoUrl ->
 
                                 if (existingReview != null) {
 
@@ -1535,6 +1543,7 @@ fun AppNavigation() {
                                         rating = rating,
                                         content = content,
                                         tags = tags,
+                                        photoUrl = photoUrl,
                                         onSuccess = {
                                             Toast.makeText(
                                                 context,
@@ -1551,6 +1560,7 @@ fun AppNavigation() {
                                         rating = rating,
                                         content = content,
                                         tags = tags,
+                                        photoUrl = photoUrl,
                                         onSuccess = {
                                             Toast.makeText(
                                                 context,
@@ -1575,6 +1585,18 @@ fun AppNavigation() {
                     ROUTE_CREATE_ROUTE
                 ) {
 
+                    val routeCreateContext = LocalContext.current
+                    val recommendErrorMessage by routeCreateViewModel.errorMessage.collectAsState()
+
+                    // 👈 새로 추가: 추천 요청이 진짜로 실패했을 때(네트워크 오류 등) 그동안 아무 표시
+                    // 없이 화면이 멈춘 것처럼 보였음 - 토스트로 알려줌.
+                    LaunchedEffect(recommendErrorMessage) {
+                        recommendErrorMessage?.let {
+                            Toast.makeText(routeCreateContext, it, Toast.LENGTH_LONG).show()
+                            routeCreateViewModel.clearErrorMessage()
+                        }
+                    }
+
                     RouteCreateScreen(
                         onBackClick = {
                             navigateToTab(navController, "home")
@@ -1590,6 +1612,20 @@ fun AppNavigation() {
                 composable("route_recommend") {
 
                     val routes by routeCreateViewModel.recommendedRoutes.collectAsState()
+                    val recommendContext = LocalContext.current
+
+                    // 👈 새로 추가: 추천 API가 (에러 없이) 빈 목록을 내려준 경우 - 그 지역/조건에
+                    // 추천할 장소가 부족했다는 뜻. 화면이 그냥 멈춘 것처럼 보이지 않게 알림을 띄우고,
+                    // 아래 "추천 안 받고 다음으로" 버튼으로 계속 진행할 수 있게 함.
+                    LaunchedEffect(routes) {
+                        if (routes.isEmpty()) {
+                            Toast.makeText(
+                                recommendContext,
+                                "추천할 장소가 부족해서 추천 없이 진행할게요. 직접 루트를 만들어주세요!",
+                                Toast.LENGTH_LONG
+                            ).show()
+                        }
+                    }
 
                     RouteRecommendScreen(
                         routes = routes,

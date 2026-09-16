@@ -5,6 +5,7 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -19,12 +20,17 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.tripping.app.R
+import com.tripping.app.data.response.TripDetailResponse
 import com.tripping.app.viewmodel.PingItem
 import com.tripping.app.viewmodel.PingStatus
 import com.tripping.app.viewmodel.PingViewModel
@@ -97,13 +103,14 @@ internal fun PingRecordContent(
                 Spacer(modifier = Modifier.height(16.dp))
             }
 
-            items(pingsFromDb) { ping ->
-                PingCard(
-                    ping = ping,
-                    onLinkClick = { onPingLogClick(ping.id, ping.placeName) },
-                    onDeleteClick = { pendingDeleteId = ping.id }
+            item {
+                ReorderablePingSection(
+                    spots = ongoingSpots,
+                    pingItems = pingsFromDb,
+                    onReorder = { newSpots -> ongoingRouteId?.let { viewModel.reorderTripSpots(it, newSpots) } },
+                    onLinkClick = { ping -> onPingLogClick(ping.id, ping.placeName) },
+                    onDeleteClick = { ping -> pendingDeleteId = ping.id }
                 )
-                Spacer(modifier = Modifier.height(10.dp))
             }
 
             item {
@@ -160,6 +167,88 @@ internal fun PingRecordContent(
                 }
             }
         )
+    }
+}
+
+// 핑 카드 목록을 꾹 눌러서(long press) 드래그로 순서를 바꿀 수 있게 하는 컨테이너.
+// spots/pingItems는 항상 같은 인덱스가 같은 핑을 가리킴(pingsFromDb가 ongoingSpots에서 그대로 파생됨).
+// 드래그 중엔 로컬 상태(orderedItems/orderedSpots)로만 바로바로 보여주고, 손을 떼는 순간(onDragEnd)
+// 딱 한 번 viewModel.reorderTripSpots()를 호출해 서버에 새 순서를 저장함.
+@Composable
+private fun ReorderablePingSection(
+    spots: List<TripDetailResponse.SpotDetail>,
+    pingItems: List<PingItem>,
+    onReorder: (List<TripDetailResponse.SpotDetail>) -> Unit,
+    onLinkClick: (PingItem) -> Unit,
+    onDeleteClick: (PingItem) -> Unit
+) {
+    var orderedItems by remember(pingItems) { mutableStateOf(pingItems) }
+    var orderedSpots by remember(spots) { mutableStateOf(spots) }
+    var draggingId by remember { mutableStateOf<Long?>(null) }
+    var dragOffsetY by remember { mutableStateOf(0f) }
+    val itemHeights = remember { mutableStateMapOf<Long, Int>() }
+
+    Column(modifier = Modifier.fillMaxWidth()) {
+        orderedItems.forEach { ping ->
+            val isDragging = ping.id == draggingId
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .zIndex(if (isDragging) 1f else 0f)
+                    .graphicsLayer {
+                        translationY = if (isDragging) dragOffsetY else 0f
+                    }
+                    .onSizeChanged { size -> itemHeights[ping.id] = size.height }
+                    .pointerInput(ping.id) {
+                        detectDragGesturesAfterLongPress(
+                            onDragStart = {
+                                draggingId = ping.id
+                                dragOffsetY = 0f
+                            },
+                            onDragCancel = {
+                                draggingId = null
+                                dragOffsetY = 0f
+                            },
+                            onDragEnd = {
+                                draggingId = null
+                                dragOffsetY = 0f
+                                if (orderedSpots != spots) onReorder(orderedSpots)
+                            },
+                            onDrag = { change, dragAmount ->
+                                change.consume()
+                                dragOffsetY += dragAmount.y
+
+                                val id = draggingId ?: return@detectDragGesturesAfterLongPress
+                                val currentIndex = orderedItems.indexOfFirst { it.id == id }
+                                if (currentIndex == -1) return@detectDragGesturesAfterLongPress
+                                val rowHeight = (itemHeights[id] ?: 0) + 10 // 카드 높이 + 카드 사이 간격(10dp) 대략치
+                                if (rowHeight <= 0) return@detectDragGesturesAfterLongPress
+
+                                if (dragOffsetY > rowHeight / 2 && currentIndex < orderedItems.lastIndex) {
+                                    orderedItems = orderedItems.toMutableList()
+                                        .apply { add(currentIndex + 1, removeAt(currentIndex)) }
+                                    orderedSpots = orderedSpots.toMutableList()
+                                        .apply { add(currentIndex + 1, removeAt(currentIndex)) }
+                                    dragOffsetY -= rowHeight
+                                } else if (dragOffsetY < -rowHeight / 2 && currentIndex > 0) {
+                                    orderedItems = orderedItems.toMutableList()
+                                        .apply { add(currentIndex - 1, removeAt(currentIndex)) }
+                                    orderedSpots = orderedSpots.toMutableList()
+                                        .apply { add(currentIndex - 1, removeAt(currentIndex)) }
+                                    dragOffsetY += rowHeight
+                                }
+                            }
+                        )
+                    }
+            ) {
+                PingCard(
+                    ping = ping,
+                    onLinkClick = { onLinkClick(ping) },
+                    onDeleteClick = { onDeleteClick(ping) }
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+        }
     }
 }
 

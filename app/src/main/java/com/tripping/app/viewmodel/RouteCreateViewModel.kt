@@ -25,6 +25,11 @@ class RouteCreateViewModel : ViewModel() {
     private val _errorMessage = MutableStateFlow<String?>(null)
     val errorMessage: StateFlow<String?> = _errorMessage
 
+    // 토스트로 한 번 보여준 에러 메시지를 비워서, 화면을 다시 들어올 때 같은 토스트가 또 뜨지 않게 함
+    fun clearErrorMessage() {
+        _errorMessage.value = null
+    }
+
     // "적용" 눌렀을 때 선택된 루트를 들고 있다가, 지도 화면에서 꺼내 씀
     private val _selectedRoute = MutableStateFlow<RecommendedRoute?>(null)
     val selectedRoute: StateFlow<RecommendedRoute?> = _selectedRoute

@@ -22,6 +22,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
@@ -46,6 +47,7 @@ import java.util.Locale
 private val AccentBlue = Color(0xFF0074CE)
 private val GrayText = Color(0xFF818181)
 private val LightGrayBorder = Color(0xFFE0E0E0)
+private val DatePillBg = Color(0xFFF3F3F5) // 👈 새로 추가: 날짜 값이 "클릭 가능한 요소"로 보이게 감싸는 알약 배경
 
 // regionId가 있는 것만 실제 필터가 걸려요. 없는 지역은 목록엔 뜨지만 필터 없이 전체 조회돼요.
 // TODO: 백엔드 region 테이블에 나머지 지역 코드 추가되면 여기도 채워넣기
@@ -221,13 +223,33 @@ fun RouteCreateScreen(
                 .padding(16.dp)
         ) {
             Text(text = "여행 날짜", fontSize = 15.sp, fontWeight = FontWeight.SemiBold, color = Color.Black)
+            Spacer(modifier = Modifier.height(2.dp))
+            // 👈 새로 추가: 이 영역 전체가 눌러서 날짜를 고치는 곳이라는 걸 바로 알 수 있게 안내 문구 추가
+            // (날짜 선택 다이얼로그 안에서만 쓰던 문구를 메인 화면에도 그대로 보여줌)
+            Text(text = "날짜를 클릭해 수정해주세요", fontSize = 12.sp, color = GrayText)
             Spacer(modifier = Modifier.height(8.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Filled.CalendarMonth, contentDescription = null, tint = GrayText, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(8.dp))
-                Text(text = startDateDisplay, fontSize = 15.sp, color = Color.Black)
+                // 👈 수정: 날짜 값을 그냥 텍스트로 두지 않고 알약 모양 배경을 씌워서 "클릭 가능한 값"처럼 보이게 함
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DatePillBg)
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(text = startDateDisplay, fontSize = 15.sp, color = Color.Black)
+                }
                 Text(text = "  ~  ", fontSize = 15.sp, color = GrayText)
-                Text(text = endDateDisplay, fontSize = 15.sp, color = Color.Black, modifier = Modifier.weight(1f))
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(DatePillBg)
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(text = endDateDisplay, fontSize = 15.sp, color = Color.Black)
+                }
+                Spacer(modifier = Modifier.weight(1f))
                 Icon(Icons.Filled.KeyboardArrowRight, contentDescription = null, tint = GrayText)
             }
         }
@@ -599,6 +621,9 @@ private fun DraggableCenterPinMap(
         factory = { mapView },
         update = { view ->
             view.getMapAsync { naverMap ->
+                // 👈 수정: locale 지정 안 하면 기기 시스템 언어를 따라가서 지도 위 장소 이름(POI)이
+                // 영어로 나올 수 있음 - 한국어로 고정.
+                naverMap.locale = Locale.KOREA
                 if (!didInit) {
                     naverMap.moveCamera(CameraUpdate.scrollTo(initialCenter))
                     didInit = true

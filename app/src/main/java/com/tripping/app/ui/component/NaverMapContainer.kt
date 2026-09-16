@@ -23,6 +23,7 @@ import com.naver.maps.map.NaverMap
 import com.naver.maps.map.overlay.Marker
 import com.naver.maps.map.overlay.OverlayImage
 import com.tripping.app.R
+import java.util.Locale
 import kotlin.math.abs
 
 /**
@@ -80,7 +81,12 @@ fun NaverMapContainer(
         modifier = modifier,
         factory = {
             mapView.also {
-                it.getMapAsync { naverMap -> currentOnMapReady(naverMap) }
+                it.getMapAsync { naverMap ->
+                    // 👈 수정: locale 지정 안 하면 기기 시스템 언어를 따라가서, 에뮬레이터/기기 언어가
+                    // 영어면 지도 위 장소 이름(POI)도 영어로 나옴 - 한국어로 고정.
+                    naverMap.locale = Locale.KOREA
+                    currentOnMapReady(naverMap)
+                }
             }
         }
     )

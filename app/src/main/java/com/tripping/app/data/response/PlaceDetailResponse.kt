@@ -12,7 +12,9 @@ data class PlaceDetailResponse(
     val pingCount: Long,
     val popularTimeSlot: String?,
     val registeredRoutes: List<RegisteredRouteCardResponse>,
-    val reviews: List<PlaceReviewResponse>
+    val reviews: List<PlaceReviewResponse>,
+    val averageRating: Double?,
+    val reviewCount: Int
 )
 
 data class RegisteredRouteCardResponse(
@@ -25,5 +27,7 @@ data class RegisteredRouteCardResponse(
 data class PlaceReviewResponse(
     val writerNickname: String,
     val rating: Int?,
-    val reviewComment: String?
+    val reviewComment: String?,
+    val photoUrl: String?,
+    val createdAt: String?
 )
